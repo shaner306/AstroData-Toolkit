@@ -28,12 +28,12 @@ matplotlib.use('TkAgg')
 # Just used to setup the debugging code.
 sat_names = ['Intelsat 10-02', 'MEV 2', 'THOR 6', 'THOR 5']
 
-b_sats_table = ascii.read('CSV files/b_instr_mags_TEST.csv')
-g_sats_table = ascii.read('CSV files/g_instr_mags_TEST.csv')
-r_sats_table = ascii.read('CSV files/r_instr_mags_TEST.csv')
-b_uncertainty_table = ascii.read('CSV files/b_uncertainty.csv')
-g_uncertainty_table = ascii.read('CSV files/g_uncertainty.csv')
-r_uncertainty_table = ascii.read('CSV files/r_uncertainty.csv')
+b_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/b_instr_mags_TEST.csv')
+g_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/g_instr_mags_TEST.csv')
+r_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/r_instr_mags_TEST.csv')
+b_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/b_uncertainty.csv')
+g_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/g_uncertainty.csv')
+r_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/r_uncertainty.csv')
 
 large_sats_table = vstack([b_sats_table, g_sats_table, r_sats_table])
 large_sats_table.sort('Time (JD)')
