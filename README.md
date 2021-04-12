@@ -2,18 +2,12 @@
 
 This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
 
-Main Software   
-  1. TRM   
-  2. Reference Star Tracking   
-  3. Transform Calculations
-
-
 ### V1 - Created/ To Be Created
 1. Integrated Pinpoint Solving
 2. Basic Star Matching and Transform Calculations
     - With errors and Std dev integrated
 3. Standard Magnitude Calculations of Basic Stars (To be completed)
-4. Basic Star Data Collection and Output
+4. Basic Star Data Collection and Output (Pinpoint Solving Point Stars)
       - FWHM
       - Magnitudes
       - Instrumental Mag
@@ -32,10 +26,17 @@ Main Software
         - Mean Background
         - Filter and Box Size TBD
         
-    3. Creating Stars file and Solving Streaks data
-          - ImageStarsCache .stars Creation
-          - Pinpoint Interpretation
-          - Pinpoint Solving
+     3. Creating Stars file
+        - ImageStarsCache stars Creation
+        - Pinpoint Interpretation
+        - Pinpoint Solving
         
-6. Light Curves
+ 
+6.   Light Curves
+        - Satellites
+        - Point Stars
+        - Streaked Stars (Possibly)
+
+
 7. Satellite Matching, Tracking, and Photometry
+8. Data Outputs
