@@ -19,10 +19,6 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import win32com.client as win32
 
 # The directory that holds all of the plate solved images for the night.
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2020 12 28\Solved Images'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-10 - Calibrated\Solved Images'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-21 - Calibrated\Solved Images'
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
 
 ground_based = False
@@ -36,7 +32,6 @@ size = 25                                                                       
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the PSF.
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'                             # Location of the file containing the reference stars.
-# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\Landolt_reference.csv'
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
 
 # Initialize all of the arrays that will be added to the large AstroPy table containing all of the information on the
@@ -83,81 +78,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 hdr = image[0].header                                                                                   # Store the fits header as a variable.
                 imgdata = image[0].data                                                                                 # Store the image as a variable.
             print(filename)
-            # if 'PLTSOLVD' in hdr.keys():
-            #     if hdr['PLTSOLVD'] == True:
-            #         print("Plate had already been solved by PinPoint.")
-            #     else:
-            #         f.AttachFITS(os.path.join(dirpath, filename))
-            #         f.Declination = f.targetDeclination
-            #         f.RightAscension = f.targetRightAscension
-            #         # yBin = 4.33562092816E-004 * 3600
-            #         # xBin = 4.33131246330E-004 * 3600
-            #         focal_length = hdr['FOCALLEN'] * u.mm                                                               # Store the telescope's focal length with unit millimetres.
-            #         xpixsz = hdr['XPIXSZ'] * u.um                                                                       # Store the size of the x pixels.
-            #         ypixsz = hdr['YPIXSZ'] * u.um                                                                       # Store the size of the y pixels.
-            #         rad_per_xpix = atan(xpixsz / focal_length) * u.rad                                                  # Calculate the angular resolution of each pixel. Store with unit radians.
-            #         arcsec_per_xpix = rad_per_xpix.to(u.arcsec)                                                         # Convert the per pixel angular resultion to arcseconds.
-            #         rad_per_ypix = atan(ypixsz / focal_length) * u.rad                                                  # Calculate the angular resolution of each pixel. Store with unit radians.
-            #         arcsec_per_ypix = rad_per_ypix.to(u.arcsec)                                                         # Convert the per pixel angular resultion to arcseconds.
-            #         xBin = arcsec_per_xpix.value
-            #         yBin = arcsec_per_ypix.value
-            #         f.ArcsecperPixelHoriz = xBin
-            #         f.ArcsecperPixelVert = yBin
-            #         f.Catalog = 11
-            #         f.CatalogPath = catloc
-            #         f.CatalogMaximumMagnitude = 13
-            #         f.CatalogExpansion = 0.8
-            #         f.SigmaAboveMean = 3.0
-            #         f.FindImageStars
-            #         f.FindCatalogStars
-            #         f.MaxSolveTime = 60
-            #         f.MaxMatchResidual = 1.5
-            #         flag = 0
-            #         f.FindCatalogStars()
-            #         f.Solve()
-            #         f.MatchedStars.count
-            #         f.FindImageStars()
-            #         f.updateFITS()
-            #         f.DetachFITS()
-            #         print("Plate was solved by PinPoint.")
-            #         with fits.open(os.path.join(dirpath, filename)) as image:                                           # Open the fits file. Closes once the with statement ends to avoid keeping it in RAM.
-            #             hdr = image[0].header                                                                           # Store the fits header as a variable.
-            #             imgdata = image[0].data                                                                         # Store the image as a variable.
-            # else:
-            #     f.AttachFITS(os.path.join(dirpath, filename))
-            #     f.Declination = f.targetDeclination
-            #     f.RightAscension = f.targetRightAscension
-            #     focal_length = hdr['FOCALLEN'] * u.mm                                                                   # Store the telescope's focal length with unit millimetres.
-            #     xpixsz = hdr['XPIXSZ'] * u.um                                                                           # Store the size of the x pixels.
-            #     ypixsz = hdr['YPIXSZ'] * u.um                                                                           # Store the size of the y pixels.
-            #     rad_per_xpix = atan(xpixsz / focal_length) * u.rad                                                      # Calculate the angular resolution of each pixel. Store with unit radians.
-            #     arcsec_per_xpix = rad_per_xpix.to(u.arcsec)                                                             # Convert the per pixel angular resultion to arcseconds.
-            #     rad_per_ypix = atan(ypixsz / focal_length) * u.rad                                                      # Calculate the angular resolution of each pixel. Store with unit radians.
-            #     arcsec_per_ypix = rad_per_ypix.to(u.arcsec)                                                             # Convert the per pixel angular resultion to arcseconds.
-            #     xBin = arcsec_per_xpix.value
-            #     yBin = arcsec_per_ypix.value
-            #     f.ArcsecperPixelHoriz = xBin
-            #     f.ArcsecperPixelVert = yBin
-            #     f.Catalog = 11
-            #     f.CatalogPath = catloc
-            #     f.CatalogMaximumMagnitude = 13
-            #     f.CatalogExpansion = 0.8
-            #     f.SigmaAboveMean = 3.0
-            #     f.FindImageStars
-            #     f.FindCatalogStars
-            #     f.MaxSolveTime = 60
-            #     f.MaxMatchResidual = 1.5
-            #     flag = 0
-            #     f.FindCatalogStars()
-            #     f.Solve()
-            #     f.MatchedStars.count
-            #     f.FindImageStars()
-            #     f.updateFITS()
-            #     f.DetachFITS()
-            #     print("Plate was solved by PinPoint.")
-            #     with fits.open(os.path.join(dirpath, filename)) as image:                                               # Open the fits file. Closes once the with statement ends to avoid keeping it in RAM.
-            #         hdr = image[0].header                                                                               # Store the fits header as a variable.
-            #         imgdata = image[0].data                                                                             # Store the image as a variable.
             wcs = WCS(hdr)                                                                                              # Read World Coordinate data from the image header.
             if 'EXPTIME' in hdr.keys():
                 exptime = hdr['EXPTIME'] * u.s                                                                          # Store the exposure time with unit seconds.
@@ -165,9 +85,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 exptime = hdr['AEXPTIME'] * u.s
             mean_val, median_val, std_val = sigma_clipped_stats(imgdata, maxiters=None)                                 # Calculate background stats.
             iraffind = IRAFStarFinder(threshold=median_val+3*std_val, fwhm=2)                                           # Find stars using IRAF.
-            irafsources = iraffind(imgdata - median_val)                                                                # Subtract background median value.
-            # irafsources = iraffind(imgdata)
-            # irafsources.sort('flux', reverse=True)                                                                      # Sort the stars by flux, from greatest to least.
+            irafsources = iraffind(imgdata - median_val)                                                                # Subtract background median value.                                                                     # Sort the stars by flux, from greatest to least.
             try:
                 irafpositions = np.transpose((irafsources['xcentroid'], irafsources['ycentroid']))                          # Store source positions as a numpy array.
             except TypeError as e:
@@ -175,7 +93,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 print("Moving onto the next file.")
                 continue
             skypositions = wcs.pixel_to_world(irafsources['xcentroid'], irafsources['ycentroid'])                       # Convert star positions from pixels to RA and dec.
-            # date = np.datetime64(datetime.datetime.strptime(hdr['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f'))                   # Store the dates in an array that can be used later
             date = Time(hdr['DATE-OBS'], format='fits')
             if ground_based:
                 lat = hdr['SITELAT']                                                                                        # Store the latitude that was given in the FITS header.
@@ -188,7 +105,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
             iraf_fwhms = np.array(iraf_fwhms)                                                                           # Convert FWHM list to numpy array.
             num_IRAF_sources = len(irafsources)                                                                         # Number of stars IRAF found.
             iraf_fwhm = iraf_fwhms.mean()                                                                               # Calculate IRAF FWHM mean.
-            # print(iraf_fwhm)
             iraf_std = iraf_fwhms.std()                                                                                 # Calculate IRAF standard deviation.
             daogroup = DAOGroup(2 * iraf_fwhm)                                                                          # Groups overlapping stars together.
             psf_model = IntegratedGaussianPRF(sigma=iraf_fwhm * gaussian_fwhm_to_sigma)                                 # Defime the PSF model to be used for photometry.
@@ -215,16 +131,8 @@ for dirpath, dirnames, filenames in os.walk(directory):
             instr_mags_units = u.Magnitude(fluxes)                                                                      # Convert the fluxes to an instrumental magnitude.
             instr_mags = instr_mags_units.value                                                                         # Store the magnitudes without the unit attached.
             snr = (fluxes / flux_uncs).value
-            # print(snr)
-            instr_mags_sigma = 1.0857 / np.sqrt(snr)
-            # print(instr_mags_sigma)
-            # print(skypositions)                                                                                         # Print the RA/dec of the stars detected by IRAFStarFinder.
+            instr_mags_sigma = 1.0857 / np.sqrt(snr)                                                                                      # Print the RA/dec of the stars detected by IRAFStarFinder.
             idx, sep2d, dist3d = match_coordinates_sky(ref_star_positions, skypositions)                                # Match the reference stars with the stars detected in the image.
-            # print(idx)                                                                                                  # Print the index of the closest image star to each star in the reference stars file.
-            # print(sep2d)                                                                                                # Print the 2D angular separation between the closest image star from each star in the reference stars file.
-            # print(dist3d)
-            # max_ref_sep = 3 * u.deg                                                                                     # The threshold for deciding if any of the reference stars are close to the image stars.
-            max_ref_sep = 30 * u.arcsec
             possible_ref_star_index = np.where(sep2d < max_ref_sep)                                                     # Finds the indicies where the separation is less than max_ref_sep.
             if len(possible_ref_star_index[0]) == 0:                                                                    # If no stars are within max_ref_sep of the reference stars.
                 print("No reference star detected in the image.")
@@ -234,9 +142,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 possible_ref_star_index = int(possible_ref_star_index[0])                                               # Convert the array of length 1 to an int.
             else:                                                                                                       # If there are more than 1 reference stars possibly in the image.
                 possible_ref_star_index = possible_ref_star_index[0]                                                    # Changes the variable from a tuple to an array.
-            # print(possible_ref_star_index)                                                                              # Print the index or indicies of the stars from the reference stars file.
             possible_image_star_index = idx[possible_ref_star_index]                                                    # Store the index or indicies of which star(s) in the image correspond to the possible reference stars.
-            # print(possible_image_star_index)                                                                            # Print the index or indicies of the image star(s) that are likely the same as the reference star(s).
             possible_ref_star = reference_stars[possible_ref_star_index]                                                # Store the row(s) of the table containing the reference star(s) that are likely found in the image.
             print(possible_ref_star)                                                                                    # Print the row(s) of the table containing the reference star(s) that are likely found in the image.
             possible_ref_star_loc = ref_star_positions[possible_ref_star_index]                                         # Store the RA/dec of the possible reference star(s) from the file.
@@ -254,8 +160,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
             possible_image_star_x, possible_image_star_y = wcs.world_to_pixel(possible_image_star_loc)                  # Convert the possible image star(s) location from RA/dec to pixels.
             print(f"Detected reference star pixel location: ({possible_image_star_x}, {possible_image_star_y})")        # Print the pixel location of the possible image star(s) matching the possible reference star(s).
             print("")                                                                                                   # Print a line break.
-            # print(f"Angular separation between reference and image star: "
-            #       f"{sep2d[possible_ref_star_index].to(u.arcsec):.3f}")                                                 # Print the angular separation between the reference star and possible image star.
             # Plot the locations of the image star(s) matching the possible reference star(s) and the reference star(s)
             # as a confirmation that they are the same star(s).
             ax = plt.subplot(projection=wcs)                                                                            # Create matplotlib axes with a projection onto the RA/dec from the WCS.
@@ -314,7 +218,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
             filter_name_repeat = np.full(len(instr_mag), filter_name)
             time_repeat = np.full(len(instr_mag), date.jd)
             exposure_repeat = np.full(len(instr_mag), exptime.value)
-            # print(f"m = {instr_mag:.3f} +/- {instr_mag_sigma:.3f}")
             img_star_icrs = possible_image_star_loc.icrs                                                                # Store the RA/dec of the image star in ICRS.
             V_apparent = possible_ref_star['V']                                                                         # Store the apparent V band magnitude of the reference star(s).
             try:
@@ -329,12 +232,6 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 V_R_apparent = possible_ref_star['V-R']
                 V_I_apparent = possible_ref_star['V-I']
                 V_sigma_apparent = possible_ref_star['e_V']
-            # print(instr_mag)                                                                                            # Print the instrumental magnitude of the image star(s).
-            # print(V_apparent)                                                                                           # Print the apparent V band magnitude of the reference star(s).
-            # print(B_V_apparent)                                                                                         # Print the (B-V) index of the reference star(s).
-            # print(U_B_apparent)                                                                                         # Print the (U-B) index of the reference star(s).
-            # print(V_R_apparent)                                                                                         # Print the (V-R) index of the reference star(s).
-            # print(V_I_apparent)                                                                                         # Print the (V-I) index of the reference star(s).
             # The following append to the lists that were created before the for loop began. These lists will be used to
             # create the large table containing all of the stars' information. Using lists was recommended instead of
             # appending to a table each iteration for performance reasons.
@@ -569,8 +466,6 @@ for star in unique_stars['Name']:                                               
             mask = ((current_star_table['filter'] == unique_filter))
         current_star_filter_table = current_star_table[mask]                                                            # Create a new table using the entries that satisfy the mask created previously.
         current_star_filter_table.pprint_all()                                                                          # Print the entries that match the current filter and X_rounded.
-        # print(unique_filter)                                                                                            # Print the name of the filter.
-        # print(unique_X_rounded)                                                                                         # Print the current X_rounded.
         fluxes_numpy = np.array(current_star_filter_table['flux'])
         mean_flux = fluxes_numpy.mean()
         std_flux = fluxes_numpy.std()
@@ -596,10 +491,6 @@ for star in unique_stars['Name']:                                               
             stars_table[X_std_column][i] = std_X                                                                        # Store the standard deviation of the airmass.
     i += 1                                                                                                              # Increase the iterator.
 stars_table.pprint_all()                                                                                                # Print the formatted stars table.
-# ascii.write(stars_table, r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\Detected_stars.csv',
-#             format='csv', delimiter=',')
-
-# ascii.write(stars_table, 'stars_table_test.csv', format='csv')
 
 # I think I need a way to not include duplicate stars.
 if ground_based:

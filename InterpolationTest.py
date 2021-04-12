@@ -43,61 +43,6 @@ times_list = np.array(large_sats_table['Time (JD)'])
 times_obj = Time(times_list, format='jd', scale='utc')
 times_datetime = times_obj.to_value('datetime')
 
-# b_intelsat_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table['Intelsat 10-02'])],
-#                                     b_sats_table['Intelsat 10-02'][~np.isnan(b_sats_table['Intelsat 10-02'])])
-# g_intelsat_interpolated = np.interp(times_list, g_sats_table['Time (JD)'][~np.isnan(g_sats_table['Intelsat 10-02'])],
-#                                     g_sats_table['Intelsat 10-02'][~np.isnan(g_sats_table['Intelsat 10-02'])])
-# r_intelsat_interpolated = np.interp(times_list, r_sats_table['Time (JD)'][~np.isnan(r_sats_table['Intelsat 10-02'])],
-#                                     r_sats_table['Intelsat 10-02'][~np.isnan(r_sats_table['Intelsat 10-02'])])
-# b_intelsat_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-# g_intelsat_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-# r_intelsat_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-#
-# fig, ax = plt.subplots()
-# ax.plot(times_datetime, g_intelsat_interpolated, 'ko', label='g', markersize=2)
-# ax.set_ylabel('Instrumental Magnitude')
-# ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-# plt.gca().invert_yaxis()
-# ax2 = ax.twinx()
-# ax2.plot(times_datetime, b_intelsat_interpolated - g_intelsat_interpolated, 'bo', label='b-g', markersize=2)
-# ax2.plot(times_datetime, b_intelsat_interpolated - r_intelsat_interpolated, 'go', label='b-r', markersize=2)
-# ax2.plot(times_datetime, g_intelsat_interpolated - r_intelsat_interpolated, 'ro', label='g-r', markersize=2)
-# ax2.set_ylabel('Colour Index')
-# ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-# plt.gca().invert_yaxis()
-# ax.set_xlabel("Time (UTC)")
-# fig.legend()
-# plt.title('Intelsat 10-02 Light Curve')
-# # plt.show()
-# plt.close()
-#
-# b_mev2_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table['MEV 2'])],
-#                                 b_sats_table['MEV 2'][~np.isnan(b_sats_table['MEV 2'])])
-# g_mev2_interpolated = np.interp(times_list, g_sats_table['Time (JD)'][~np.isnan(g_sats_table['MEV 2'])],
-#                                 g_sats_table['MEV 2'][~np.isnan(g_sats_table['MEV 2'])])
-# r_mev2_interpolated = np.interp(times_list, r_sats_table['Time (JD)'][~np.isnan(r_sats_table['MEV 2'])],
-#                                 r_sats_table['MEV 2'][~np.isnan(r_sats_table['MEV 2'])])
-# b_mev2_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-# g_mev2_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-# r_mev2_interpolated[np.isnan(large_sats_table['MEV 2'])] = np.nan
-#
-# fig, ax = plt.subplots()
-# ax.plot(times_datetime, g_mev2_interpolated, 'ko', label='g', markersize=2)
-# ax.set_ylabel('Instrumental Magnitude')
-# ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-# plt.gca().invert_yaxis()
-# ax2 = ax.twinx()
-# ax2.plot(times_datetime, b_mev2_interpolated - g_mev2_interpolated, 'bo', label='b-g', markersize=2)
-# ax2.plot(times_datetime, b_mev2_interpolated - r_mev2_interpolated, 'go', label='b-r', markersize=2)
-# ax2.plot(times_datetime, g_mev2_interpolated - r_mev2_interpolated, 'ro', label='g-r', markersize=2)
-# ax2.set_ylabel('Colour Index')
-# ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-# plt.gca().invert_yaxis()
-# ax.set_xlabel("Time (UTC)")
-# fig.legend()
-# plt.title('MEV 2 Light Curve')
-# # plt.show()
-# plt.close()
 for sat in sat_names:
     b_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table[sat])],
                                b_sats_table[sat][~np.isnan(b_sats_table[sat])])
