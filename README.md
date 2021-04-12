@@ -22,15 +22,20 @@ Main Software
 
 5. TRM mode - _TRMtester.py_
   	1. Streak Detection Method
-      - Martin Levesque Method
-      - Brad Wallace Method
-      - Photutils combination
+        - Martin Levesque Method
+        - Brad Wallace Method
+        - Photutils combination
 
   	2. Background Extraction
-      - Sextractor
-      - Polynomial Form Fit
-      - Mean Background
-      - Filter and Box Size TBD
-  3. Creating Stars file and Solving Streaks data
-7. Light Curves
-8. Satellite Matching, Tracking, and Photometry
+        - Sextractor
+        - Polynomial Form Fit
+        - Mean Background
+        - Filter and Box Size TBD
+        
+    3. Creating Stars file and Solving Streaks data
+          - ImageStarsCache .stars Creation
+          - Pinpoint Interpretation
+          - Pinpoint Solving
+        
+6. Light Curves
+7. Satellite Matching, Tracking, and Photometry
