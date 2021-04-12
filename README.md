@@ -20,16 +20,17 @@ Main Software
       - Flux, Stellar Flux, Visual Magnitude, gaussian data, errors
       - Location
 
-5. TRM mode
-  1. Streak Detection Method
+5. TRM mode - _TRMtester.py_
+  	1. Streak Detection Method
       - Martin Levesque Method
       - Brad Wallace Method
       - Photutils combination
-  2. Background Extraction
-      -Sextractor
-      -Polynomial Form Fit
-      -Mean Background
-      *Filter and Box Size TBD*
+
+  	2. Background Extraction
+      - Sextractor
+      - Polynomial Form Fit
+      - Mean Background
+      - Filter and Box Size TBD
   3. Creating Stars file and Solving Streaks data
 7. Light Curves
 8. Satellite Matching, Tracking, and Photometry
