@@ -2,34 +2,41 @@
 
 This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
 
-Main Software   
-  1. TRM   
-  2. Reference Star Tracking   
-  3. Transform Calculations
-
-
 ### V1 - Created/ To Be Created
 1. Integrated Pinpoint Solving
 2. Basic Star Matching and Transform Calculations
     - With errors and Std dev integrated
 3. Standard Magnitude Calculations of Basic Stars (To be completed)
-4. Basic Star Data Collection and Output
+4. Basic Star Data Collection and Output (Pinpoint Solving Point Stars)
       - FWHM
       - Magnitudes
       - Instrumental Mag
       - Flux, Stellar Flux, Visual Magnitude, gaussian data, errors
       - Location
 
-5. TRM mode
-  1. Streak Detection Method
-      - Martin Levesque Method
-      - Brad Wallace Method
-      - Photutils combination
-  2. Background Extraction
-      -Sextractor
-      -Polynomial Form Fit
-      -Mean Background
-      *Filter and Box Size TBD*
-  3. Creating Stars file and Solving Streaks data
-7. Light Curves
-8. Satellite Matching, Tracking, and Photometry
+5. TRM mode - _TRMtester.py_
+  	1. Streak Detection Method
+        - Martin Levesque Method
+        - Brad Wallace Method
+        - Photutils combination
+
+  	2. Background Extraction
+        - Sextractor
+        - Polynomial Form Fit
+        - Mean Background
+        - Filter and Box Size TBD
+        
+     3. Creating Stars file
+        - ImageStarsCache stars Creation
+        - Pinpoint Interpretation
+        - Pinpoint Solving
+        
+ 
+6.   Light Curves
+        - Satellites
+        - Point Stars
+        - Streaked Stars (Possibly)
+
+
+7. Satellite Matching, Tracking, and Photometry
+8. Data Outputs
