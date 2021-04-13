@@ -226,6 +226,7 @@ for filenum, file in enumerate(filenames):
         data_table = Table(names=names[2:], data=data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
         sats_table.pprint_all()
 
     sat_names = names[2:]
@@ -234,6 +235,8 @@ for filenum, file in enumerate(filenames):
     sats_table['Filter'][filenum] = hdr['FILTER']
     uncertainty_table['Time (JD)'][filenum] = t.jd
     uncertainty_table['Filter'][filenum] = hdr['FILTER']
+    sat_fwhm_table['Time (JD)'][filenum] = t.jd
+    sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
     if change_sat_positions:
         # Change the position
         # Display filenames[filenum - num_nan]
@@ -411,6 +414,7 @@ for filenum, file in enumerate(filenames):
                                 sat_y - obj_y) < max_distance_from_sat:
                             sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
                             uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
+                            sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_fwhms[obj_index]
                 print(sats_table[filenum - reversing_index])
             num_nans[sat_checked_mask] = 0
         change_sat_positions = False
@@ -508,6 +512,7 @@ for filenum, file in enumerate(filenames):
             if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
                 sats_table[filenum][sat_num] = instr_mags[obj_index]
                 uncertainty_table[filenum][sat_num] = instr_mags_sigma[obj_index]
+                sat_fwhm_table[filenum][sat_num] = iraf_fwhms[obj_index]
     print(sats_table[filenum])
     sat_mags = np.array(list(sats_table[filenum]))
     mask = np.isnan(sat_mags[2:].astype(float))
@@ -527,12 +532,24 @@ for filter_ in unique_filters['Filter']:
     if filter_ == 'B':
         b_sats_table = sats_table[mask]
         b_uncertainty_table = uncertainty_table[mask]
+        b_fwhm_table = sat_fwhm_table[mask]
     elif filter_ == 'G':
         g_sats_table = sats_table[mask]
         g_uncertainty_table = uncertainty_table[mask]
+        g_fwhm_table = sat_fwhm_table[mask]
     elif filter_ == 'R':
         r_sats_table = sats_table[mask]
         r_uncertainty_table = uncertainty_table[mask]
+        r_fwhm_table = sat_fwhm_table[mask]
+# ascii.write(b_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_instr_mags.csv', format='csv', overwrite=True)
+# ascii.write(g_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_instr_mags.csv', format='csv', overwrite=True)
+# ascii.write(r_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_instr_mags.csv', format='csv', overwrite=True)
+# ascii.write(b_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_uncertainty.csv', format='csv', overwrite=True)
+# ascii.write(g_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_uncertainty.csv', format='csv', overwrite=True)
+# ascii.write(r_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_uncertainty.csv', format='csv', overwrite=True)
+# ascii.write(b_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_fwhm.csv', format='csv', overwrite=True)
+# ascii.write(g_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_fwhm.csv', format='csv', overwrite=True)
+# ascii.write(r_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_fwhm.csv', format='csv', overwrite=True)
 times_obj = Time(b_sats_table['Time (JD)'], format='jd', scale='utc')
 fig, ax = plt.subplots()
 for sat_num, sat in enumerate(sat_names, start=1):

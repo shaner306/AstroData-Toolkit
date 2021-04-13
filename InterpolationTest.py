@@ -28,20 +28,45 @@ matplotlib.use('TkAgg')
 # Just used to setup the debugging code.
 sat_names = ['Intelsat 10-02', 'MEV 2', 'THOR 6', 'THOR 5']
 
-b_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/b_instr_mags_TEST.csv')
-g_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/g_instr_mags_TEST.csv')
-r_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/r_instr_mags_TEST.csv')
-b_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/b_uncertainty.csv')
-g_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/g_uncertainty.csv')
-r_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/r_uncertainty.csv')
-
+b_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_instr_mags.csv')
+g_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_instr_mags.csv')
+r_sats_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_instr_mags.csv')
+b_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_uncertainty.csv')
+g_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_uncertainty.csv')
+r_uncertainty_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_uncertainty.csv')
+b_fwhm_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_fwhm.csv')
+g_fwhm_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_fwhm.csv')
+r_fwhm_table = ascii.read('C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_fwhm.csv')
 large_sats_table = vstack([b_sats_table, g_sats_table, r_sats_table])
 large_sats_table.sort('Time (JD)')
 
+sat_fwhm_table = vstack([b_fwhm_table, g_fwhm_table, r_fwhm_table])
+sat_fwhm_table.sort('Time (JD)')
+avg_sat_fwhm = []
+avg_sat_fwhm_std = []
+
+arcsec_per_pix = 1.5599859295701453
+
+for row in sat_fwhm_table:
+    sat_full_row_numpy = np.array(list(row))
+    sat_row_numpy = sat_full_row_numpy[2:].astype(float)
+    avg_sat_fwhm.append(np.nanmean(sat_row_numpy) * arcsec_per_pix)
+    avg_sat_fwhm_std.append(np.nanstd(sat_row_numpy) * arcsec_per_pix)
+# avg_sat_fwhm_arcsec = avg_sat_fwhm * arcsec_per_pix
 # New code. Should be able to be transplanted directly into SCInstrMagLightCurve.py
 times_list = np.array(large_sats_table['Time (JD)'])
 times_obj = Time(times_list, format='jd', scale='utc')
 times_datetime = times_obj.to_value('datetime')
+
+fig, ax = plt.subplots()
+plt.errorbar(times_datetime, avg_sat_fwhm, yerr=avg_sat_fwhm_std, fmt='o', capsize=2)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+plt.title('Seeing - 20 Mar')
+plt.ylabel('FWHM (arcsec)')
+plt.xlabel('Time (UTC)')
+plt.show(block=True)
+# plt.pause(3)
+plt.close()
 
 for sat in sat_names:
     b_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table[sat])],
@@ -79,5 +104,8 @@ for sat in sat_names:
     ax.set_xlabel("Time (UTC)")
     fig.legend()
     plt.title(f'{sat} Light Curve - 20 Mar')
-    plt.show()
+    plt.show(block=True)
+    # plt.pause(5)
     plt.close()
+
+

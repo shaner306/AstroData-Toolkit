@@ -60,6 +60,8 @@ V_sigma_apparents = []
 img_star_secz = []
 X_rounded = []
 
+max_ref_sep = 10 * u.arcsec
+
 try:
     reference_stars = ascii.read(ref_stars_file, format='basic', delimiter='\t', guess=False, encoding='UTF-8')         # Read the reference stars file to an AstroPy Table as a csv with a Tab delimiter using UTF-8 encoding.
 except Exception as e:                                                                                                  # Usually if the file is not in the expected format. If that's not why the exception was thrown, then the next line will cause one as well.
