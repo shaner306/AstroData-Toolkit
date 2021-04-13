@@ -47,7 +47,7 @@ avg_sat_fwhm_std = []
 
 arcsec_per_pix = 1.5599859295701453
 
-for row in sat_fwhm_table:
+for row in g_fwhm_table:
     sat_full_row_numpy = np.array(list(row))
     sat_row_numpy = sat_full_row_numpy[2:].astype(float)
     avg_sat_fwhm.append(np.nanmean(sat_row_numpy) * arcsec_per_pix)
@@ -57,11 +57,15 @@ for row in sat_fwhm_table:
 times_list = np.array(large_sats_table['Time (JD)'])
 times_obj = Time(times_list, format='jd', scale='utc')
 times_datetime = times_obj.to_value('datetime')
-
+g_times_list = np.array(g_fwhm_table['Time (JD)'])
+g_times_obj = Time(g_times_list, format='jd', scale='utc')
+g_times_datetime = g_times_obj.to_value('datetime')
+print(len(g_times_datetime))
+print(len(avg_sat_fwhm))
 fig, ax = plt.subplots()
-plt.errorbar(times_datetime, avg_sat_fwhm, yerr=avg_sat_fwhm_std, fmt='o', capsize=2)
+plt.errorbar(g_times_datetime, avg_sat_fwhm, yerr=avg_sat_fwhm_std, fmt='o', markersize=3, capsize=2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-plt.title('Seeing - 20 Mar')
+plt.title('G Band Seeing - 20 Mar')
 plt.ylabel('FWHM (arcsec)')
 plt.xlabel('Time (UTC)')
 plt.show(block=True)
