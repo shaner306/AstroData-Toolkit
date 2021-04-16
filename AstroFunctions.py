@@ -256,7 +256,7 @@ def calculate_magnitudes(photometry_result, exptime):
 
 def calculate_magnitudes_sigma(photometry_result, exptime):
     """
-    
+    Calculate the standard deviation of the instrumental magnitudes of the sources in the image.
 
     Parameters
     ----------
