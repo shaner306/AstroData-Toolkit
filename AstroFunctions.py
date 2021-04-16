@@ -9,8 +9,12 @@ Created on Thu Apr 15 10:14:43 2021
 @author: Jack Wawrow
 """
 from astropy.io import fits, ascii
-from astropy.stats import sigma_clipped_stats
+from astropy.modeling.fitting import LevMarLSQFitter
+from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
+from astropy.table import Table
+import astropy.units as u
 from photutils.detection import IRAFStarFinder
+from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
 
 
@@ -25,7 +29,7 @@ def read_ref_stars(ref_stars_file):
             
     Returns
     -------
-        reference_stars : astropy.table
+        reference_stars : astropy.table.Table
             Table with the data extracted from ref_stars_file.
     """
     try:
@@ -75,7 +79,7 @@ def detecting_stars(imgdata, fwhm=2.0, bkg=None, bkg_std=None):
 
     Returns
     -------
-    irafsources : astropy.table
+    irafsources : astropy.table.Table
         Table containing information of all stars detected in the image.
         Has columns:
             id,
@@ -98,3 +102,178 @@ def detecting_stars(imgdata, fwhm=2.0, bkg=None, bkg_std=None):
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
+
+def calculate_fwhm(irafsources):
+    """
+    Calculate the mean and standard deviation FWHM of all sources in the image in pixels.
+
+    Parameters
+    ----------
+    irafsources : astropy.table.Table
+        Table containing information of all stars detected in the image.
+        Has columns:
+            id,
+            xcentroid,
+            ycentroid,
+            fwhm,
+            sharpness,
+            roundness,
+            pa,
+            npix,
+            sky,
+            peak,
+            flux,
+            mag
+
+    Returns
+    -------
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    fwhm_std : float
+        Standard deviation of the FWHM of all sources in the image.
+
+    """
+    fwhms = np.array(irafsources['fwhm'])
+    fwhm = fwhms.mean()
+    fwhm_std = fwhms.std()
+    return fwhm, fwhm_std
+
+
+def perform_photometry(irafsources, fwhm, imgdata, bkg=None, bkg_estimator=None, fitter=LevMarLSQFitter(), fitshape=25):
+    """
+    Perform PSF photometry on all sources in a selected image.
+
+    Parameters
+    ----------
+    irafsources : astropy.table.Table
+        Table containing information of all stars detected in the image.
+        Has columns:
+            id,
+            xcentroid,
+            ycentroid,
+            fwhm,
+            sharpness,
+            roundness,
+            pa,
+            npix,
+            sky,
+            peak,
+            flux,
+            mag
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    imgdata : numpy.ndarray
+        Data from the fits file.
+    bkg : float, optional
+        Background value of the image in ADU. The default is None.
+    bkg_estimator : callable, instance of any photutils.background.BackgroundBase subclass, optional
+        bkg_estimator should be able to compute either a scalar background or a 2D background of a given 2D image. 
+        If None, no background subtraction is performed. The default is None.
+    fitter : astropy.modeling.fitting.Fitter instance, optional
+        Fitter object used to compute the optimized centroid positions and/or flux of the identified sources. 
+        The default is LevMarLSQFitter().
+    fitshape : int or length-2 array-like, optional
+        Rectangular shape around the center of a star which will be used to collect the data to do the fitting. 
+        Can be an integer to be the same along both axes. For example, 5 is the same as (5, 5), 
+        which means to fit only at the following relative pixel positions: [-2, -1, 0, 1, 2]. 
+        Each element of fitshape must be an odd number. The default is 25.
+
+    Returns
+    -------
+    photometry_result : astropy.table.Table or None
+        Table with the photometry results, i.e., centroids and fluxes estimations and the initial estimates used to 
+        start the fitting process. Uncertainties on the fitted parameters are reported as columns called 
+        <paramname>_unc provided that the fitter object contains a dictionary called fit_info with the key param_cov, 
+        which contains the covariance matrix. If param_cov is not present, uncertanties are not reported.
+
+    """
+    daogroup = DAOGroup(2 * fwhm)
+    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
+    psf_model.x_0.fixed = True
+    psf_model.y_0.fixed = True
+    pos = Table(names=['x_0', 'y_0', 'flux_0'],
+                data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    photometry = BasicPSFPhotometry(group_maker=daogroup, 
+                                    bkg_estimator=bkg_estimator, 
+                                    psf_model=psf_model, 
+                                    fitter=fitter,
+                                    fitshape=fitshape)
+    if not (bkg_estimator or bkg):
+        return
+    if not bkg:
+        photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+    else:
+        photometry_result = photometry(image=imgdata, init_guesses=pos)
+    return photometry_result
+
+
+def normalize_flux_by_time(fluxes_tab, exptime):
+    """
+    Calculate flux per 1 second of time.
+
+    Parameters
+    ----------
+    fluxes_tab : array-like
+        1D array-like containing the fluxes for all sources in the image in counts.
+    exptime : float
+        Expsure time of the image in seconds.
+
+    Returns
+    -------
+    fluxes : numpy array
+        Array containing the time normalized fluxes with units counts / second.
+
+    """
+    fluxes_units = np.array(fluxes_tab) * u.ct
+    exptime_units = exptime * u.s
+    fluxes = fluxes_units / exptime_units
+    return fluxes
+
+
+def calculate_magnitudes(photometry_result, exptime):
+    """
+    Convert the flux of all sources in the image to instrumental magnitudes.
+
+    Parameters
+    ----------
+    photometry_result : astropy.table.Table
+        Table with the photometry results, i.e., centroids and fluxes estimations and the initial estimates used to 
+        start the fitting process.
+    exptime : float
+        Expsure time of the image in seconds.
+
+    Returns
+    -------
+    instr_mags : numpy array
+        Array containing the instrumental magnitudes of the sources in the image.
+
+    """
+    fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
+    instr_mags_units = u.Magnitude(fluxes)
+    instr_mags = instr_mags_units.value
+    return instr_mags
+
+
+def calculate_magnitudes_sigma(photometry_result, exptime):
+    """
+    
+
+    Parameters
+    ----------
+    photometry_result : astropy.table.Table
+        Table with the photometry results, i.e., centroids, fluxes, amd flux uncertainty estimations and the initial 
+        estimates used to start the fitting process.
+    exptime : float
+        Expsure time of the image in seconds.
+
+    Returns
+    -------
+    instr_mags_sigma : numpy array
+        Array containing the standard deviation of the instrumental magnitudes of the sources in the image.
+
+    """
+    fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
+    flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
+    snr = (fluxes / flux_uncs).value
+    instr_mags_sigma = 1.0857 / np.sqrt(snr)
+    return instr_mags_sigma
