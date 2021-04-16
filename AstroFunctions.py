@@ -62,7 +62,31 @@ def read_fits_file(filepath):
         imgdata = hdul[0].data
     return hdr, imgdata
 
-def detecting_stars(imgdata, fwhm=2.0, bkg=None, bkg_std=None):
+
+def calculate_img_bkg(imgdata, sigma=3.0):
+    """
+    Calculate the median and standard deviation of the background of the sigma clipped image.
+
+    Parameters
+    ----------
+    imgdata : numpy.ndarray
+        Data from the fits file.
+    sigma : float
+        Number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
+
+    Returns
+    -------
+    bkg : float
+        Median background value of the image in ADU.
+    bkg_std : float
+        Standard deviation of the image background in ADU.
+
+    """
+    _, bkg, bkg_std = sigma_clipped_stats(imgdata, sigma=3.0)
+    return bkg, bkg_std
+
+
+def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
     """
     Detect stars using IRAFStarFinder.
 
@@ -72,10 +96,10 @@ def detecting_stars(imgdata, fwhm=2.0, bkg=None, bkg_std=None):
         Data from the fits file.
     fwhm : float, optional
         Initial guess of FWHM of the image stars in pixels. The default is 2.0.
-    bkg : float, optional
-        Background value of the image in ADU. The default is None.
-    bkg_std : float, optional
-        Standard deviation of the image background in ADU. The default is None.
+    bkg : float
+        Background value of the image in ADU.
+    bkg_std : float
+        Standard deviation of the image background in ADU.
 
     Returns
     -------
@@ -96,8 +120,6 @@ def detecting_stars(imgdata, fwhm=2.0, bkg=None, bkg_std=None):
             mag
 
     """
-    if not (bkg or bkg_std):
-        _, bkg, bkg_std = sigma_clipped_stats(imgdata)
     iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
@@ -139,7 +161,7 @@ def calculate_fwhm(irafsources):
     return fwhm, fwhm_std
 
 
-def perform_photometry(irafsources, fwhm, imgdata, bkg=None, bkg_estimator=None, fitter=LevMarLSQFitter(), fitshape=25):
+def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
     Perform PSF photometry on all sources in a selected image.
 
@@ -194,16 +216,11 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg=None, bkg_estimator=None,
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
-                                    bkg_estimator=bkg_estimator, 
+                                    bkg_estimator=None, 
                                     psf_model=psf_model, 
                                     fitter=fitter,
                                     fitshape=fitshape)
-    if not (bkg_estimator or bkg):
-        return
-    if not bkg:
-        photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
-    else:
-        photometry_result = photometry(image=imgdata, init_guesses=pos)
+    photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
     return photometry_result
 
 
@@ -277,3 +294,19 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     snr = (fluxes / flux_uncs).value
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma
+
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121232000_clean.fits'
+reference_stars = read_ref_stars(ref_stars_file)
+hdr, imgdata = read_fits_file(filepath)
+bkg, bkg_std = calculate_img_bkg(imgdata)
+irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+fwhm, fwhm_std = calculate_fwhm(irafsources)
+photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+exptime = hdr['AEXPTIME']
+instr_mags = calculate_magnitudes(photometry_result, exptime)
+instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+
+photometry_result.pprint_all()
+print(instr_mags)
+print(instr_mags_sigma)
