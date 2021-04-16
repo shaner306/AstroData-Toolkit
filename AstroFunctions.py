@@ -406,7 +406,7 @@ def find_ref_stars(ref_stars_file,
                 RA/dec of the matched reference star(s) from ref_stars_file.
             img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
                 RA/dec of the matched star(s) detected in the image.
-            ang_separation : 
+            ang_separation : astropy.coordinates.angles.Angle
                 Angular distance between the matched star(s) detected in the image and ref_stars_file
             img_instr_mag : numpy array
                 Array containing the instrumental magnitudes of the matched star(s) detected in the image.
@@ -415,7 +415,7 @@ def find_ref_stars(ref_stars_file,
                 detected in the image.
             img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
                 Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
-            img_star_airmass : 
+            img_star_airmass : float
                 sec(z) of img_star_altaz. None if ground_based is False.
     None if no stars are matched.
 
@@ -427,7 +427,7 @@ def find_ref_stars(ref_stars_file,
     if len(ref_star_index[0]) == 0:
         print("No reference star detected in the image.")
         return
-    elif len(ref_star_index[0] == 1):
+    elif len(ref_star_index[0]) == 1:
         ref_star_index = int(ref_star_index[0])
     else:
         ref_star_index = ref_star_index[0]
@@ -442,10 +442,10 @@ def find_ref_stars(ref_stars_file,
     img_star_airmass = None
     if ground_based:
         if not altazpositions:
-            print('altazpositions must be provided if ground_based is True.')
+            print('altazpositions should be provided if ground_based is True.')
             return
         img_star_altaz = altazpositions[img_star_index]
-        img_star_airmass = img_star_altaz.secz
+        img_star_airmass = img_star_altaz.secz.value
     matched_stars = namedtuple('matched_stars', 
                                ['ref_star_index',
                                 'img_star_index',
@@ -473,17 +473,22 @@ def find_ref_stars(ref_stars_file,
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
 filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
 hdr, imgdata = read_fits_file(filepath)
+exptime = hdr['EXPTIME']
+ground_based = True
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+# filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121233640_clean.fits'
+# hdr, imgdata = read_fits_file(filepath)
+# exptime = hdr['AEXPTIME']
+# ground_based = False
 bkg, bkg_std = calculate_img_bkg(imgdata)
 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
 fwhm, fwhm_std = calculate_fwhm(irafsources)
 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-exptime = hdr['EXPTIME']
 instr_mags = calculate_magnitudes(photometry_result, exptime)
 instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
 wcs = WCS(hdr)
 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
 print(skypositions)
-ground_based = True
 altazpositions = None
 if ground_based:
     altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
