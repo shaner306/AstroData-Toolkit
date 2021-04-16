@@ -13,6 +13,7 @@ from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table
 import astropy.units as u
+from astropy.wcs import WCS
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
@@ -79,7 +80,7 @@ def calculate_img_bkg(imgdata, sigma=3.0):
     bkg : float
         Median background value of the image in ADU.
     bkg_std : float
-        Standard deviation of the image background in ADU.
+        Standard deviation of the image background in ADU.3
 
     """
     _, bkg, bkg_std = sigma_clipped_stats(imgdata, sigma=3.0)
@@ -123,6 +124,40 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
     iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
+
+
+def convert_pixel_to_ra_dec(irafsources, wcs):
+    """
+    Convert the locations of the sources from pixels to RA/dec.
+
+    Parameters
+    ----------
+    irafsources : astropy.table.Table
+        Table containing information of all stars detected in the image.
+        Has columns:
+            id,
+            xcentroid,
+            ycentroid,
+            fwhm,
+            sharpness,
+            roundness,
+            pa,
+            npix,
+            sky,
+            peak,
+            flux,
+            mag
+    wcs : astropy.wcs.wcs.WCS
+        AstroPy World Coordinate System object for the image.
+
+    Returns
+    -------
+    skypositions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
+
+    """
+    skypositions = wcs.pixel_to_world(irafsources['xcentroid'], irafsources['ycentroid'])
+    return skypositions
 
 
 def calculate_fwhm(irafsources):
@@ -306,7 +341,11 @@ photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
 exptime = hdr['AEXPTIME']
 instr_mags = calculate_magnitudes(photometry_result, exptime)
 instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-
-photometry_result.pprint_all()
-print(instr_mags)
-print(instr_mags_sigma)
+wcs = WCS(hdr)
+print(type(wcs))
+skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+print(type(skypositions))
+print(skypositions)
+# photometry_result.pprint_all()
+# print(instr_mags)
+# print(instr_mags_sigma)
