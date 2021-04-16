@@ -8,11 +8,13 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
+from astropy.coordinates import EarthLocation, AltAz
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table
 import astropy.units as u
+from astropy.time import Time
 from astropy.wcs import WCS
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
@@ -158,6 +160,33 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
     """
     skypositions = wcs.pixel_to_world(irafsources['xcentroid'], irafsources['ycentroid'])
     return skypositions
+
+
+def convert_ra_dec_to_alt_az(skypositions, hdr):
+    """
+    Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation)
+
+    Parameters
+    ----------
+    skypositions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec position(s) to be converted to Alt/Az.
+    hdr : astropy.io.fits.header.Header
+        Header from the fits file.
+
+    Returns
+    -------
+    altazpositions : astropy.coordinates.sky_coordinate.SkyCoord
+        Alt/Az position(s) of the skyposition(s)
+
+    """
+    obstime = Time(hdr['DATE-OBS'], format='fits')
+    lat = hdr['SITELAT']
+    lon = hdr['SITELONG']
+    height = hdr['SITEELEV']
+    location = EarthLocation.from_geodetic(lon=lon, lat=lat, height=height)
+    current_aa = AltAz(location=location, obstime=obstime)
+    altazpositions = skypositions.transform_to(current_aa)
+    return altazpositions
 
 
 def calculate_fwhm(irafsources):
@@ -330,22 +359,22 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121232000_clean.fits'
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
+filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
 reference_stars = read_ref_stars(ref_stars_file)
 hdr, imgdata = read_fits_file(filepath)
 bkg, bkg_std = calculate_img_bkg(imgdata)
 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
 fwhm, fwhm_std = calculate_fwhm(irafsources)
 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-exptime = hdr['AEXPTIME']
+exptime = hdr['EXPTIME']
 instr_mags = calculate_magnitudes(photometry_result, exptime)
 instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
 wcs = WCS(hdr)
-print(type(wcs))
 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-print(type(skypositions))
 print(skypositions)
-# photometry_result.pprint_all()
-# print(instr_mags)
-# print(instr_mags_sigma)
+altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
+print(altazpositions)
+photometry_result.pprint_all()
+print(instr_mags)
+print(instr_mags_sigma)
