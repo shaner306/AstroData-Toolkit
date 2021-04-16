@@ -417,7 +417,7 @@ def find_ref_stars(ref_stars_file,
                 Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
             img_star_airmass : float
                 sec(z) of img_star_altaz. None if ground_based is False.
-    None if no stars are matched.
+    None : if no stars are matched.
 
     """
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
@@ -475,11 +475,11 @@ filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solve
 hdr, imgdata = read_fits_file(filepath)
 exptime = hdr['EXPTIME']
 ground_based = True
-# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-# filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121233640_clean.fits'
-# hdr, imgdata = read_fits_file(filepath)
-# exptime = hdr['AEXPTIME']
-# ground_based = False
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121233640_clean.fits'
+hdr, imgdata = read_fits_file(filepath)
+exptime = hdr['AEXPTIME']
+ground_based = False
 bkg, bkg_std = calculate_img_bkg(imgdata)
 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
 fwhm, fwhm_std = calculate_fwhm(irafsources)
