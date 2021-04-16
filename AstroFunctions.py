@@ -8,7 +8,7 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
-from astropy.coordinates import EarthLocation, AltAz
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
@@ -16,6 +16,7 @@ from astropy.table import Table
 import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
+from collections import namedtuple
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
@@ -27,20 +28,24 @@ def read_ref_stars(ref_stars_file):
     
     Parameters
     ----------
-        ref_stars_file : string
-            Location of the reference stars file.
+    ref_stars_file : string
+        Location of the reference stars file.
             
     Returns
     -------
-        reference_stars : astropy.table.Table
-            Table with the data extracted from ref_stars_file.
+    reference_stars : astropy.table.Table
+        Table with the data extracted from ref_stars_file.
+    ref_star_positions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec positions of all reference stars in the file.
+    
     """
     try:
         reference_stars = ascii.read(ref_stars_file, format='basic', delimiter='\t', guess=False, encoding='UTF-8')
     except Exception:
         reference_stars = ascii.read(ref_stars_file, encoding='UTF-8')
     reference_stars = reference_stars.filled(np.nan)
-    return reference_stars
+    ref_star_positions = SkyCoord(ra=reference_stars['RA'], dec=reference_stars['Dec'], unit=(u.hourangle, u.deg))
+    return reference_stars, ref_star_positions
 
 
 def read_fits_file(filepath):
@@ -164,7 +169,7 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
 
 def convert_ra_dec_to_alt_az(skypositions, hdr):
     """
-    Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation)
+    Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
     Parameters
     ----------
@@ -359,9 +364,114 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma
 
+
+def find_ref_stars(ref_stars_file, 
+                   skypositions,  
+                   instr_mags, 
+                   instr_mags_sigma, 
+                   ground_based=False, 
+                   altazpositions=None, 
+                   max_ref_sep=10.0):
+    """
+    Match the stars detected in the image to those provided in the reference star file.
+
+    Parameters
+    ----------
+    ref_stars_file : string
+        Location of the reference stars file.
+    skypositions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
+    instr_mags : numpy array
+        Array containing the instrumental magnitudes of the sources in the image.
+    instr_mags_sigma : numpy array
+        Array containing the standard deviation of the instrumental magnitudes of the sources in the image.
+    ground_based : bool, optional
+        Whether or not the image is from a ground-based sensor. The default is False.
+    altazpositions : astropy.coordinates.sky_coordinate.SkyCoord, optional
+        Alt/Az position(s) of the skyposition(s). Must be provided if ground_based is true. The default is None.
+    max_ref_sep : float, optional
+        Maximum angular separtation to consider an image star to be a reference star in arcsec. The default is 10.0.
+
+    Returns
+    -------
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : 
+                Angular distance between the matched star(s) detected in the image and ref_stars_file
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
+            img_star_airmass : 
+                sec(z) of img_star_altaz. None if ground_based is False.
+    None if no stars are matched.
+
+    """
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    max_ref_sep = max_ref_sep * u.arcsec
+    idx, sep2d, _ = match_coordinates_sky(ref_star_positions, skypositions)
+    ref_star_index = np.where(sep2d < max_ref_sep)
+    if len(ref_star_index[0]) == 0:
+        print("No reference star detected in the image.")
+        return
+    elif len(ref_star_index[0] == 1):
+        ref_star_index = int(ref_star_index[0])
+    else:
+        ref_star_index = ref_star_index[0]
+    img_star_index = idx[ref_star_index]
+    ref_star = reference_stars[ref_star_index]
+    ref_star_loc = ref_star_positions[ref_star_index]
+    img_star_loc = skypositions[img_star_index]
+    ang_separation = sep2d[ref_star_index]
+    img_instr_mag = instr_mags[img_star_index]
+    img_instr_mag_sigma = instr_mags_sigma[img_star_index]
+    img_star_altaz = None
+    img_star_airmass = None
+    if ground_based:
+        if not altazpositions:
+            print('altazpositions must be provided if ground_based is True.')
+            return
+        img_star_altaz = altazpositions[img_star_index]
+        img_star_airmass = img_star_altaz.secz
+    matched_stars = namedtuple('matched_stars', 
+                               ['ref_star_index',
+                                'img_star_index',
+                                'ref_star',
+                                'ref_star_loc',
+                                'img_star_loc',
+                                'ang_separation',
+                                'img_instr_mag',
+                                'img_instr_mag_sigma',
+                                'img_star_altaz',
+                                'img_star_airmass'])
+    return matched_stars(
+        ref_star_index, 
+        img_star_index, 
+        ref_star, 
+        ref_star_loc, 
+        img_star_loc, 
+        ang_separation, 
+        img_instr_mag, 
+        img_instr_mag_sigma, 
+        img_star_altaz, 
+        img_star_airmass)
+
+
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
 filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
-reference_stars = read_ref_stars(ref_stars_file)
 hdr, imgdata = read_fits_file(filepath)
 bkg, bkg_std = calculate_img_bkg(imgdata)
 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
@@ -373,8 +483,18 @@ instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
 wcs = WCS(hdr)
 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
 print(skypositions)
-altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
-print(altazpositions)
+ground_based = True
+altazpositions = None
+if ground_based:
+    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
+    print(altazpositions)
+matched_stars = find_ref_stars(ref_stars_file,
+                               skypositions,
+                               instr_mags,
+                               instr_mags_sigma,
+                               ground_based=ground_based,
+                               altazpositions=altazpositions)
 photometry_result.pprint_all()
 print(instr_mags)
 print(instr_mags_sigma)
+print(matched_stars)
