@@ -12,7 +12,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinate
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
-from astropy.table import Table
+from astropy.table import Table, QTable
 import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -20,6 +20,7 @@ from collections import namedtuple
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
+import os
 
 
 def read_ref_stars(ref_stars_file):
@@ -365,7 +366,8 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     return instr_mags_sigma
 
 
-def find_ref_stars(ref_stars_file, 
+def find_ref_stars(reference_stars, 
+                   ref_star_positions, 
                    skypositions,  
                    instr_mags, 
                    instr_mags_sigma, 
@@ -377,8 +379,10 @@ def find_ref_stars(ref_stars_file,
 
     Parameters
     ----------
+    **************************************************************************
     ref_stars_file : string
         Location of the reference stars file.
+    **************************************************************************
     skypositions : astropy.coordinates.sky_coordinate.SkyCoord
         AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
     instr_mags : numpy array
@@ -420,7 +424,7 @@ def find_ref_stars(ref_stars_file,
     None : if no stars are matched.
 
     """
-    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    # reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     max_ref_sep = max_ref_sep * u.arcsec
     idx, sep2d, _ = match_coordinates_sky(ref_star_positions, skypositions)
     ref_star_index = np.where(sep2d < max_ref_sep)
@@ -486,6 +490,7 @@ def init_large_table_columns():
     img_star_y = []
     V_apparents = []
     img_star_mag = []
+    img_star_mag_sigma = []
     filters = []
     B_V_apparents = []
     U_B_apparents = []
@@ -509,6 +514,7 @@ def init_large_table_columns():
                                       'img_star_x',
                                       'img_star_y',
                                       'img_star_mag',
+                                      'img_star_mag_sigma',
                                       'filters',
                                       'V_apparents',
                                       'B_V_apparents',
@@ -532,6 +538,7 @@ def init_large_table_columns():
                                img_star_x, 
                                img_star_y, 
                                img_star_mag, 
+                               img_star_mag_sigma, 
                                filters, 
                                V_apparents, 
                                B_V_apparents, 
@@ -543,36 +550,280 @@ def init_large_table_columns():
                                X_rounded)
 
 
+def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, name_key='Name'):
+    updated_large_table_columns = large_table_columns
+    try:
+        num_stars = len(matched_stars.img_instr_mag)
+    except TypeError:
+        num_stars = 1
+    if num_stars > 1:
+        updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
+        time = Time(hdr['DATE-OBS'], format='fits')
+        time_repeat = np.full(num_stars, time.jd)
+        updated_large_table_columns.times.extend(time_repeat)
+        exposure_repeat = np.full(num_stars, exptime)
+        updated_large_table_columns.exposure.extend(exposure_repeat)
+        updated_large_table_columns.ref_star_RA.extend(matched_stars.ref_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.ref_star_dec.extend(matched_stars.ref_star_loc.dec)
+        updated_large_table_columns.img_star_RA.extend(matched_stars.img_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.img_star_dec.extend(matched_stars.img_star_loc.dec)
+        updated_large_table_columns.angular_separation.extend(matched_stars.ang_separation.to(u.arcsec))
+        # X and Y to be updated
+        updated_large_table_columns.img_star_mag.extend(matched_stars.img_instr_mag)
+        updated_large_table_columns.img_star_mag_sigma.extend(matched_stars.img_instr_mag_sigma)
+        filter_name_repeat = np.full(num_stars, hdr['FILTER'])
+        updated_large_table_columns.filters.extend(filter_name_repeat)
+        updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V'])
+        try:
+            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['V_sigma'])
+        except KeyError:
+            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['e_V'])
+        if not matched_stars.img_star_airmass:
+            return updated_large_table_columns
+        updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
+        updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
+    elif num_stars == 1:
+        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
+        time = Time(hdr['DATE-OBS'], format='fits')
+        updated_large_table_columns.times.append(time.jd)
+        updated_large_table_columns.exposure.append(exptime)
+        updated_large_table_columns.ref_star_RA.append(matched_stars.ref_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.ref_star_dec.append(matched_stars.ref_star_loc.dec)
+        updated_large_table_columns.img_star_RA.append(matched_stars.img_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.img_star_dec.append(matched_stars.img_star_loc.dec)
+        updated_large_table_columns.angular_separation.append(matched_stars.ang_separation.to(u.arcsec))
+        # X and Y to be updated
+        updated_large_table_columns.img_star_mag.append(matched_stars.img_instr_mag)
+        updated_large_table_columns.img_star_mag_sigma.append(matched_stars.img_instr_mag_sigma)
+        updated_large_table_columns.filters.append(hdr['FILTER'])
+        updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V'])
+        try:
+            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['V_sigma'])
+        except KeyError:
+            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['e_V'])
+        if not matched_stars.img_star_airmass:
+            return updated_large_table_columns
+        updated_large_table_columns.img_star_airmass.append(matched_stars.img_star_airmass)
+        updated_large_table_columns.X_rounded.append(round(matched_stars.img_star_airmass, 1))
+    else:
+        return
+    
+    # num_stars = len(matched_stars.img_instr_mag)
+    # large_table_columns.ref_star_name.extend(list(matched_stars.ref_star[name_key]))
+    # time = Time(hdr['DATE-OBS'], format='fits')
+    # time_repeat = np.full(num_stars, time.jd)
+    # large_table_columns.times.extend(list(time_repeat))
+    # exposure_repeat = np.full(num_stars, exptime)
+    # large_table_columns.exposure.extend(list(exposure_repeat))
+    # large_table_columns.ref_star_RA.extend(list(matched_stars.ref_star_loc.ra.to(u.hourangle)))
+    # large_table_columns.ref_star_dec.extend(list(matched_stars.ref_star_loc.dec))
+    # large_table_columns.img_star_RA.extend(list(matched_stars.img_star_loc.ra.to(u.hourangle)))
+    # large_table_columns.img_star_dec.extend(list(matched_stars.img_star_loc.dec))
+    # large_table_columns.angular_separation.extend(list(matched_stars.ang_separation.to(u.arcsec)))
+    # # X and Y to be updated
+    # large_table_columns.img_star_mag.extend(list(matched_stars.img_instr_mag))
+    # large_table_columns.img_star_mag_sigma.extend(list(matched_stars.img_instr_mag_sigma))
+    # filter_name_repeat = np.full(num_stars, hdr['FILTER'])
+    # large_table_columns.filters.extend(list(filter_name_repeat))
+    # large_table_columns.V_apparents.extend(list(matched_stars.ref_star['V']))
+    # try:
+    #     large_table_columns.B_V_apparents.extend(list(matched_stars.ref_star['(B-V)']))
+    #     large_table_columns.U_B_apparents.extend(list(matched_stars.ref_star['(U-B)']))
+    #     large_table_columns.V_R_apparents.extend(list(matched_stars.ref_star['(V-R)']))
+    #     large_table_columns.V_I_apparents.extend(list(matched_stars.ref_star['(V-I)']))
+    #     large_table_columns.V_sigma_apparents.extend(list(matched_stars.ref_star['V_sigma']))
+    # except KeyError:
+    #     large_table_columns.B_V_apparents.extend(list(matched_stars.ref_star['B-V']))
+    #     large_table_columns.U_B_apparents.extend(list(matched_stars.ref_star['U-B']))
+    #     large_table_columns.V_R_apparents.extend(list(matched_stars.ref_star['V-R']))
+    #     large_table_columns.V_I_apparents.extend(list(matched_stars.ref_star['V-I']))
+    #     large_table_columns.V_sigma_apparents.extend(list(matched_stars.ref_star['e_V']))
+    # if not matched_stars.img_star_airmass:
+    #     pass
+    #     # return updated_large_table_columns
+    # else:
+    #     large_table_columns.img_star_airmass.extend(list(matched_stars.img_star_airmass))
+    #     large_table_columns.X_rounded.extend(list(round(matched_stars.img_star_airmass.value, 1)))
+    return updated_large_table_columns
+
+
+def create_large_stars_table(large_table_columns, ground_based=False):
+    if ground_based:
+        large_stars_table = QTable(
+            data=[
+                large_table_columns.ref_star_name, 
+                large_table_columns.times, 
+                large_table_columns.ref_star_RA, 
+                large_table_columns.ref_star_dec, 
+                large_table_columns.img_star_RA, 
+                large_table_columns.img_star_dec, 
+                large_table_columns.angular_separation, 
+                # large_table_columns.ref_star_x, 
+                # large_table_columns.ref_star_y, 
+                # large_table_columns.img_star_x, 
+                # large_table_columns.img_star_y,  
+                # large_table_columns.flux_table, 
+                large_table_columns.exposure, 
+                large_table_columns.img_star_mag, 
+                large_table_columns.img_star_mag_sigma, 
+                large_table_columns.filters, 
+                large_table_columns.V_apparents, 
+                large_table_columns.B_V_apparents, 
+                large_table_columns.U_B_apparents, 
+                large_table_columns.V_R_apparents, 
+                large_table_columns.V_I_apparents, 
+                large_table_columns.V_sigma_apparents, 
+                large_table_columns.img_star_airmass, 
+                large_table_columns.X_rounded
+                ],
+            names=[
+                'Name',
+                'Time (JD)',
+                'RA_ref',
+                'dec_ref',
+                'RA_img',
+                'dec_img',
+                'angular_separation',
+                # 'x_ref',
+                # 'y_ref',
+                # 'x_img',
+                # 'y_img',
+                # 'flux',
+                'exposure',
+                'mag_instrumental',
+                'mag_instrumental_sigma',
+                'filter',
+                'V',
+                '(B-V)',
+                '(U-B)',
+                '(V-R)',
+                '(V-I)',
+                'V_sigma',
+                'X',
+                'X_rounded'
+                ]
+            )
+    else:
+        large_stars_table = QTable(
+            data=[
+                large_table_columns.ref_star_name, 
+                large_table_columns.times, 
+                large_table_columns.ref_star_RA, 
+                large_table_columns.ref_star_dec, 
+                large_table_columns.img_star_RA, 
+                large_table_columns.img_star_dec, 
+                large_table_columns.angular_separation, 
+                # large_table_columns.ref_star_x, 
+                # large_table_columns.ref_star_y, 
+                # large_table_columns.img_star_x, 
+                # large_table_columns.img_star_y,  
+                # large_table_columns.flux_table, 
+                large_table_columns.exposure, 
+                large_table_columns.img_star_mag, 
+                large_table_columns.img_star_mag_sigma, 
+                large_table_columns.filters, 
+                large_table_columns.V_apparents, 
+                large_table_columns.B_V_apparents, 
+                large_table_columns.U_B_apparents, 
+                large_table_columns.V_R_apparents, 
+                large_table_columns.V_I_apparents, 
+                large_table_columns.V_sigma_apparents,
+                ],
+            names=[
+                'Name',
+                'Time (JD)',
+                'RA_ref',
+                'dec_ref',
+                'RA_img',
+                'dec_img',
+                'angular_separation',
+                # 'x_ref',
+                # 'y_ref',
+                # 'x_img',
+                # 'y_img',
+                # 'flux',
+                'exposure',
+                'mag_instrumental',
+                'mag_instrumental_sigma',
+                'filter',
+                'V',
+                '(B-V)',
+                '(U-B)',
+                '(V-R)',
+                '(V-I)',
+                'V_sigma',
+                ]
+            )
+    return large_stars_table
+
+
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
-filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
-hdr, imgdata = read_fits_file(filepath)
-exptime = hdr['EXPTIME']
+# filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images'
 ground_based = True
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121233640_clean.fits'
-hdr, imgdata = read_fits_file(filepath)
-exptime = hdr['AEXPTIME']
-ground_based = False
-bkg, bkg_std = calculate_img_bkg(imgdata)
-irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-fwhm, fwhm_std = calculate_fwhm(irafsources)
-photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-instr_mags = calculate_magnitudes(photometry_result, exptime)
-instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-wcs = WCS(hdr)
-skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-print(skypositions)
-altazpositions = None
-if ground_based:
-    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
-    print(altazpositions)
-matched_stars = find_ref_stars(ref_stars_file,
-                               skypositions,
-                               instr_mags,
-                               instr_mags_sigma,
-                               ground_based=ground_based,
-                               altazpositions=altazpositions)
-photometry_result.pprint_all()
-print(instr_mags)
-print(instr_mags_sigma)
-print(matched_stars)
+
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+# filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\SA108\NEOS_SCI_2020121233640_clean.fits'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
+# ground_based = False
+
+reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+large_table_columns = init_large_table_columns()
+
+for dirpath, dirnames, filenames in os.walk(directory):
+    for filename in filenames:
+        if filename.endswith(".fits"):
+        # if filename.endswith("_clean.fits"):
+            filepath = os.path.join(dirpath, filename)
+            hdr, imgdata = read_fits_file(filepath)
+            exptime = hdr['EXPTIME']
+            # exptime = hdr['AEXPTIME']
+            bkg, bkg_std = calculate_img_bkg(imgdata)
+            irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+            if not irafsources:
+                continue
+            fwhm, fwhm_std = calculate_fwhm(irafsources)
+            photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+            instr_mags = calculate_magnitudes(photometry_result, exptime)
+            instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+            wcs = WCS(hdr)
+            skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+            # print(skypositions)
+            altazpositions = None
+            if ground_based:
+                altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr)
+                # print(altazpositions)
+            matched_stars = find_ref_stars(reference_stars, 
+                                           ref_star_positions,
+                                           skypositions,
+                                           instr_mags,
+                                           instr_mags_sigma,
+                                           ground_based=ground_based,
+                                           altazpositions=altazpositions)
+            if not matched_stars:
+                continue
+            # photometry_result.pprint_all()
+            # print(instr_mags)
+            # print(instr_mags_sigma)
+            # print(matched_stars)
+            
+            large_table_columns = update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, name_key='HIP')
+
+large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
+large_stars_table.pprint_all()
