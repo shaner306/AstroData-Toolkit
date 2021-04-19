@@ -470,6 +470,79 @@ def find_ref_stars(ref_stars_file,
         img_star_airmass)
 
 
+def init_large_table_columns():
+    ref_star_name = []
+    times = []
+    flux_table = []
+    exposure = []
+    ref_star_RA = []
+    ref_star_dec = []
+    img_star_RA = []
+    img_star_dec = []
+    angular_separation = []
+    ref_star_x = []
+    ref_star_y = []
+    img_star_x = []
+    img_star_y = []
+    V_apparents = []
+    img_star_mag = []
+    filters = []
+    B_V_apparents = []
+    U_B_apparents = []
+    V_R_apparents = []
+    V_I_apparents = []
+    V_sigma_apparents = []
+    img_star_airmass = []
+    X_rounded = []
+    large_table_columns = namedtuple('large_table_columns',
+                                     ['ref_star_name',
+                                      'times',
+                                      'flux_table',
+                                      'exposure',
+                                      'ref_star_RA',
+                                      'ref_star_dec',
+                                      'img_star_RA',
+                                      'img_star_dec',
+                                      'angular_separation',
+                                      'ref_star_x',
+                                      'ref_star_y',
+                                      'img_star_x',
+                                      'img_star_y',
+                                      'img_star_mag',
+                                      'filters',
+                                      'V_apparents',
+                                      'B_V_apparents',
+                                      'U_B_apparents',
+                                      'V_R_apparents',
+                                      'V_I_apparents',
+                                      'V_sigma_apparents',
+                                      'img_star_airmass',
+                                      'X_rounded'])
+    return large_table_columns(ref_star_name, 
+                               times, 
+                               flux_table, 
+                               exposure, 
+                               ref_star_RA, 
+                               ref_star_dec, 
+                               img_star_RA, 
+                               img_star_dec, 
+                               angular_separation, 
+                               ref_star_x, 
+                               ref_star_y, 
+                               img_star_x, 
+                               img_star_y, 
+                               img_star_mag, 
+                               filters, 
+                               V_apparents, 
+                               B_V_apparents, 
+                               U_B_apparents, 
+                               V_R_apparents, 
+                               V_I_apparents, 
+                               V_sigma_apparents, 
+                               img_star_airmass, 
+                               X_rounded)
+
+
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
 filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
 hdr, imgdata = read_fits_file(filepath)
