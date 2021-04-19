@@ -799,7 +799,8 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
-    different_filter_list = different_filter_list.lower()
+    different_filter_list = [different_filter.lower() 
+                             for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
     different_filter_data.fill(np.nan)
     filter_sigma_list = []
