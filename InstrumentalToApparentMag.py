@@ -19,9 +19,10 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import win32com.client as win32
 
 # The directory that holds all of the plate solved images for the night.
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
 
-ground_based = False
+ground_based = True
 
 catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
 
@@ -32,7 +33,8 @@ size = 25                                                                       
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the PSF.
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'                             # Location of the file containing the reference stars.
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
 
 # Initialize all of the arrays that will be added to the large AstroPy table containing all of the information on the
 # reference stars that were detected in each image.
@@ -58,7 +60,7 @@ V_R_apparents = []
 V_I_apparents = []
 V_sigma_apparents = []
 img_star_secz = []
-X_rounded = []
+# X_rounded = []
 
 max_ref_sep = 10 * u.arcsec
 
@@ -74,8 +76,8 @@ print(ref_star_positions)                                                       
 # The for loops below loop over all files in all subfolders of 'directory' and then opens each fits file one by one.
 for dirpath, dirnames, filenames in os.walk(directory):
     for filename in filenames:
-        # if filename.endswith(".fits"):
-        if filename.endswith("_clean.fits"):
+        if filename.endswith(".fits"):
+        # if filename.endswith("_clean.fits"):
             with fits.open(os.path.join(dirpath, filename)) as image:                                                   # Open the fits file. Closes once the with statement ends to avoid keeping it in RAM.
                 hdr = image[0].header                                                                                   # Store the fits header as a variable.
                 imgdata = image[0].data                                                                                 # Store the image as a variable.
@@ -177,7 +179,8 @@ for dirpath, dirnames, filenames in os.walk(directory):
             ax.set_ylabel('Declination (J2000)')                                                                        # Y (dec) axis title.
             ax.set_xlabel('Right Ascension (J2000)')                                                                    # X (RA) axis title.
             # plt.title(f"Confirmation of Detection of Reference Star HIP {ref_name}")                                    # Title includes the name of the possible reference star(s) from the file.
-            plt.legend()                                                                                                # Show the legend for which is the image star and which is the reference star from a file.
+            plt.legend()   
+            plt.show()                                                                                             # Show the legend for which is the image star and which is the reference star from a file.
             # plt.show(block=False)                                                                                       # Show the plot.
             # plt.pause(2)
             plt.close()                                                                                                 # Close the plot. Clears it from RAM.
@@ -262,61 +265,14 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 img_star_secz.append(image_star_secz)                                                                   # The airmass that will be used for calculations.
                 # Perhaps change this to check if the difference to this value is less than the difference to one already
                 # included in the 'X_rounded' array. This may not work, but is a step that can be tried.
-                X_rounded.append(round(image_star_secz.value, 1))
+                # X_rounded.append(round(image_star_secz.value, 1))
                 # X_rounded.append(floor(image_star_secz.value * 10) / 10.0)                                              # Rounds down the airmass to use as an identifier. Not a perfect solution.
 # Create the table containing most of the desired star information. This is the table that will be read later to convert
 # the data to a format similar to Appendices B and C from A Practical Guide to Photometry.
-large_stars_table = QTable(
-    data=[
-        ref_star_name,
-        times,
-        ref_star_RA,
-        ref_star_dec,
-        img_star_RA,
-        img_star_dec,
-        angular_separation,
-        ref_star_x,
-        ref_star_y,
-        img_star_x,
-        img_star_y,
-        flux_table,
-        exposure,
-        img_star_mag,
-        filters,
-        ref_star_mag,
-        B_V_apparents,
-        U_B_apparents,
-        V_R_apparents,
-        V_I_apparents,
-        V_sigma_apparents
-    ],
-    names=[
-        'Name',
-        'Time (JD)',
-        'RA_ref',
-        'dec_ref',
-        'RA_img',
-        'dec_img',
-        'angular_separation',
-        'x_ref',
-        'y_ref',
-        'x_img',
-        'y_img',
-        'flux',
-        'exposure',
-        'mag_instrumental',
-        'filter',
-        'V',
-        '(B-V)',
-        '(U-B)',
-        '(V-R)',
-        '(V-I)',
-        'V_sigma'
-    ]
-)
 # large_stars_table = QTable(
 #     data=[
 #         ref_star_name,
+#         times,
 #         ref_star_RA,
 #         ref_star_dec,
 #         img_star_RA,
@@ -326,6 +282,8 @@ large_stars_table = QTable(
 #         ref_star_y,
 #         img_star_x,
 #         img_star_y,
+#         flux_table,
+#         exposure,
 #         img_star_mag,
 #         filters,
 #         ref_star_mag,
@@ -333,11 +291,11 @@ large_stars_table = QTable(
 #         U_B_apparents,
 #         V_R_apparents,
 #         V_I_apparents,
-#         img_star_secz,
-#         X_rounded
+#         V_sigma_apparents
 #     ],
 #     names=[
-#         'HIP',
+#         'Name',
+#         'Time (JD)',
 #         'RA_ref',
 #         'dec_ref',
 #         'RA_img',
@@ -347,6 +305,8 @@ large_stars_table = QTable(
 #         'y_ref',
 #         'x_img',
 #         'y_img',
+#         'flux',
+#         'exposure',
 #         'mag_instrumental',
 #         'filter',
 #         'V',
@@ -354,12 +314,55 @@ large_stars_table = QTable(
 #         '(U-B)',
 #         '(V-R)',
 #         '(V-I)',
-#         'X',
-#         'X_rounded'
+#         'V_sigma'
 #     ]
 # )
+large_stars_table = QTable(
+    data=[
+        ref_star_name,
+        ref_star_RA,
+        ref_star_dec,
+        img_star_RA,
+        img_star_dec,
+        angular_separation,
+        ref_star_x,
+        ref_star_y,
+        img_star_x,
+        img_star_y,
+        img_star_mag,
+        filters,
+        ref_star_mag,
+        B_V_apparents,
+        U_B_apparents,
+        V_R_apparents,
+        V_I_apparents,
+        img_star_secz,
+        # X_rounded
+    ],
+    names=[
+        'HIP',
+        'RA_ref',
+        'dec_ref',
+        'RA_img',
+        'dec_img',
+        'angular_separation',
+        'x_ref',
+        'y_ref',
+        'x_img',
+        'y_img',
+        'mag_instrumental',
+        'filter',
+        'V',
+        '(B-V)',
+        '(U-B)',
+        '(V-R)',
+        '(V-I)',
+        'X',
+        # 'X_rounded'
+    ]
+)
 large_stars_table.pprint_all()                                                                                          # Print the large stars table.
-# unique_stars = table.unique(large_stars_table, keys=['HIP', 'X_rounded'])                                               # Get all unique combinations of star names and X_rounded in the large stars table.
+# unique_stars = table.unique(large_stars_table, keys=['Name', 'X_rounded'])                                               # Get all unique combinations of star names and X_rounded in the large stars table.
 unique_stars = table.unique(large_stars_table, keys=['Name'])
 unique_stars.pprint_all()                                                                                               # Print the information of the unique observations.
 N = len(unique_stars)                                                                                                   # Get the number of unique observations. Used to preallocate the table.
@@ -388,7 +391,7 @@ if ground_based:
             '(U-B)',
             '(V-R)',
             '(V-I)',
-            'X_rounded'
+            # 'X_rounded'
         ],
         data=[
             np.empty(N, dtype=object),
@@ -409,7 +412,7 @@ if ground_based:
             nan_array,
             nan_array,
             nan_array,
-            nan_array
+            # nan_array
         ]
     )
 else:

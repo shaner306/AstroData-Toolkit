@@ -8,6 +8,7 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
+from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
@@ -773,6 +774,65 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     return large_stars_table
 
 
+def group_each_star(large_stars_table, ground_based=False, keys='Name'):
+    unique_stars = table.unique(large_stars_table, keys=keys)
+    N = len(unique_stars)
+    nan_array = np.empty(N)
+    nan_array.fill(np.nan)
+    apparent_mags_table = Table(
+        names=[
+            'Name',
+            'V',
+            '(B-V)',
+            '(U-B)',
+            '(V-R)',
+            '(V-I)',
+            ],
+        data=[
+            np.empty(N, dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            ]
+        )
+    different_filters = table.unique(large_stars_table, keys='filter')
+    different_filter_list = list(different_filters['filter'])
+    different_filter_list = different_filter_list.lower()
+    different_filter_data = np.empty((N, len(different_filter_list)))
+    different_filter_data.fill(np.nan)
+    filter_sigma_list = []
+    for different_filter in different_filter_list:
+        filter_sigma_list.append(f"{different_filter}_sigma")
+    different_filter_table = Table(data=different_filter_data, 
+                                   names=different_filter_list)
+    different_filter_sigma_table = Table(data=different_filter_data, 
+                                         names=filter_sigma_list)
+    if ground_based:
+        filter_X_list = []
+        for different_filter in different_filter_list:
+            filter_X_list.append(f"X_{different_filter}")
+        filter_X_sigma_list = []
+        for different_filter in different_filter_list:
+            filter_X_sigma_list.append(f"X_{different_filter}_sigma")
+        filter_X_table = Table(data=different_filter_data, 
+                               names=filter_X_list)
+        filter_X_sigma_table = Table(data=different_filter_data, 
+                                     names=filter_X_sigma_list)
+        stars_table = table.hstack([apparent_mags_table,
+                                    different_filter_table,
+                                    different_filter_sigma_table,
+                                    filter_X_table,
+                                    filter_X_sigma_table],
+                                   join_type='exact')
+    else:
+        stars_table = table.hstack([apparent_mags_table,
+                                    different_filter_table,
+                                    different_filter_sigma_table],
+                                   join_type='exact')
+    return stars_table
+
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
 # filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images'
@@ -827,3 +887,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
 
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
+stars_table = group_each_star(large_stars_table, 
+                              ground_based=ground_based, 
+                              keys=['Name', 'X_rounded'])
+stars_table.pprint_all()
