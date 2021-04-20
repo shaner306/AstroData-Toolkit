@@ -499,7 +499,7 @@ def init_large_table_columns():
     V_I_apparents = []
     V_sigma_apparents = []
     img_star_airmass = []
-    X_rounded = []
+    # X_rounded = []
     large_table_columns = namedtuple('large_table_columns',
                                      ['ref_star_name',
                                       'times',
@@ -524,7 +524,8 @@ def init_large_table_columns():
                                       'V_I_apparents',
                                       'V_sigma_apparents',
                                       'img_star_airmass',
-                                      'X_rounded'])
+                                      # 'X_rounded'
+                                      ])
     return large_table_columns(ref_star_name, 
                                times, 
                                flux_table, 
@@ -548,10 +549,11 @@ def init_large_table_columns():
                                V_I_apparents, 
                                V_sigma_apparents, 
                                img_star_airmass, 
-                               X_rounded)
+                               # X_rounded
+                               )
 
 
-def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, name_key='Name'):
+def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, ground_based=False, name_key='Name'):
     updated_large_table_columns = large_table_columns
     try:
         num_stars = len(matched_stars.img_instr_mag)
@@ -587,10 +589,10 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
             updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['V-R'])
             updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['V-I'])
             updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['e_V'])
-        if not matched_stars.img_star_airmass:
+        if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
-        updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
+        # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
         updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
         time = Time(hdr['DATE-OBS'], format='fits')
@@ -618,10 +620,10 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
             updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['V-R'])
             updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['V-I'])
             updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['e_V'])
-        if not matched_stars.img_star_airmass:
+        if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.append(matched_stars.img_star_airmass)
-        updated_large_table_columns.X_rounded.append(round(matched_stars.img_star_airmass, 1))
+        # updated_large_table_columns.X_rounded.append(round(matched_stars.img_star_airmass, 1))
     else:
         return
     
@@ -691,7 +693,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_I_apparents, 
                 large_table_columns.V_sigma_apparents, 
                 large_table_columns.img_star_airmass, 
-                large_table_columns.X_rounded
+                # large_table_columns.X_rounded
                 ],
             names=[
                 'Name',
@@ -717,7 +719,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 '(V-I)',
                 'V_sigma',
                 'X',
-                'X_rounded'
+                # 'X_rounded'
                 ]
             )
     else:
@@ -799,17 +801,14 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
-    different_filter_list = [different_filter.lower() 
-                             for different_filter in different_filter_list]
+    different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
     different_filter_data.fill(np.nan)
     filter_sigma_list = []
     for different_filter in different_filter_list:
         filter_sigma_list.append(f"{different_filter}_sigma")
-    different_filter_table = Table(data=different_filter_data, 
-                                   names=different_filter_list)
-    different_filter_sigma_table = Table(data=different_filter_data, 
-                                         names=filter_sigma_list)
+    different_filter_table = Table(data=different_filter_data, names=different_filter_list)
+    different_filter_sigma_table = Table(data=different_filter_data, names=filter_sigma_list)
     if ground_based:
         filter_X_list = []
         for different_filter in different_filter_list:
@@ -817,10 +816,8 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         filter_X_sigma_list = []
         for different_filter in different_filter_list:
             filter_X_sigma_list.append(f"X_{different_filter}_sigma")
-        filter_X_table = Table(data=different_filter_data, 
-                               names=filter_X_list)
-        filter_X_sigma_table = Table(data=different_filter_data, 
-                                     names=filter_X_sigma_list)
+        filter_X_table = Table(data=different_filter_data, names=filter_X_list)
+        filter_X_sigma_table = Table(data=different_filter_data, names=filter_X_sigma_list)
         stars_table = table.hstack([apparent_mags_table,
                                     different_filter_table,
                                     different_filter_sigma_table,
@@ -834,9 +831,9 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                                    join_type='exact')
     return stars_table
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars.csv'
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
 # filepath = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894\LIGHT\B\0001_3x3_-10.00_5.00_B_21-20-52.fits'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
 ground_based = True
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
@@ -884,11 +881,14 @@ for dirpath, dirnames, filenames in os.walk(directory):
             # print(instr_mags_sigma)
             # print(matched_stars)
             
-            large_table_columns = update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, name_key='HIP')
+            large_table_columns = update_large_table_columns(large_table_columns, 
+                                                             matched_stars, 
+                                                             hdr, 
+                                                             exptime, 
+                                                             ground_based=ground_based, 
+                                                             name_key='HIP')
 
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
-stars_table = group_each_star(large_stars_table, 
-                              ground_based=ground_based, 
-                              keys=['Name', 'X_rounded'])
+stars_table = group_each_star(large_stars_table, ground_based=ground_based, keys='Name')
 stars_table.pprint_all()
