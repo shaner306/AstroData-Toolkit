@@ -829,6 +829,45 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                                     different_filter_table,
                                     different_filter_sigma_table],
                                    join_type='exact')
+    stars_table['V'] = unique_stars['V']
+    stars_table['(B-V)'] = unique_stars['(B-V)']
+    stars_table['(U-B)'] = unique_stars['(U-B)']
+    stars_table['(V-R)'] = unique_stars['(V-R)']
+    stars_table['(V-I)'] = unique_stars['(V-I)']
+    stars_table['V_sigma'] = unique_stars['V_sigma']
+    i = 0
+    for star in unique_stars['Name']:
+        stars_table['Name'][i] = star
+        mask = large_stars_table['Name'] == star
+        current_star_table = large_stars_table[mask]
+        unique_filters = table.unique(current_star_table, keys='filter')
+        for unique_filter in unique_filters['filter']:
+            mask = ((current_star_table['filter'] == unique_filter))
+            current_star_filter_table = current_star_table[mask]
+            # fluxes_numpy = np.array(current_star_filter_table['flux'])
+            # mean_flux = fluxes_numpy.mean()
+            # std_flux = fluxes_numpy.std()
+            # exposure_numpy = np.array(current_star_filter_table['exposure'])
+            # mean_exposure = exposure_numpy.mean()
+            # std_exposure = exposure_numpy.std()
+            mags_numpy = np.array(current_star_filter_table['mag_instrumental'])
+            mean_mag = mags_numpy.mean()
+            std_mag = mags_numpy.std()
+            filter_column = unique_filter.lower()
+            sigma_column = f'{filter_column}_sigma'
+            stars_table[filter_column][i] = mean_mag
+            stars_table[sigma_column][i] = std_mag
+            # stars_table['flux'][i] = mean_flux
+            # stars_table['exposure'][i] = mean_exposure
+            if ground_based:
+                X_numpy = np.array(current_star_filter_table['X'])
+                mean_X = X_numpy.mean()
+                std_X = X_numpy.std()
+                X_column = f'X_{filter_column}'
+                X_std_column = f'X_{filter_column}_sigma'
+                stars_table[X_column][i] = mean_X
+                stars_table[X_std_column][i] = std_X
+        i += 1 
     return stars_table
 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
@@ -890,5 +929,5 @@ for dirpath, dirnames, filenames in os.walk(directory):
 
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
-stars_table = group_each_star(large_stars_table, ground_based=ground_based, keys='Name')
+stars_table = group_each_star(large_stars_table, ground_based=ground_based)
 stars_table.pprint_all()
