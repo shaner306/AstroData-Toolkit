@@ -23,6 +23,7 @@ from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
 import os
+import re
 
 
 def read_ref_stars(ref_stars_file):
@@ -492,6 +493,8 @@ def init_large_table_columns():
     -------
     large_table_columns : namedtuple
         Attributes:
+            field : empty list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : empty list
                 Name/unique identifier of the reference star.
             times : empty list
@@ -532,6 +535,7 @@ def init_large_table_columns():
                 Sec(z) of the reference star(s) found in the image.
             
     """
+    field = []
     ref_star_name = []
     times = []
     flux_table = []
@@ -553,7 +557,8 @@ def init_large_table_columns():
     img_star_airmass = []
     # X_rounded = []
     large_table_columns = namedtuple('large_table_columns',
-                                     ['ref_star_name',
+                                     ['field',
+                                      'ref_star_name',
                                       'times',
                                       'flux_table',
                                       'exposure',
@@ -574,7 +579,8 @@ def init_large_table_columns():
                                       'img_star_airmass',
                                       # 'X_rounded'
                                       ])
-    return large_table_columns(ref_star_name, 
+    return large_table_columns(field,
+                               ref_star_name, 
                                times, 
                                flux_table, 
                                exposure, 
@@ -605,6 +611,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
     ----------
     large_table_columns : namedtuple
         Attributes:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -681,6 +689,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
     -------
     updated_large_table_columns : namedtuple
         Attributes:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -727,6 +737,9 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
     except TypeError:
         num_stars = 1
     if num_stars > 1:
+        for row in matched_stars.ref_star:
+            split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
+            updated_large_table_columns.field.append(split_string[0])
         updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
         time = Time(hdr['DATE-OBS'], format='fits')
@@ -761,6 +774,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
         # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
+        split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
+        updated_large_table_columns.field.append(split_string[0])
         updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.append(matched_stars.flux)
         time = Time(hdr['DATE-OBS'], format='fits')
@@ -804,6 +819,8 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     ----------
     large_table_columns : namedtuple
         Attributes:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -849,6 +866,8 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     -------
     large_stars_table : astropy.table.table.QTable
         Table containing all information on the detected stars. Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             Time (JD) : numpy.float64
@@ -892,6 +911,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     if ground_based:
         large_stars_table = QTable(
             data=[
+                large_table_columns.field,
                 large_table_columns.ref_star_name, 
                 large_table_columns.times, 
                 large_table_columns.ref_star_RA, 
@@ -914,6 +934,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 # large_table_columns.X_rounded
                 ],
             names=[
+                'Field',
                 'Name',
                 'Time (JD)',
                 'RA_ref',
@@ -939,6 +960,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     else:
         large_stars_table = QTable(
             data=[
+                large_table_columns.field,
                 large_table_columns.ref_star_name, 
                 large_table_columns.times, 
                 large_table_columns.ref_star_RA, 
@@ -959,6 +981,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_sigma_apparents,
                 ],
             names=[
+                'Field',
                 'Name',
                 'Time (JD)',
                 'RA_ref',
@@ -990,6 +1013,8 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     ----------
     large_stars_table : astropy.table.table.QTable
         Table containing all information on the detected stars. Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             Time (JD) : numpy.float64
@@ -1037,6 +1062,8 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     -------
     stars_table : astropy.table.table.Table
         Table containing the mean of the important information for each star. Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             V : numpy.float64
@@ -1071,6 +1098,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     nan_array.fill(np.nan)
     apparent_mags_table = Table(
         names=[
+            'Field',
             'Name',
             'V',
             '(B-V)',
@@ -1080,6 +1108,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             'V_sigma'
             ],
         data=[
+            np.empty(N, dtype=object),
             np.empty(N, dtype=object),
             nan_array,
             nan_array,
@@ -1119,6 +1148,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                                     different_filter_table,
                                     different_filter_sigma_table],
                                    join_type='exact')
+    stars_table['Field'] = unique_stars['Field']
     stars_table['V'] = unique_stars['V']
     stars_table['(B-V)'] = unique_stars['(B-V)']
     stars_table['(U-B)'] = unique_stars['(U-B)']
@@ -1161,8 +1191,10 @@ def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_fi
     ----------
     stars_table : astropy.table.table.Table
         Table containing the mean of the important information for each star. Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
-                Lorem ipsum...
+                Name/unique identifier of the reference star.
             V : numpy.float64
                 Apparent V magnitude from the reference file.
             (B-V) : numpy.float64
@@ -1209,6 +1241,7 @@ def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_fi
     err_sum = np.nan_to_num(stars_table[f'{app_filter}_sigma'], nan=max_app_filter_sigma) + \
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
+    err_sum[err_sum == 0] = max(err_sum)
     filter_fci, zprime_fci = np.polyfit(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 1, 
                                         full=False, w=1/err_sum)
     if plot_results:
@@ -1279,7 +1312,11 @@ large_stars_table = create_large_stars_table(large_table_columns, ground_based=g
 large_stars_table.pprint_all()
 stars_table = group_each_star(large_stars_table, ground_based=ground_based)
 stars_table.pprint_all()
-transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
-for index in transform_index_list:
-    filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False, index=index)
-    print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+if ground_based:
+    filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, instr_filter='g')
+    print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
+else:
+    transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+    for index in transform_index_list:
+        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
+        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
