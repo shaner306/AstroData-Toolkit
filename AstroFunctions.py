@@ -18,6 +18,7 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
 from collections import namedtuple
+from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
@@ -1227,25 +1228,97 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         i += 1 
     return stars_table
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
-ground_based = True
 
-# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
-# ground_based = False
+def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_filter='V', instr_filter='clear'):
+    """
+    Calculate the transforms for a space based sensor.
+
+    Parameters
+    ----------
+    stars_table : astropy.table.table.Table
+        Table containing the mean of the important information for each star. Has columns:
+            Name : string
+                Lorem ipsum...
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from the reference file.
+            <filter> : numpy.float64
+                Mean instrumental magnitude of all detections of the star in <filter>. There is a different column for 
+                each different filter used across the images.
+            <filter>_sigma : numpy.float64
+                Standard deviation of the instrumental magnitudes of all detections of the star in <filter>. 
+                There is a different column for each different filter used across the images.
+            X_<filter> : numpy.float64
+                Mean airmass of all detections of the star in <filter>. There is a different column for each different 
+                filter used across the images. Only output if ground_based is True.
+            X_<filter>_sigma : numpy.float64
+                Standard deviation of the airmasses of all detections of the star in <filter>. There is a different 
+                column for each different filter used across the images. Only output if ground_based is True.
+    plot_results : bool, optional
+        Controls whether or not to plot the results from the transforms. The default is False.
+    index : string, optional
+        Colour index to calculate the transform for. The default is '(B-V)'.
+    app_filter : string, optional
+        Apparent magnitude filter band to calculate the transform for. The default is 'V'.
+    instr_filter : string, optional
+        Instrumental filter band to calculate the transform for. The default is 'clear'.
+
+    Returns
+    -------
+    filter_fci : float
+        Instrumental transform coefficient for filter f using the colour index CI.
+    zprime_fci : float
+        Zero point magnitude for filter f.
+
+    """
+    max_app_filter_sigma = max(stars_table[f'{app_filter}_sigma'])
+    max_instr_filter_sigma = max(stars_table[f'{instr_filter}_sigma'])
+    err_sum = np.nan_to_num(stars_table[f'{app_filter}_sigma'], nan=max_app_filter_sigma) + \
+        np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
+    err_sum = np.array(err_sum)
+    filter_fci, zprime_fci = np.polyfit(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 1, 
+                                        full=False, w=1/err_sum)
+    if plot_results:
+        index_plot = np.arange(start=min(stars_table[index])-0.2, stop=max(stars_table[index])+0.2, step=0.1)
+        plt.errorbar(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 
+                     yerr=err_sum, fmt='o', capsize=2)
+        plt.plot(index_plot, filter_fci * index_plot + zprime_fci)
+        plt.ylabel(f"{app_filter}-{instr_filter}")
+        plt.xlabel(f"{index}")
+        plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        plt.show()
+        plt.close()
+    return filter_fci, zprime_fci
+
+
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
+# ground_based = True
+
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
+ground_based = False
 
 reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
 large_table_columns = init_large_table_columns()
 
 for dirpath, dirnames, filenames in os.walk(directory):
     for filename in filenames:
-        if filename.endswith(".fits"):
-        # if filename.endswith("_clean.fits"):
+        # if filename.endswith(".fits"):
+        if filename.endswith("_clean.fits"):
             filepath = os.path.join(dirpath, filename)
             hdr, imgdata = read_fits_file(filepath)
-            exptime = hdr['EXPTIME']
-            # exptime = hdr['AEXPTIME']
+            # exptime = hdr['EXPTIME']
+            exptime = hdr['AEXPTIME']
             bkg, bkg_std = calculate_img_bkg(imgdata)
             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
             if not irafsources:
@@ -1274,9 +1347,13 @@ for dirpath, dirnames, filenames in os.walk(directory):
                                                              hdr, 
                                                              exptime, 
                                                              ground_based=ground_based, 
-                                                             name_key='HIP')
+                                                             name_key='Name')
 
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
 stars_table = group_each_star(large_stars_table, ground_based=ground_based)
 stars_table.pprint_all()
+transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+for index in transform_index_list:
+    filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False, index=index)
+    print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
