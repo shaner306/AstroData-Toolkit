@@ -1257,25 +1257,25 @@ def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_fi
     return filter_fci, zprime_fci
 
 
-# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
-# ground_based = True
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
+ground_based = True
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
-ground_based = False
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
+# ground_based = False
 
 reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
 large_table_columns = init_large_table_columns()
 
 for dirpath, dirnames, filenames in os.walk(directory):
     for filename in filenames:
-        # if filename.endswith(".fits"):
-        if filename.endswith("_clean.fits"):
+        if filename.endswith(".fits"):
+        # if filename.endswith("_clean.fits"):
             filepath = os.path.join(dirpath, filename)
             hdr, imgdata = read_fits_file(filepath)
-            # exptime = hdr['EXPTIME']
-            exptime = hdr['AEXPTIME']
+            exptime = hdr['EXPTIME']
+            # exptime = hdr['AEXPTIME']
             bkg, bkg_std = calculate_img_bkg(imgdata)
             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
             if not irafsources:
@@ -1306,7 +1306,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                                                              hdr, 
                                                              exptime, 
                                                              ground_based=ground_based, 
-                                                             name_key='Name')
+                                                             name_key='HIP')
 
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
