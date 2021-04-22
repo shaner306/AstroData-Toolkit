@@ -8,7 +8,7 @@ Created on Thu Apr 22 14:58:28 2021
 """
 
 import AstroFunctions as astro
-from Astropy.wcs import WCS
+from astropy.wcs import WCS
 import numpy as np
 import os
 
