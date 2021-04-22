@@ -16,13 +16,11 @@ from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable
 import astropy.units as u
 from astropy.time import Time
-from astropy.wcs import WCS
 from collections import namedtuple
 from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
-import os
 import re
 
 
