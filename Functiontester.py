@@ -12,8 +12,11 @@ from astropy.wcs import WCS
 import numpy as np
 import os
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_mod.csv'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
+
+ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_new.txt'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\Pre'
 ground_based = True
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
@@ -28,6 +31,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
         if filename.endswith(".fits"):
         # if filename.endswith("_clean.fits"):
             filepath = os.path.join(dirpath, filename)
+            print(filepath)
             hdr, imgdata = astro.read_fits_file(filepath)
             exptime = hdr['EXPTIME']
             # exptime = hdr['AEXPTIME']
@@ -61,7 +65,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                                                                    hdr, 
                                                                    exptime, 
                                                                    ground_based=ground_based, 
-                                                                   name_key='HIP')
+                                                                   name_key='Name')
 
 large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
 large_stars_table.pprint_all()
