@@ -41,3 +41,9 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 7. Satellite Matching, Tracking, and Photometry
 8. Data Outputs
     - Include success statistics (e.g. number of images that were quality data points)
+    - Errors and Margins
+    - Calculation Constants
+    - Astrometric Data
+    - Photometric Data
+    - Astrodynamic Data
+    - 
