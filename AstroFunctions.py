@@ -737,7 +737,12 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
     if num_stars > 1:
         for row in matched_stars.ref_star:
             split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
-            updated_large_table_columns.field.append(split_string[0])
+            if len(split_string) > 1:
+                updated_large_table_columns.field.append(' '.join(split_string[:-1]))
+            elif len(split_string) == 1:
+                updated_large_table_columns.field.append(split_string[0])
+            else:
+                print('Could not find the name of the field.')
         updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
         time = Time(hdr['DATE-OBS'], format='fits')
@@ -773,7 +778,12 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
         split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
-        updated_large_table_columns.field.append(split_string[0])
+        if len(split_string) > 1:
+            updated_large_table_columns.field.append(' '.join(split_string[:-1]))
+        elif len(split_string) == 1:
+            updated_large_table_columns.field.append(split_string[0])
+        else:
+            print('Could not find the name of the field.')
         updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.append(matched_stars.flux)
         time = Time(hdr['DATE-OBS'], format='fits')
@@ -1181,7 +1191,12 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     return stars_table
 
 
-def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_filter='V', instr_filter='clear'):
+def space_based_transform(stars_table, 
+                          plot_results=False, 
+                          index='(B-V)', 
+                          app_filter='V', 
+                          instr_filter='clear', 
+                          field=None):
     """
     Calculate the transforms for a space based sensor.
 
@@ -1225,6 +1240,9 @@ def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_fi
         Apparent magnitude filter band to calculate the transform for. The default is 'V'.
     instr_filter : string, optional
         Instrumental filter band to calculate the transform for. The default is 'clear'.
+    field : string, optional
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108"). 
+        The default is None.
 
     Returns
     -------
@@ -1249,7 +1267,10 @@ def space_based_transform(stars_table, plot_results=False, index='(B-V)', app_fi
         plt.plot(index_plot, filter_fci * index_plot + zprime_fci)
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{index}")
-        plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        if not field:
+            plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        else:
+            plt.title(f"{field}: ({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         plt.show()
         plt.close()
     return filter_fci, zprime_fci

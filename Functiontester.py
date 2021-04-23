@@ -81,8 +81,12 @@ for field in unique_fields['Field']:
         print("Couldn't calculate the transforms as there was only 1 star in the field.")
         continue
     for index in transform_index_list:
-        filter_fci, zprime_fci = astro.space_based_transform(field_table, plot_results=True, instr_filter='g', index=index)
-        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        filter_fci, zprime_fci = astro.space_based_transform(field_table, 
+                                                             plot_results=True, 
+                                                             instr_filter='g', 
+                                                             index=index, 
+                                                             field=field)
+        print(f"{field}: (V-g) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
 # if ground_based:
 #     filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, instr_filter='g')
 #     print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
