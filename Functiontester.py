@@ -9,6 +9,7 @@ Created on Thu Apr 22 14:58:28 2021
 
 import AstroFunctions as astro
 from astropy.wcs import WCS
+from astropy.table import unique
 import numpy as np
 import os
 
@@ -71,11 +72,22 @@ large_stars_table = astro.create_large_stars_table(large_table_columns, ground_b
 large_stars_table.pprint_all()
 stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
 stars_table.pprint_all()
-if ground_based:
-    filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, instr_filter='g')
-    print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
-else:
-    transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+unique_fields = unique(stars_table, keys='Field')
+for field in unique_fields['Field']:
+    mask = stars_table['Field'] == field
+    field_table = stars_table[mask]
+    if len(field_table) == 1:
+        print("Couldn't calculate the transforms as there was only 1 star in the field.")
+        continue
     for index in transform_index_list:
-        filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, index=index)
+        filter_fci, zprime_fci = astro.space_based_transform(field_table, plot_results=True, instr_filter='g', index=index)
         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+# if ground_based:
+#     filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, instr_filter='g')
+#     print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
+# else:
+#     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+#     for index in transform_index_list:
+#         filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, index=index)
+#         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
