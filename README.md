@@ -16,9 +16,8 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 
 5. TRM mode - _TRMtester.py_
   	1. Streak Detection Method
-        - Martin Levesque Method
-        - Brad Wallace Method
-        - Photutils combination
+        - Simple Method (Weighted Centroids/ Length filtering)
+        - Complex Method (Matched Filter/ Fast Fourier Transform)
 
   	2. Background Extraction
         - Sextractor
