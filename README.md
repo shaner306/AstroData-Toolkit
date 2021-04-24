@@ -3,11 +3,12 @@
 This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
 
 ### V1 - Created/ To Be Created
-1. Integrated Pinpoint Solving
-2. Basic Star Matching and Transform Calculations
+1. Automatic Plate Solving (Using Pinpoint)
+    1. Astroquery to be integrated (To avoid use of pinpoint)
+3. Basic Star Matching and Transform Calculations
     - With errors and Std dev integrated
-3. Standard Magnitude Calculations of Basic Stars (To be completed)
-4. Basic Star Data Collection and Output (Pinpoint Solving Point Stars)
+4. Standard Magnitude Calculations of Basic Stars (To be completed)
+5. Basic Star Data Collection and Output (Pinpoint Solving Point Stars)
       - FWHM
       - Magnitudes
       - Instrumental Mag
