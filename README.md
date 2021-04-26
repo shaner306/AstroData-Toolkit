@@ -63,3 +63,20 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 - Github created
 - Complex Star image data collection algorithm and gaussian fit (Squid inspired)
 ### Recently added functions/Capabilities (Jack): Sorted most recent first
+#### Star processor
+- Calculate ground-based transforms (in progress)
+- Calculate space-based transforms
+- Match stars in a reference file to stars detected in an image
+- Convert star positions from x,y to RA/dec and Alt/Az
+- Calculate flux, instrumental magnitude, and instrumental magnitude standard deviations
+- Calculate FWHM of all sources in an image
+- Detect point sources in an image
+- Calculate median and standard deviation background values
+- Read a fits file
+#### Light curve/satellite processor
+- Interpolate to find the time-resolved colour indices of each satellite
+- Plot seeing (FWHM) as a function of time
+- Have a UI to input the locations of the desired satellites
+- Match detected sources to satellite positions
+- Calculate statistics (fwhm, magnitude, standard deviation of the magnitude) on the detected sources
+- Detect point sources and their x,y locations
