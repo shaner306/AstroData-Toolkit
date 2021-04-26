@@ -47,3 +47,19 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
     - Photometric Data
     - Astrodynamic Data
     - 
+
+### Recently added functions/Capabilities (Shane): Sorted most recent first
+- Background Estimators (Mean, Mode, Median, SExtractor, Filtered, _Polyfit Coming soon_) - April 26th
+- Star Removal Background Generator + Star Eraser
+- Basic track rate mode algorithm (tested on neossat only)
+- Saturated star finder
+- Iterative Background Extraction
+- Edge clipping
+- Moment, Eccentricity, Centroid, and Compact Calculator for streaks
+- Point Source Flux Extraction (non pinpoint)
+- Dedicated Functions file
+- FAST Transforms Calculator of ref star image
+- Reference star Search and Detection
+- Github created
+
+### Recently added functions/Capabilities (Jack): Sorted most recent first
