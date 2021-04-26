@@ -738,10 +738,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         for row in matched_stars.ref_star:
             split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
             if len(split_string) > 1:
-                print(' '.join(split_string[:-1]))
                 updated_large_table_columns.field.append(' '.join(split_string[:-1]))
             elif len(split_string) == 1:
-                print(split_string[0])
                 updated_large_table_columns.field.append(split_string[0])
             else:
                 print('Could not find the name of the field.')
@@ -781,10 +779,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
     elif num_stars == 1:
         split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
         if len(split_string) > 1:
-            print(' '.join(split_string[:-1]))
             updated_large_table_columns.field.append(' '.join(split_string[:-1]))
         elif len(split_string) == 1:
-            print(split_string[0])
             updated_large_table_columns.field.append(split_string[0])
         else:
             print('Could not find the name of the field.')
