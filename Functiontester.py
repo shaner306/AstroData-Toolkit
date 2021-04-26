@@ -26,6 +26,7 @@ ground_based = True
 
 reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
 large_table_columns = astro.init_large_table_columns()
+gb_transform_table_columns = astro.init_gb_transform_table_columns()
 
 for dirpath, dirnames, filenames in os.walk(directory):
     for filename in filenames:
@@ -61,32 +62,52 @@ for dirpath, dirnames, filenames in os.walk(directory):
             if not matched_stars:
                 continue
             
-            large_table_columns = astro.update_large_table_columns(large_table_columns, 
-                                                                   matched_stars, 
-                                                                   hdr, 
-                                                                   exptime, 
-                                                                   ground_based=ground_based, 
-                                                                   name_key='Name')
+            instr_filter = astro.get_instr_filter_name(hdr)
+            try:
+                len(matched_stars.img_instr_mag)
+            except TypeError:
+                continue
+            _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+            field = astro.get_field_name(matched_stars, name_key='Name')
+            c_fci, zprime_f = astro.ground_based_first_order_transforms(matched_stars, instr_filter)
+            gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                 field,
+                                                                                 c_fci,
+                                                                                 zprime_f,
+                                                                                 instr_filter,
+                                                                                 colour_index,
+                                                                                 altazpositions)
+            
+            # large_table_columns = astro.update_large_table_columns(large_table_columns, 
+            #                                                        matched_stars, 
+            #                                                        hdr, 
+            #                                                        exptime, 
+            #                                                        ground_based=ground_based, 
+            #                                                        name_key='Name')
 
-large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
-large_stars_table.pprint_all()
-stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
-stars_table.pprint_all()
-transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
-unique_fields = unique(stars_table, keys='Field')
-for field in unique_fields['Field']:
-    mask = stars_table['Field'] == field
-    field_table = stars_table[mask]
-    if len(field_table) == 1:
-        print("Couldn't calculate the transforms as there was only 1 star in the field.")
-        continue
-    for index in transform_index_list:
-        filter_fci, zprime_fci = astro.space_based_transform(field_table, 
-                                                             plot_results=True, 
-                                                             instr_filter='g', 
-                                                             index=index, 
-                                                             field=field)
-        print(f"{field}: (V-g) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+
+gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
+gb_transform_table.pprint_all()
+
+# large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
+# large_stars_table.pprint_all()
+# stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
+# stars_table.pprint_all()
+# transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+# unique_fields = unique(stars_table, keys='Field')
+# for field in unique_fields['Field']:
+#     mask = stars_table['Field'] == field
+#     field_table = stars_table[mask]
+#     if len(field_table) == 1:
+#         print("Couldn't calculate the transforms as there was only 1 star in the field.")
+#         continue
+#     for index in transform_index_list:
+#         filter_fci, zprime_fci = astro.space_based_transform(field_table, 
+#                                                              plot_results=True, 
+#                                                              instr_filter='g', 
+#                                                              index=index, 
+#                                                              field=field)
+#         print(f"{field}: (V-g) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
 # if ground_based:
 #     filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, instr_filter='g')
 #     print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
