@@ -17,7 +17,7 @@ import os
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Solved Images\HIP 2894'
 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_new.txt'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\Pre'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars'
 ground_based = True
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
@@ -88,6 +88,31 @@ for dirpath, dirnames, filenames in os.walk(directory):
 
 gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
 gb_transform_table.pprint_all()
+
+import matplotlib.pyplot as plt
+unique_filters = unique(gb_transform_table, keys='filter')
+for unique_filter_row in unique_filters:
+    unique_filter = unique_filter_row['filter']
+    current_index = unique_filter_row['CI']
+    mask = gb_transform_table['filter'] == unique_filter
+    current_filter = gb_transform_table[mask]
+    X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
+    m, b = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
+    plt.plot(current_filter['X'], current_filter['C_fCI'], 'o')
+    plt.plot(X_plot, m*X_plot+b)
+    plt.title(f'C_({unique_filter}{current_index}) = {m:.3f} * X + {b:.3f}')
+    plt.ylabel(f'C_({unique_filter}{current_index})')
+    plt.xlabel('X')
+    plt.show()
+    plt.close()
+    m, b = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
+    plt.plot(current_filter['X'], current_filter['Zprime_f'], 'o')
+    plt.plot(X_plot, m*X_plot+b)
+    plt.title(f'Z\'_({unique_filter}) = {m:.3f} * X + {b:.3f}')
+    plt.ylabel(f'Z\'_({unique_filter})')
+    plt.xlabel('X')
+    plt.show()
+    plt.close()
 
 # large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
 # large_stars_table.pprint_all()
