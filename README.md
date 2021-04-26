@@ -61,5 +61,5 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 - FAST Transforms Calculator of ref star image
 - Reference star Search and Detection
 - Github created
-
+- Complex Star image data collection algorithm and gaussian fit (Squid inspired)
 ### Recently added functions/Capabilities (Jack): Sorted most recent first
