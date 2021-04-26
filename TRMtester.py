@@ -168,6 +168,8 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     return x_centroid, x_rms, y_centroid, y_rms
 
 streak = 'D:\\Wawrow\\2. Observational Data\\2021-02-07 - Calibrated\\Intelsat 10-02\\LIGHT\\G\\0150_3x3_-10.00_5.00_G_19-43-13.fits'
+streak1 = 'D:\\trm-stars-images\\NEOS_SCI_2021099173159frame.fits'
+
 imagehdularray = fits.open(streak)
 
 streak_array = [];         
@@ -193,8 +195,8 @@ bkg_estimator2 = SExtractorBackground()
 #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
 bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
 bg_rem = fitsdata - bkg.background
-#print(bkg_value)
-#print(mean(bg_rem))
+
+print(mean(bkg.background))
 
 bg_rem[1:edge_protect,1:edge_protect] = 0;
 bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
