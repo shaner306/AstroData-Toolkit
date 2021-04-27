@@ -1,10 +1,26 @@
 # Astro2
 
 This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
+## Version 1.0
+### AstroSolver (In Progress)
+1. Stage 1 - Data Input 
+    - Enter Image Folders (Decide on Parameters, different filtered images)
+    - Execute Program
+    - Read Folder and FITS files, save HEADER data of first file
+    - Generate Output Logs
+    - Import Reference Star Database data for searching
+ 
+2. Stage 2 - Data Processing
+    - Automatic Plate Solving (Using Pinpoint)
+    - Astroquery to be integrated (To avoid use of pinpoint)
 
-### V1 - Created/ To Be Created
-1. Automatic Plate Solving (Using Pinpoint)
-    1. Astroquery to be integrated (To avoid use of pinpoint)
+3. Stage 3 - Data Output
+### AstroReducer (In Progress)
+
+
+#### Upcoming
+    - Documentation and User Manual
+    - Comments
 3. Basic Star Matching and Transform Calculations
     - With errors and Std dev integrated
 4. Standard Magnitude Calculations of Basic Stars (To be completed)
