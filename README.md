@@ -69,6 +69,7 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 <hr>
 
 ### Recently added functions/Capabilities (Shane): Sorted most recent first
+- Gaussian and Moffat Fitting of PSF
 - Background Estimators (Mean, Mode, Median, SExtractor, Filtered, _Polyfit Coming soon_) - April 26th
 - Star Removal Background Generator + Star Eraser
 - Basic track rate mode algorithm (tested on neossat only)
