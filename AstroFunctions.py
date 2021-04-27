@@ -73,6 +73,22 @@ def read_fits_file(filepath):
     return hdr, imgdata
 
 def get_instr_filter_name(hdr, filter_key='FILTER'):
+    """
+    Get the name of the filter used when taking the image.
+
+    Parameters
+    ----------
+    hdr : astropy.io.fits.header.Header
+        Header from the fits file.
+    filter_key : string, optional
+        Keyword of the entry in the FITS header that contains the filter information. The default is 'FILTER'.
+
+    Returns
+    -------
+    instr_filter : string
+        Instrumental filter band of the image.
+
+    """
     instr_filter = hdr[filter_key].lower()
     return instr_filter
 
@@ -488,6 +504,45 @@ def find_ref_stars(reference_stars,
 
 
 def get_field_name(matched_stars, name_key='Name'):
+    """
+    Get the name of the field of the matched stars in the image.
+
+    Parameters
+    ----------
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            flux : numpy array
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
+            img_star_airmass : float
+                sec(z) of img_star_altaz. None if ground_based is False.
+    name_key : string, optional
+        The column name of the unique identifier/star name in matched_stars.ref_star. The default is 'Name'.
+
+    Returns
+    -------
+    field : string
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+
+    """
     try:
         num_stars = len(matched_stars.img_instr_mag)
     except TypeError:
@@ -1442,6 +1497,44 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
 
 
 def create_gb_transform_table(gb_transform_table_columns):
+    """
+    Convert the columns of the ground-based transform table into an AstroPy table.
+
+    Parameters
+    ----------
+    gb_transform_table_columns : namedtuple
+        Attributes:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            c_fci : np.float64
+                C coefficient for filter f with colour index ci.
+            zprime_f : numpy.float64
+                Z' coefficient for filter f.
+            instr_filter : string list
+                Instrumental filter band to calculate the transform for.
+            colour_index : string list
+                Name of the colour index used to calculate c_fci and zprime_f.
+            airmass : numpy.float64
+                The mean airmass for all sources in the image.
+
+    Returns
+    -------
+    gb_transform_table : astropy.table.Table
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            C_fCI : np.float64
+                C coefficient for filter f with colour index ci.
+            Zprime_f : numpy.float64
+                Z' coefficient for filter f.
+            filter : string list
+                Instrumental filter band to calculate the transform for.
+            CI : string list
+                Name of the colour index used to calculate c_fci and zprime_f.
+            X : numpy.float64
+                The mean airmass for all sources in the image.
+
+    """
     gb_transform_table = Table(
         names=[
             'Field',
@@ -1466,6 +1559,7 @@ def create_gb_transform_table(gb_transform_table_columns):
 def get_app_mag_and_index(ref_star, instr_filter):
     """
     Get the desired apparent magnitude and colour filter for the particular instr_filter.
+    
     Parameters
     ----------
     ref_star : astropy.table.Table
@@ -1519,6 +1613,52 @@ def get_app_mag_and_index(ref_star, instr_filter):
 
 
 def ground_based_first_order_transforms(matched_stars, instr_filter, plot_results=False, field=None):
+    """
+    Perform the intermediary step to calculating the ground based transforms.
+
+    Parameters
+    ----------
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            flux : numpy array
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image.
+            img_star_airmass : float
+                sec(z) of img_star_altaz.
+    instr_filter : string
+        Instrumental filter band to calculate the transform for.
+    plot_results : bool, optional
+        Controls whether or not to plot the results from the transforms. The default is False.
+    field : string, optional
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108"). 
+        The default is None.
+
+    Returns
+    -------
+    c_fci : float
+        C coefficient for filter f with colour index ci.
+    zprime_fci : TYPE
+        Z' coefficient for filter f.
+
+    """
     try:
         len(matched_stars.img_instr_mag)
     except TypeError:
@@ -1528,7 +1668,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
     err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    filter_fci, zprime_fci = np.polyfit(matched_stars.ref_star[colour_index], app_mag - matched_stars.img_instr_mag, 1, 
+    c_fci, zprime_fci = np.polyfit(matched_stars.ref_star[colour_index], app_mag - matched_stars.img_instr_mag, 1, 
                                         full=False, w=1/err_sum)
     if plot_results:
         index_plot = np.arange(start=min(matched_stars.ref_star[colour_index])-0.2, 
@@ -1536,19 +1676,59 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
                                step=0.1)
         plt.errorbar(matched_stars.ref_star[colour_index], app_mag - matched_stars.img_instr_mag, 
                      yerr=err_sum, fmt='o', capsize=2)
-        plt.plot(index_plot, filter_fci * index_plot + zprime_fci)
+        plt.plot(index_plot, c_fci * index_plot + zprime_fci)
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{colour_index}")
         if not field:
-            plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {colour_index} + {zprime_fci:.3f}")
+            plt.title(f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_fci:.3f}")
         else:
-            plt.title(f"{field}: ({app_filter}-{instr_filter}) = {filter_fci:.3f} * {colour_index} + {zprime_fci:.3f}")
+            plt.title(f"{field}: ({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_fci:.3f}")
         plt.show()
         plt.close()
-    return filter_fci, zprime_fci
+    return c_fci, zprime_fci
 
 
 def ground_based_second_order_transforms(gb_transform_table, plot_results=False):
+    """
+    Perform the final step in calculating the transforms for a ground-based observatory.
+
+    Parameters
+    ----------
+    gb_transform_table : astropy.table.Table
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            C_fCI : np.float64
+                C coefficient for filter f with colour index ci.
+            Zprime_f : numpy.float64
+                Z' coefficient for filter f.
+            filter : string list
+                Instrumental filter band to calculate the transform for.
+            CI : string list
+                Name of the colour index used to calculate c_fci and zprime_f.
+            X : numpy.float64
+                The mean airmass for all sources in the image.
+    plot_results : bool, optional
+        Controls whether or not to plot the results from the transforms. The default is False.
+
+    Returns
+    -------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+
+    """
     gb_final_transforms = Table()
     unique_filters = table.unique(gb_transform_table, keys='filter')
     num_filters = len(unique_filters)
