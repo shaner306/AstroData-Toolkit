@@ -1759,7 +1759,6 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
         gb_final_transforms['CI'][unique_filter_index] = current_index
         mask = gb_transform_table['filter'] == unique_filter
         current_filter = gb_transform_table[mask]
-        X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
         kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
         kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
         gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
@@ -1767,17 +1766,20 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
         gb_final_transforms['k\'_f'][unique_filter_index] = kprime_f
         gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
         if plot_results:
+            X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
+            ci_plot = re.sub('[^a-zA-Z]+', '', current_index)
+            ci_plot = ci_plot.lower()
             plt.plot(current_filter['X'], current_filter['C_fCI'], 'o')
             plt.plot(X_plot, kprimeprime_fci*X_plot+t_fci)
-            plt.title(f'C_({unique_filter}{current_index}) = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
-            plt.ylabel(f'C_({unique_filter}{current_index})')
+            plt.title(f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
+            plt.ylabel(f'C_{unique_filter}{ci_plot}')
             plt.xlabel('X')
             plt.show()
             plt.close()
             plt.plot(current_filter['X'], current_filter['Zprime_f'], 'o')
             plt.plot(X_plot, kprime_f*X_plot+zprime_f)
-            plt.title(f'Z\'_({unique_filter}) = {kprime_f:.3f} * X + {zprime_f:.3f}')
-            plt.ylabel(f'Z\'_({unique_filter})')
+            plt.title(f'Z\'_{unique_filter} = {kprime_f:.3f} * X + {zprime_f:.3f}')
+            plt.ylabel(f'Z\'_{unique_filter}')
             plt.xlabel('X')
             plt.show()
             plt.close()
