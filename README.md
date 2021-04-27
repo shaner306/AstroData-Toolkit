@@ -1,7 +1,7 @@
 # Astro2
 
 This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
-## Version 1.0 (Not Released Yet)
+## Version 1.0 (In Development)
 ### AstroSolver (In Progress)
 1. Stage 1 - Data Input 
     - Enter Image Folders (Decide on Parameters, different filtered images)
