@@ -64,7 +64,7 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
 - Complex Star image data collection algorithm and gaussian fit (Squid inspired)
 ### Recently added functions/Capabilities (Jack): Sorted most recent first
 #### Star processor
-- Calculate ground-based transforms (in progress)
+- Calculate ground-based transforms
 - Calculate space-based transforms
 - Match stars in a reference file to stars detected in an image
 - Convert star positions from x,y to RA/dec and Alt/Az
