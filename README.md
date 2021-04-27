@@ -11,16 +11,27 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
     - Import Reference Star Database data for searching
  
 2. Stage 2 - Data Processing
-    - Automatic Plate Solving (Using Pinpoint)
-    - Astroquery to be integrated (To avoid use of pinpoint)
+    - Solve image with pinpoint and IRAFstarfinder (data from both)
+    - Scan image for ref star
+    - Report pinpoint and IRAF data to report log and table
 
 3. Stage 3 - Data Output
+    - Calculate first, second order transforms and coeffieicents if possible (GBO only?)
+    - Background subtraction and estimation
+    - Fit Moffat, gaussian profiles for PSF
+    - Output all data to spread sheet
+
+3. Stage 4 - Data Visualization
+    - Light Curves and Plots
+    - PSF Plots
+    - Images saved to output folder with spreadsheets
+
+
 ### AstroReducer (In Progress)
 
+<hr>
 
-#### Upcoming
-    - Documentation and User Manual
-    - Comments
+## Upcoming in V2
 3. Basic Star Matching and Transform Calculations
     - With errors and Std dev integrated
 4. Standard Magnitude Calculations of Basic Stars (To be completed)
@@ -30,7 +41,6 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
       - Instrumental Mag
       - Flux, Stellar Flux, Visual Magnitude, gaussian data, errors
       - Location
-
 5. TRM mode - _TRMtester.py_
   	1. Streak Detection Method
         - Simple Method (Weighted Centroids/ Length filtering)
@@ -46,14 +56,10 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
         - ImageStarsCache stars Creation
         - Pinpoint Interpretation
         - Pinpoint Solving
-        
- 
 6.   Light Curves
         - Satellites
         - Point Stars
         - Streaked Stars (Possibly)
-
-
 7. Satellite Matching, Tracking, and Photometry
 8. Data Outputs
     - Include success statistics (e.g. number of images that were quality data points)
@@ -62,7 +68,9 @@ This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Pho
     - Astrometric Data
     - Photometric Data
     - Astrodynamic Data
-    - 
+
+
+<hr>
 
 ### Recently added functions/Capabilities (Shane): Sorted most recent first
 - Background Estimators (Mean, Mode, Median, SExtractor, Filtered, _Polyfit Coming soon_) - April 26th
