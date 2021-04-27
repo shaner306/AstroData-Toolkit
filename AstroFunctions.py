@@ -1546,3 +1546,60 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
         plt.show()
         plt.close()
     return filter_fci, zprime_fci
+
+
+def ground_based_second_order_transforms(gb_transform_table, plot_results=False):
+    gb_final_transforms = Table()
+    unique_filters = table.unique(gb_transform_table, keys='filter')
+    num_filters = len(unique_filters)
+    nan_array = np.empty(num_filters)
+    nan_array.fill(np.nan)
+    gb_final_transforms = Table(
+        names=[
+            'filter',
+            'CI',
+            'k\'\'_fCI',
+            'T_fCI',
+            'k\'_f',
+            'Z_f'
+            ],
+        data=[
+            np.empty(num_filters, dtype=object),
+            np.empty(num_filters, dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+            ]
+        )
+    for unique_filter_index, unique_filter_row in enumerate(unique_filters):
+        unique_filter = unique_filter_row['filter']
+        current_index = unique_filter_row['CI']
+        gb_final_transforms['filter'][unique_filter_index] = unique_filter
+        gb_final_transforms['CI'][unique_filter_index] = current_index
+        mask = gb_transform_table['filter'] == unique_filter
+        current_filter = gb_transform_table[mask]
+        X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
+        kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
+        kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
+        gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
+        gb_final_transforms['T_fCI'][unique_filter_index] = t_fci
+        gb_final_transforms['k\'_f'][unique_filter_index] = kprime_f
+        gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
+        if plot_results:
+            plt.plot(current_filter['X'], current_filter['C_fCI'], 'o')
+            plt.plot(X_plot, kprimeprime_fci*X_plot+t_fci)
+            plt.title(f'C_({unique_filter}{current_index}) = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
+            plt.ylabel(f'C_({unique_filter}{current_index})')
+            plt.xlabel('X')
+            plt.show()
+            plt.close()
+            plt.plot(current_filter['X'], current_filter['Zprime_f'], 'o')
+            plt.plot(X_plot, kprime_f*X_plot+zprime_f)
+            plt.title(f'Z\'_({unique_filter}) = {kprime_f:.3f} * X + {zprime_f:.3f}')
+            plt.ylabel(f'Z\'_({unique_filter})')
+            plt.xlabel('X')
+            plt.show()
+            plt.close()
+    
+    return gb_final_transforms
