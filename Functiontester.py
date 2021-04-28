@@ -92,10 +92,11 @@ gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
 gb_transform_table.pprint_all()
 
 # mask = gb_transform_table['X'] < 2.1
+# mask = gb_transform_table['Field'] != '106'
 # gb_transform_table = gb_transform_table[mask]
 # gb_transform_table.pprint_all()
 
-gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table)
+gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=True)
 gb_final_transforms.pprint_all()
 
 import matplotlib.pyplot as plt
