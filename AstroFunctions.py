@@ -151,7 +151,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=5*bkg_std, fwhm=fwhm)
+    iraffind = IRAFStarFinder(threshold=4*bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
