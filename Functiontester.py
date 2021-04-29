@@ -39,6 +39,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
             # exptime = hdr['AEXPTIME']
             bkg, bkg_std = astro.calculate_img_bkg(imgdata)
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+            print(len(irafsources))
             if not irafsources:
                 continue
             fwhm, fwhm_std = astro.calculate_fwhm(irafsources)
