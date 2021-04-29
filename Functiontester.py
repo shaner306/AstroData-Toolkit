@@ -83,6 +83,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                     )
             try:
                 len(matched_stars.img_instr_mag)
+                print(len(matched_stars.img_instr_mag))
             except TypeError:
                 print("Only 1 reference star detected in the image.")
                 continue
