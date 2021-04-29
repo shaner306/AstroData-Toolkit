@@ -33,13 +33,13 @@ for dirpath, dirnames, filenames in os.walk(directory):
         if filename.endswith(".fits"):
         # if filename.endswith("_clean.fits"):
             filepath = os.path.join(dirpath, filename)
-            print(filepath)
+            # print(filepath)
             hdr, imgdata = astro.read_fits_file(filepath)
             exptime = hdr['EXPTIME']
             # exptime = hdr['AEXPTIME']
             bkg, bkg_std = astro.calculate_img_bkg(imgdata)
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-            print(len(irafsources))
+            # print(len(irafsources))
             if not irafsources:
                 continue
             fwhm, fwhm_std = astro.calculate_fwhm(irafsources)
@@ -83,7 +83,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                     )
             try:
                 len(matched_stars.img_instr_mag)
-                print(len(matched_stars.img_instr_mag))
+                # print(len(matched_stars.img_instr_mag))
             except TypeError:
                 print("Only 1 reference star detected in the image.")
                 continue
