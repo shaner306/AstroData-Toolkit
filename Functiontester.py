@@ -108,7 +108,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
 gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
 gb_transform_table.pprint_all()
 
-mask = gb_transform_table['X'] < 2.1
+mask = gb_transform_table['X'] <= 2.0
 # mask = gb_transform_table['Field'] != '106'
 gb_transform_table = gb_transform_table[mask]
 gb_transform_table.pprint_all()
