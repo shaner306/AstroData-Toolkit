@@ -27,8 +27,10 @@ from photutils.aperture import RectangularAperture
 matplotlib.use('TkAgg')
 
 # The directory where the Intelsat 10-02 files are stored.
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
-stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
+# stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
+stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
 catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
 
 b_zpoints = []
@@ -670,7 +672,7 @@ g_times_datetime = g_times_obj.to_value('datetime')
 fig, ax = plt.subplots()
 plt.errorbar(g_times_datetime, avg_sat_fwhm, yerr=avg_sat_fwhm_std, fmt='o', markersize=3, capsize=2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-plt.title('G Band Seeing - 20 Mar')
+plt.title('G Band Seeing - 21 Apr')
 plt.ylabel('FWHM (arcsec)')
 plt.xlabel('Time (UTC)')
 plt.show(block=True)
@@ -712,7 +714,7 @@ for sat in sat_names:
     plt.gca().invert_yaxis()
     ax.set_xlabel("Time (UTC)")
     fig.legend()
-    plt.title(f'{sat} Light Curve - 20 Mar')
+    plt.title(f'{sat} Light Curve - 21 Apr')
     plt.show(block=True)
     # plt.pause(5)
     plt.close()
