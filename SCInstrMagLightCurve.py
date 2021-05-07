@@ -28,10 +28,12 @@ matplotlib.use('TkAgg')
 
 # The directory where the Intelsat 10-02 files are stored.
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
-# stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
+stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
-stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
+# stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
 catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
+
+date_string = '21 Apr'
 
 b_zpoints = []
 g_zpoints = []
@@ -41,7 +43,7 @@ for dirpath, dirnames, filenames in os.walk(stars_directory):
     for filename in filenames:
         if filename.endswith(".fits"):
             filepath = os.path.join(dirpath, filename)
-            # print(filepath)
+            # print(filepath)d
             with fits.open(filepath) as image:
                 hdr = image[0].header
             
@@ -111,6 +113,16 @@ g_zpoint_std = g_zpoints.std()
 print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
 r_zpoint = r_zpoints.mean()
 r_zpoint_std = r_zpoints.std()
+print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
+
+b_zpoint = 20
+b_zpoint_std = 0
+print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
+g_zpoint = 20
+g_zpoint_std = 0
+print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
+r_zpoint = 20
+r_zpoint_std = 0
 print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
 """
@@ -648,10 +660,10 @@ for filter_ in unique_filters['Filter']:
         r_uncertainty_table = uncertainty_table[mask]
         r_fwhm_table = sat_fwhm_table[mask]
 # ascii.write(b_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_instr_mags.csv', format='csv', overwrite=True)
-# ascii.write(g_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_instr_mags.csv', format='csv', overwrite=True)
+ascii.write(g_sats_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_instr_mags.csv', format='csv', overwrite=True)
 # ascii.write(r_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_instr_mags.csv', format='csv', overwrite=True)
 # ascii.write(b_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_uncertainty.csv', format='csv', overwrite=True)
-# ascii.write(g_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_uncertainty.csv', format='csv', overwrite=True)
+ascii.write(g_uncertainty_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_uncertainty.csv', format='csv', overwrite=True)
 # ascii.write(r_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_uncertainty.csv', format='csv', overwrite=True)
 # ascii.write(b_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_fwhm.csv', format='csv', overwrite=True)
 # ascii.write(g_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_fwhm.csv', format='csv', overwrite=True)
@@ -672,7 +684,7 @@ g_times_datetime = g_times_obj.to_value('datetime')
 fig, ax = plt.subplots()
 plt.errorbar(g_times_datetime, avg_sat_fwhm, yerr=avg_sat_fwhm_std, fmt='o', markersize=3, capsize=2)
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-plt.title('G Band Seeing - 21 Apr')
+plt.title(f'G Band Seeing - {date_string}')
 plt.ylabel('FWHM (arcsec)')
 plt.xlabel('Time (UTC)')
 plt.show(block=True)
@@ -714,7 +726,7 @@ for sat in sat_names:
     plt.gca().invert_yaxis()
     ax.set_xlabel("Time (UTC)")
     fig.legend()
-    plt.title(f'{sat} Light Curve - 21 Apr')
+    plt.title(f'{sat} Light Curve - {date_string}')
     plt.show(block=True)
     # plt.pause(5)
     plt.close()
