@@ -1832,3 +1832,6 @@ def apply_transforms(gb_final_transforms, unknown_object_table):
     """
     app_mag_table = Table(names=['time', 'filter', 'apparent mag'])
     return app_mag_table
+
+
+# TODO: change the SCInstrMagLightCurve.py code into functions in this file.
