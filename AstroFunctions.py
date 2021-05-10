@@ -1830,6 +1830,7 @@ def apply_transforms(gb_final_transforms, unknown_object_table):
                 Apparent magnitude of the source after applying the transforms.
 
     """
+    # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
     app_mag_table = Table(names=['time', 'filter', 'apparent mag'])
     return app_mag_table
 
