@@ -1786,3 +1786,49 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
             plt.close()
     
     return gb_final_transforms
+
+
+def apply_transforms(gb_final_transforms, unknown_object_table):
+    """
+    Apply the transforms to a source with an unknown standard magnitude.
+
+    Parameters
+    ----------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    unknown_object_table : astropy.table.Table
+        Table containing the stars to calculate the apparent magnitudes for. Has columns:
+            time : float
+                Julian date that the image was taken.
+            filter : string
+                Instrumental filter band used to take the image.
+            instrumental mag : float
+                Instrumental magnitude of the source.
+                TODO: Change this so that it accepts multiple sources somehow.
+
+    Returns
+    -------
+    app_mag_table : astropy.table.Table
+        Table containing the apparent magnitudes of the object after applying the transforms. Has columns:
+            time : float
+                Julian date that the image was taken.
+            filter : string
+                Apparent filter that the image was transformed to.
+            apparent mag : float
+                Apparent magnitude of the source after applying the transforms.
+
+    """
+    app_mag_table = Table(names=['time', 'filter', 'apparent mag'])
+    return app_mag_table
