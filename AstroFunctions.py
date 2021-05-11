@@ -1788,7 +1788,67 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
     return gb_final_transforms
 
 
-def apply_transforms(gb_final_transforms, unknown_object_table):
+# TODO
+# This will be harder than I thought. Namely, keeping track of which star was which when it's not known (unless maybe 
+# I do assume to know it because it is just a check? Maybe by using matched_stars or large_stars_table instead of 
+# creating a whole new table?). Either way, I'll start to convert the light curve code first and then come back to this 
+# later.
+
+
+def init_unknown_object_table_columns():
+    """
+    Initialize the columns that will create the unknown object table.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    instr_filter = []
+    name = []
+    instr_mag = []
+    
+    unknown_object_table_columns = namedtuple('unknown_object_table_columns', 
+                                              ['instr_filter',
+                                              'name',
+                                              'instr_mag'])
+    return unknown_object_table_columns(instr_filter, 
+                                        name, 
+                                        instr_mag)
+
+
+def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, filter_key='FILTER'):
+    """
+    Update the columns tha will create the unknown object table.
+
+    Parameters
+    ----------
+    unknown_object_table_columns : TYPE
+        DESCRIPTION.
+    hdr : TYPE
+        DESCRIPTION.
+    instr_mag : TYPE
+        DESCRIPTION.
+    filter_key : TYPE, optional
+        DESCRIPTION. The default is 'FILTER'.
+
+    Returns
+    -------
+    updated_unknown_object_table_columns : TYPE
+        DESCRIPTION.
+
+    """
+    updated_unknown_object_table_columns = unknown_object_table_columns
+    instr_filter = get_instr_filter_name(hdr=hdr, filter_key=filter_key)
+    name = hdr['OBJECT']
+    updated_unknown_object_table_columns.instr_filter.append(instr_filter)
+    updated_unknown_object_table_columns.name.append(name)
+    updated_unknown_object_table_columns.instr_mag.append(instr_mag)
+    return updated_unknown_object_table_columns 
+
+
+def apply_gb_transforms(gb_final_transforms, unknown_object_table):
     """
     Apply the transforms to a source with an unknown standard magnitude.
 
@@ -1810,10 +1870,10 @@ def apply_transforms(gb_final_transforms, unknown_object_table):
                 The zero point magnitude for filter f.
     unknown_object_table : astropy.table.Table
         Table containing the stars to calculate the apparent magnitudes for. Has columns:
-            time : float
-                Julian date that the image was taken.
             filter : string
                 Instrumental filter band used to take the image.
+            name : string
+                Unique identifier of the source to apply the transform to.
             instrumental mag : float
                 Instrumental magnitude of the source.
                 TODO: Change this so that it accepts multiple sources somehow.
@@ -1833,6 +1893,39 @@ def apply_transforms(gb_final_transforms, unknown_object_table):
     # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
     app_mag_table = Table(names=['time', 'filter', 'apparent mag'])
     return app_mag_table
+
+
+def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
+    """
+    Apply the transforms to a timeseries of observations.
+
+    Parameters
+    ----------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    large_sats_table : astropy.table.Table
+        DESCRIPTION.
+
+    Returns
+    -------
+    app_large_sats_table : TYPE
+        DESCRIPTION.
+
+    """
+    app_large_sats_table = large_sats_table
+    return app_large_sats_table
 
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
