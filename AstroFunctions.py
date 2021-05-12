@@ -1613,7 +1613,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
     return app_mag, app_mag_sigma, app_filter, colour_index
 
 
-def ground_based_first_order_transforms(matched_stars, instr_filter, plot_results=False, field=None):
+def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, plot_results=False, field=None):
     """
     Perform the intermediary step to calculating the ground based transforms.
 
@@ -1646,6 +1646,8 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
                 sec(z) of img_star_altaz.
     instr_filter : string
         Instrumental filter band to calculate the transform for.
+    colour_index : string
+        TODO
     plot_results : bool, optional
         Controls whether or not to plot the results from the transforms. The default is False.
     field : string, optional
@@ -1664,7 +1666,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
         len(matched_stars.img_instr_mag)
     except TypeError:
         return
-    app_mag, app_mag_sigma, app_filter, colour_index = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
     err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
@@ -1687,6 +1689,25 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
         plt.show()
         plt.close()
     return c_fci, zprime_fci
+
+
+def get_all_colour_indices(instr_filter):
+    if instr_filter == 'b':
+        colour_indices = ['B-V']
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_indices = ['B-V', 'V-R', 'V-I']
+    elif instr_filter == 'r':
+        colour_indices = ['V-R']
+    elif instr_filter == 'i':
+        colour_indices = ['V-I']
+    else:
+        colour_indices = None
+    return colour_indices
+
+
+def remove_large_airmass(gb_transform_table, max_airmass=2.0):
+    gb_transform_table = gb_transform_table[gb_transform_table['X'] <= 2.0]
+    return gb_transform_table
 
 
 def ground_based_second_order_transforms(gb_transform_table, plot_results=False):
@@ -1731,7 +1752,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 
     """
     gb_final_transforms = Table()
-    unique_filters = table.unique(gb_transform_table, keys='filter')
+    unique_filters = table.unique(gb_transform_table, keys=['filter', 'CI'])
     num_filters = len(unique_filters)
     nan_array = np.empty(num_filters)
     nan_array.fill(np.nan)
@@ -1758,7 +1779,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
         current_index = unique_filter_row['CI']
         gb_final_transforms['filter'][unique_filter_index] = unique_filter
         gb_final_transforms['CI'][unique_filter_index] = current_index
-        mask = gb_transform_table['filter'] == unique_filter
+        mask = ((gb_transform_table['filter'] == unique_filter) & (gb_transform_table['CI'] == current_index))
         current_filter = gb_transform_table[mask]
         kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
         kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
@@ -1793,6 +1814,38 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 # I do assume to know it because it is just a check? Maybe by using matched_stars or large_stars_table instead of 
 # creating a whole new table?). Either way, I'll start to convert the light curve code first and then come back to this 
 # later.
+
+
+def get_colour_index_lower(instr_filter):
+    """
+    Get the colour index for the desired instrumental filter band.
+
+    Parameters
+    ----------
+    instr_filter : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    colour_index : TYPE
+        DESCRIPTION.
+    ci : TYPE
+        DESCRIPTION.
+
+    """
+    if instr_filter == 'b':
+        colour_index = 'B-V'
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_index = 'B-V'
+    elif instr_filter == 'r':
+        colour_index = 'V-R'
+    elif instr_filter == 'i':
+        colour_index = 'V-I'
+    else:
+        colour_index = None
+    ci = re.sub('[^a-zA-Z]+', '', colour_index)
+    ci = ci.lower()
+    return colour_index, ci
 
 
 def init_unknown_object_table_columns():
@@ -1845,7 +1898,103 @@ def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, f
     updated_unknown_object_table_columns.instr_filter.append(instr_filter)
     updated_unknown_object_table_columns.name.append(name)
     updated_unknown_object_table_columns.instr_mag.append(instr_mag)
-    return updated_unknown_object_table_columns 
+    return updated_unknown_object_table_columns
+
+def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+    row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'v':
+        instr_filter = 'g'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
+    c_fci = float(row_of_transforms['T_fCI']) - (float(row_of_transforms["k''_fCI"]) * airmass)
+    return c_fci
+
+
+def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
+    """
+    Calculate the C' coefficient to use when applying the transforms.
+
+    Parameters
+    ----------
+    gb_final_transforms : TYPE
+        DESCRIPTION.
+    instr_filter : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    c_prime_fci : TYPE
+        DESCRIPTION.
+        TODO
+
+    """
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index)
+    c_negative = calculate_c_fci(gb_final_transforms, ci[0], airmass, colour_index)
+    c_positive = calculate_c_fci(gb_final_transforms, ci[1], airmass, colour_index)
+    # if instr_filter == 'b':
+    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
+    #     c_negative = c_numerator
+    #     try:
+    #         c_positive = calculate_c_fci(gb_final_transforms, 'v', airmass)
+    #     except Exception as e:
+    #         print(e)
+    #         c_positive = calculate_c_fci(gb_final_transforms, 'g', airmass)
+    # elif instr_filter == 'v' or instr_filter == 'g':
+    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
+    #     c_positive = c_numerator
+    #     c_negative = calculate_c_fci(gb_final_transforms, 'b', airmass)
+    # elif instr_filter == 'r':
+    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
+    #     c_positive = c_numerator
+    #     try:
+    #         c_negative = calculate_c_fci(gb_final_transforms, 'v', airmass)
+    #     except Exception as e:
+    #         print(e)
+    #         c_negative = calculate_c_fci(gb_final_transforms, 'g', airmass)
+    # elif instr_filter == 'i':
+    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
+    #     c_positive = c_numerator
+    #     try:
+    #         c_negative = calculate_c_fci(gb_final_transforms, 'v', airmass)
+    #     except Exception as e:
+    #         print(e)
+    #         c_negative = calculate_c_fci(gb_final_transforms, 'g', airmass)
+    # else:
+    #     c_numerator = None
+    #     c_negative = None
+    #     c_positive = None
+    c_prime_fci = c_numerator / (1 - c_negative + c_positive)
+    return c_prime_fci
+
+
+def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index):
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+    row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'v':
+        instr_filter = 'g'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
+    z_prime_f = float(row_of_transforms['Z_f']) - (float(row_of_transforms["k'_f"]) * airmass)
+    return z_prime_f
+
+
+def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass):
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+    z_prime_positive = calculate_z_prime_f(gb_final_transforms, ci[0], airmass, colour_index)
+    z_prime_negative = calculate_z_prime_f(gb_final_transforms, ci[1], airmass, colour_index)
+    z_prime_no_brackets = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index)
+    lower_z_f = c_prime_fci * (z_prime_positive - z_prime_negative) + z_prime_no_brackets
+    # if instr_filter == 'b':
+    #     z_prime_positive = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass)
+    #     z_prime_negative = calculate_z_prime_f(gb_final_transforms, 'v', airmass)
+    #     z_prime_no_brackets = z_prime_positive
+    # if instr_filter == 'v' or instr_filter == 'g':
+    #     z_prime_positive = calculate_z_prime_f(gb_final_transforms, 'b', airmass)
+    #     z_prime_negative = 0
+    return lower_z_f
 
 
 def apply_gb_transforms(gb_final_transforms, unknown_object_table):

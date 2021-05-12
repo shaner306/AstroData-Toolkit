@@ -64,38 +64,40 @@ for dirpath, dirnames, filenames in os.walk(directory):
                 continue
             
             instr_filter = astro.get_instr_filter_name(hdr)
-            _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
-            field = astro.get_field_name(matched_stars, name_key='Name')
-            if np.isnan(matched_stars.ref_star[colour_index]).any():
-                no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
-                matched_stars = matched_stars._replace(
-                    ref_star_index = matched_stars.ref_star_index[no_nan_indices],
-                    img_star_index = matched_stars.img_star_index[no_nan_indices],
-                    ref_star = matched_stars.ref_star[no_nan_indices],
-                    ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
-                    img_star_loc = matched_stars.img_star_loc[no_nan_indices],
-                    ang_separation = matched_stars.ang_separation[no_nan_indices],
-                    img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
-                    img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
-                    flux = matched_stars.flux[no_nan_indices],
-                    img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
-                    img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
-                    )
-            try:
-                len(matched_stars.img_instr_mag)
-                # print(len(matched_stars.img_instr_mag))
-            except TypeError:
-                print("Only 1 reference star detected in the image.")
-                continue
-            # print(field)
-            c_fci, zprime_f = astro.ground_based_first_order_transforms(matched_stars, instr_filter)
-            gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
-                                                                                 field,
-                                                                                 c_fci,
-                                                                                 zprime_f,
-                                                                                 instr_filter,
-                                                                                 colour_index,
-                                                                                 altazpositions)
+            colour_indices = astro.get_all_colour_indices(instr_filter)
+            for colour_index in colour_indices:
+                # _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+                field = astro.get_field_name(matched_stars, name_key='Name')
+                if np.isnan(matched_stars.ref_star[colour_index]).any():
+                    no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                    matched_stars = matched_stars._replace(
+                        ref_star_index = matched_stars.ref_star_index[no_nan_indices],
+                        img_star_index = matched_stars.img_star_index[no_nan_indices],
+                        ref_star = matched_stars.ref_star[no_nan_indices],
+                        ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
+                        img_star_loc = matched_stars.img_star_loc[no_nan_indices],
+                        ang_separation = matched_stars.ang_separation[no_nan_indices],
+                        img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
+                        img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
+                        flux = matched_stars.flux[no_nan_indices],
+                        img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
+                        img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
+                        )
+                try:
+                    len(matched_stars.img_instr_mag)
+                    # print(len(matched_stars.img_instr_mag))
+                except TypeError:
+                    print("Only 1 reference star detected in the image.")
+                    continue
+                # print(field)
+                c_fci, zprime_f = astro.ground_based_first_order_transforms(matched_stars, instr_filter, colour_index)
+                gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                     field,
+                                                                                     c_fci,
+                                                                                     zprime_f,
+                                                                                     instr_filter,
+                                                                                     colour_index,
+                                                                                     altazpositions)
             
             # large_table_columns = astro.update_large_table_columns(large_table_columns, 
             #                                                         matched_stars, 
@@ -108,13 +110,26 @@ for dirpath, dirnames, filenames in os.walk(directory):
 gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
 gb_transform_table.pprint_all()
 
-mask = gb_transform_table['X'] <= 2.0
-# mask = gb_transform_table['Field'] != '106'
-gb_transform_table = gb_transform_table[mask]
+gb_transform_table = astro.remove_large_airmass(gb_transform_table)
 gb_transform_table.pprint_all()
 
-gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=True)
+gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 gb_final_transforms.pprint_all()
+
+test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\G\0002_3x3_-10.00_5.00_G_21-25-42.fits'
+
+hdr, imgdata = astro.read_fits_file(test_file)
+bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+instr_filter = astro.get_instr_filter_name(hdr)
+wcs = WCS(hdr)
+skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
+altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
+airmass = astro.get_avg_airmass(altazpositions)
+c_prime_fci = astro.calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+lower_z_f = astro.calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+print(c_prime_fci)
+print(lower_z_f)
 
 # import matplotlib.pyplot as plt
 # import matplotlib.cm as cm
