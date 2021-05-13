@@ -1933,38 +1933,6 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index)
     c_negative = calculate_c_fci(gb_final_transforms, ci[0], airmass, colour_index)
     c_positive = calculate_c_fci(gb_final_transforms, ci[1], airmass, colour_index)
-    # if instr_filter == 'b':
-    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
-    #     c_negative = c_numerator
-    #     try:
-    #         c_positive = calculate_c_fci(gb_final_transforms, 'v', airmass)
-    #     except Exception as e:
-    #         print(e)
-    #         c_positive = calculate_c_fci(gb_final_transforms, 'g', airmass)
-    # elif instr_filter == 'v' or instr_filter == 'g':
-    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
-    #     c_positive = c_numerator
-    #     c_negative = calculate_c_fci(gb_final_transforms, 'b', airmass)
-    # elif instr_filter == 'r':
-    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
-    #     c_positive = c_numerator
-    #     try:
-    #         c_negative = calculate_c_fci(gb_final_transforms, 'v', airmass)
-    #     except Exception as e:
-    #         print(e)
-    #         c_negative = calculate_c_fci(gb_final_transforms, 'g', airmass)
-    # elif instr_filter == 'i':
-    #     c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass)
-    #     c_positive = c_numerator
-    #     try:
-    #         c_negative = calculate_c_fci(gb_final_transforms, 'v', airmass)
-    #     except Exception as e:
-    #         print(e)
-    #         c_negative = calculate_c_fci(gb_final_transforms, 'g', airmass)
-    # else:
-    #     c_numerator = None
-    #     c_negative = None
-    #     c_positive = None
     c_prime_fci = c_numerator / (1 - c_negative + c_positive)
     return c_prime_fci
 
@@ -1987,13 +1955,6 @@ def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
     z_prime_negative = calculate_z_prime_f(gb_final_transforms, ci[1], airmass, colour_index)
     z_prime_no_brackets = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index)
     lower_z_f = c_prime_fci * (z_prime_positive - z_prime_negative) + z_prime_no_brackets
-    # if instr_filter == 'b':
-    #     z_prime_positive = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass)
-    #     z_prime_negative = calculate_z_prime_f(gb_final_transforms, 'v', airmass)
-    #     z_prime_no_brackets = z_prime_positive
-    # if instr_filter == 'v' or instr_filter == 'g':
-    #     z_prime_positive = calculate_z_prime_f(gb_final_transforms, 'b', airmass)
-    #     z_prime_negative = 0
     return lower_z_f
 
 

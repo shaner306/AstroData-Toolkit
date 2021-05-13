@@ -116,7 +116,7 @@ gb_transform_table.pprint_all()
 gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 gb_final_transforms.pprint_all()
 
-test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\G\0002_3x3_-10.00_5.00_G_21-25-42.fits'
+test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\R\0002_3x3_-10.00_5.00_R_21-25-11.fits'
 
 hdr, imgdata = astro.read_fits_file(test_file)
 bkg, bkg_std = astro.calculate_img_bkg(imgdata)
