@@ -9,7 +9,7 @@ Created on Thu Apr 22 14:58:28 2021
 
 import AstroFunctions as astro
 from astropy.wcs import WCS
-from astropy.table import unique
+from astropy.table import unique, Table, hstack
 import numpy as np
 import os
 
@@ -108,28 +108,114 @@ for dirpath, dirnames, filenames in os.walk(directory):
 
 
 gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
-gb_transform_table.pprint_all()
-
 gb_transform_table = astro.remove_large_airmass(gb_transform_table)
-gb_transform_table.pprint_all()
-
 gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 gb_final_transforms.pprint_all()
 
-test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\R\0002_3x3_-10.00_5.00_R_21-25-11.fits'
+# Test the transforms
 
-hdr, imgdata = astro.read_fits_file(test_file)
-bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-instr_filter = astro.get_instr_filter_name(hdr)
-wcs = WCS(hdr)
-skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
-altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
-airmass = astro.get_avg_airmass(altazpositions)
-c_prime_fci = astro.calculate_c_prime(gb_final_transforms, instr_filter, airmass)
-lower_z_f = astro.calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
-print(c_prime_fci)
-print(lower_z_f)
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved PRE'
+large_table_columns = astro.init_large_table_columns()
+for dirpath, dirnames, filenames in os.walk(directory):
+    for filename in filenames:
+        if filename.endswith(".fits"):
+            filepath = os.path.join(dirpath, filename)
+            hdr, imgdata = astro.read_fits_file(filepath)
+            exptime = hdr['EXPTIME']
+            bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+            if not irafsources:
+                continue
+            fwhm, fwhm_std = astro.calculate_fwhm(irafsources)
+            photometry_result = astro.perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+            fluxes = np.array(photometry_result['flux_fit'])
+            instr_mags = astro.calculate_magnitudes(photometry_result, exptime)
+            instr_mags_sigma = astro.calculate_magnitudes_sigma(photometry_result, exptime)
+            wcs = WCS(hdr)
+            skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
+            altazpositions = None
+            if ground_based:
+                altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
+            matched_stars = astro.find_ref_stars(reference_stars, 
+                                                 ref_star_positions,
+                                                 skypositions,
+                                                 instr_mags,
+                                                 instr_mags_sigma,
+                                                 fluxes,
+                                                 ground_based=ground_based,
+                                                 altazpositions=altazpositions)
+            if not matched_stars:
+                continue
+            large_table_columns = astro.update_large_table_columns(large_table_columns, 
+                                                                   matched_stars, 
+                                                                   hdr, 
+                                                                   exptime, 
+                                                                   ground_based=ground_based, 
+                                                                   name_key='Name')
+
+large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
+stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
+stars_table.pprint_all()
+
+instr_filters = ['b', 'g', 'r']
+app_mag_table = Table(stars_table['Field', 'Name', 'V', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+for instr_filter in instr_filters:
+    app_mag_table_filter = astro.apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+    app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
+
+app_mag_table.pprint_all()
+
+import matplotlib.pyplot as plt
+plt.plot(app_mag_table['V'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
+m, b = np.polyfit(app_mag_table['V'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
+plt.plot(app_mag_table['V'] + app_mag_table['(B-V)'], m*(app_mag_table['V'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+plt.plot(app_mag_table['V'] + app_mag_table['(B-V)'], app_mag_table['V'] + app_mag_table['(B-V)'], '-', label='y=x')
+plt.title('Calculated Magnitude vs. Reference Magnitude')
+plt.ylabel('B (calculated)')
+plt.xlabel('B (Reference)')
+plt.legend()
+plt.show()
+plt.close()
+
+plt.plot(app_mag_table['V'], app_mag_table['G'], 'o')
+m, b = np.polyfit(app_mag_table['V'][~np.isnan(app_mag_table['G'])], app_mag_table['G'][~np.isnan(app_mag_table['G'])], 1)
+plt.plot(app_mag_table['V'], m*(app_mag_table['V'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+plt.plot(app_mag_table['V'], app_mag_table['V'], '-', label='y=x')
+plt.title('Calculated Magnitude vs. Reference Magnitude')
+plt.ylabel('G (calculated)')
+plt.xlabel('V (Reference)')
+plt.legend()
+plt.show()
+plt.close()
+
+plt.plot(app_mag_table['V'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
+m, b = np.polyfit(app_mag_table['V'][~np.isnan(app_mag_table['(V-R)'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['(V-R)'])], 
+                  app_mag_table['R'][~np.isnan(app_mag_table['(V-R)'])], 1)
+plt.plot(app_mag_table['V'] - app_mag_table['(V-R)'], 
+         m*(app_mag_table['V'] - app_mag_table['(V-R)'])+b, 
+         '-', label=f'y={m:.3f}x+{b:.3f}')
+plt.plot(app_mag_table['V'] - app_mag_table['(V-R)'], app_mag_table['V'] - app_mag_table['(V-R)'], '-', label='y=x')
+plt.title('Calculated Magnitude vs. Reference Magnitude')
+plt.ylabel('R (calculated)')
+plt.xlabel('R (Reference)')
+plt.legend()
+plt.show()
+plt.close()
+
+# test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\R\0002_3x3_-10.00_5.00_R_21-25-11.fits'
+
+# hdr, imgdata = astro.read_fits_file(test_file)
+# bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+# irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+# instr_filter = astro.get_instr_filter_name(hdr)
+# wcs = WCS(hdr)
+# skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
+# altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
+# airmass = astro.get_avg_airmass(altazpositions)
+# c_prime_fci = astro.calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+# lower_z_f = astro.calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+# print(c_prime_fci)
+# print(lower_z_f)
 
 # import matplotlib.pyplot as plt
 # import matplotlib.cm as cm

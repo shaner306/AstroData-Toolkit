@@ -1958,7 +1958,7 @@ def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
     return lower_z_f
 
 
-def apply_gb_transforms(gb_final_transforms, unknown_object_table):
+def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter):
     """
     Apply the transforms to a source with an unknown standard magnitude.
 
@@ -2001,7 +2001,19 @@ def apply_gb_transforms(gb_final_transforms, unknown_object_table):
 
     """
     # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
-    app_mag_table = Table(names=['time', 'filter', 'apparent mag'])
+    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    instr_mag = stars_table[instr_filter]
+    airmass = stars_table[f'X_{instr_filter}']
+    c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+    table_ci = ci.replace('v', 'g')
+    positive_instr_mag = stars_table[table_ci[0]]
+    negative_instr_mag = stars_table[table_ci[1]]
+    lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+    app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
+    app_mag_filter = instr_filter.upper()
+    app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
+    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column])
     return app_mag_table
 
 
