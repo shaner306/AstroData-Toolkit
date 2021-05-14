@@ -154,6 +154,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
                                                                    name_key='Name')
 
 large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
+large_stars_table = astro.remove_large_airmass(large_stars_table)
 stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
 stars_table.pprint_all()
 
@@ -166,6 +167,8 @@ for instr_filter in instr_filters:
 app_mag_table.pprint_all()
 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
 plt.plot(app_mag_table['V'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
 m, b = np.polyfit(app_mag_table['V'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
 plt.plot(app_mag_table['V'] + app_mag_table['(B-V)'], m*(app_mag_table['V'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
@@ -174,7 +177,7 @@ plt.title('Calculated Magnitude vs. Reference Magnitude')
 plt.ylabel('B (calculated)')
 plt.xlabel('B (Reference)')
 plt.legend()
-plt.show()
+plt.show(block=True)
 plt.close()
 
 plt.plot(app_mag_table['V'], app_mag_table['G'], 'o')
@@ -185,7 +188,7 @@ plt.title('Calculated Magnitude vs. Reference Magnitude')
 plt.ylabel('G (calculated)')
 plt.xlabel('V (Reference)')
 plt.legend()
-plt.show()
+plt.show(block=True)
 plt.close()
 
 plt.plot(app_mag_table['V'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
@@ -199,7 +202,7 @@ plt.title('Calculated Magnitude vs. Reference Magnitude')
 plt.ylabel('R (calculated)')
 plt.xlabel('R (Reference)')
 plt.legend()
-plt.show()
+plt.show(block=True)
 plt.close()
 
 # test_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars\GSC 4932_345\LIGHT\R\0002_3x3_-10.00_5.00_R_21-25-11.fits'
