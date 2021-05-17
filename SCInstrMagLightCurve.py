@@ -1,10 +1,11 @@
 from astropy.io import fits, ascii
 import astropy.units as u
-from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
+from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma, SigmaClip
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.table import Table, QTable, hstack, unique
 from astropy.time import Time
 import datetime
+from photutils.background import Background2D, SExtractorBackground
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
@@ -27,103 +28,104 @@ from photutils.aperture import RectangularAperture
 matplotlib.use('TkAgg')
 
 # The directory where the Intelsat 10-02 files are stored.
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
-stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
+# stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
-catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
+# catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
 
-date_string = '21 Apr'
+date_string = '11 May'
 
-b_zpoints = []
-g_zpoints = []
-r_zpoints = []
+# b_zpoints = []
+# g_zpoints = []
+# r_zpoints = []
 
-for dirpath, dirnames, filenames in os.walk(stars_directory):
-    for filename in filenames:
-        if filename.endswith(".fits"):
-            filepath = os.path.join(dirpath, filename)
-            # print(filepath)d
-            with fits.open(filepath) as image:
-                hdr = image[0].header
+# for dirpath, dirnames, filenames in os.walk(stars_directory):
+#     for filename in filenames:
+#         if filename.endswith(".fits"):
+#             filepath = os.path.join(dirpath, filename)
+#             # print(filepath)d
+#             with fits.open(filepath) as image:
+#                 hdr = image[0].header
             
-            focal_length = hdr['FOCALLEN'] * u.mm
-            xpixsz = hdr['XPIXSZ'] * u.um
-            x_rad_per_pix = atan(xpixsz / focal_length) * u.rad
-            x_arcsec_per_pix_units = x_rad_per_pix.to(u.arcsec)
-            x_arcsec_per_pix = x_arcsec_per_pix_units.value
-            ypixsz = hdr['XPIXSZ'] * u.um
-            y_rad_per_pix = atan(ypixsz / focal_length) * u.rad
-            y_arcsec_per_pix_units = y_rad_per_pix.to(u.arcsec)
-            y_arcsec_per_pix = y_arcsec_per_pix_units.value
+#             focal_length = hdr['FOCALLEN'] * u.mm
+#             xpixsz = hdr['XPIXSZ'] * u.um
+#             x_rad_per_pix = atan(xpixsz / focal_length) * u.rad
+#             x_arcsec_per_pix_units = x_rad_per_pix.to(u.arcsec)
+#             x_arcsec_per_pix = x_arcsec_per_pix_units.value
+#             ypixsz = hdr['XPIXSZ'] * u.um
+#             y_rad_per_pix = atan(ypixsz / focal_length) * u.rad
+#             y_arcsec_per_pix_units = y_rad_per_pix.to(u.arcsec)
+#             y_arcsec_per_pix = y_arcsec_per_pix_units.value
             
-            instr_filter = hdr['FILTER']
+#             instr_filter = hdr['FILTER']
             
-            f = win32.Dispatch("Pinpoint.plate")
-            f.DetachFITS
+#             f = win32.Dispatch("Pinpoint.plate")
+#             f.DetachFITS
             
-            f.AttachFITS(filepath)
-            #print(c[o])
-            f.Declination = f.targetDeclination
-            f.RightAscension = f.targetRightAscension
-            f.ArcsecperPixelHoriz  = x_arcsec_per_pix
-            f.ArcsecperPixelVert = y_arcsec_per_pix
-            if instr_filter == 'B':
-                f.ColorBand = 1
-            elif instr_filter == 'V' or instr_filter == 'G':
-                f.ColorBand = 2
-            elif instr_filter == 'R':
-                f.ColorBand = 3
-            f.Catalog = 11
-            f.CatalogPath = catloc
-            f.CatalogMaximumMagnitude = 13
-            f.CatalogExpansion = 0.8
-            f.SigmaAboveMean = 3.0
-            f.FindImageStars
-            f.FindCatalogStars
-            f.MaxSolveTime = 60
-            f.MaxMatchResidual = 1.5
-            flag = 0
-            f.FindCatalogStars()
-            try:
-                f.Solve()
-            except Exception as e:
-                print(e)
-                continue
+#             f.AttachFITS(filepath)
+#             #print(c[o])
+#             f.Declination = f.targetDeclination
+#             f.RightAscension = f.targetRightAscension
+#             f.ArcsecperPixelHoriz  = x_arcsec_per_pix
+#             f.ArcsecperPixelVert = y_arcsec_per_pix
+#             if instr_filter == 'B':
+#                 f.ColorBand = 1
+#             elif instr_filter == 'V' or instr_filter == 'G':
+#                 f.ColorBand = 2
+#             elif instr_filter == 'R':
+#                 f.ColorBand = 3
+#             f.Catalog = 11
+#             f.CatalogPath = catloc
+#             f.CatalogMaximumMagnitude = 13
+#             f.CatalogExpansion = 0.8
+#             f.SigmaAboveMean = 3.0
+#             f.FindImageStars
+#             f.FindCatalogStars
+#             f.MaxSolveTime = 60
+#             f.MaxMatchResidual = 1.5
+#             flag = 0
+#             f.FindCatalogStars()
+#             try:
+#                 f.Solve()
+#             except Exception as e:
+#                 print(e)
+#                 continue
 
-            zpoint = f.MagZeroPoint
+#             zpoint = f.MagZeroPoint
             
-            f.DetachFITS()
-            if instr_filter == 'B':
-                b_zpoints.append(zpoint)
-            elif instr_filter == 'V' or instr_filter == 'G':
-                g_zpoints.append(zpoint)
-            elif instr_filter == 'R':
-                r_zpoints.append(zpoint)
+#             f.DetachFITS()
+#             if instr_filter == 'B':
+#                 b_zpoints.append(zpoint)
+#             elif instr_filter == 'V' or instr_filter == 'G':
+#                 g_zpoints.append(zpoint)
+#             elif instr_filter == 'R':
+#                 r_zpoints.append(zpoint)
             
-b_zpoints = np.array(b_zpoints)
-g_zpoints = np.array(g_zpoints)
-r_zpoints = np.array(r_zpoints)
+# b_zpoints = np.array(b_zpoints)
+# g_zpoints = np.array(g_zpoints)
+# r_zpoints = np.array(r_zpoints)
 
-b_zpoint = b_zpoints.mean()
-b_zpoint_std = b_zpoints.std()
-print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
-g_zpoint = g_zpoints.mean()
-g_zpoint_std = g_zpoints.std()
-print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
-r_zpoint = r_zpoints.mean()
-r_zpoint_std = r_zpoints.std()
-print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
+# b_zpoint = b_zpoints.mean()
+# b_zpoint_std = b_zpoints.std()
+# print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
+# g_zpoint = g_zpoints.mean()
+# g_zpoint_std = g_zpoints.std()
+# print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
+# r_zpoint = r_zpoints.mean()
+# r_zpoint_std = r_zpoints.std()
+# print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
-b_zpoint = 20
-b_zpoint_std = 0
-print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
-g_zpoint = 20
-g_zpoint_std = 0
-print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
-r_zpoint = 20
-r_zpoint_std = 0
-print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
+# b_zpoint = 20
+# b_zpoint_std = 0
+# print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
+# g_zpoint = 20
+# g_zpoint_std = 0
+# print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
+# r_zpoint = 20
+# r_zpoint_std = 0
+# print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
 """
 #### For the mouse click: ####
@@ -186,6 +188,8 @@ max_num_nan = 5
 num_nan = 0
 change_sat_positions = False
 none_sats = False
+sigma_clip = SigmaClip(sigma=3.)
+bkg_estimator = SExtractorBackground()
 debugging = True
 temp_dir = 'tmp'
 if not debugging:
@@ -201,7 +205,7 @@ else:
 filecount = 0
 for dirpth, _, files in os.walk(directory):
     for file in files:
-        if file.endswith(".fits"):
+        if file.endswith(".fit"):
             with fits.open(os.path.join(dirpth, file)) as image:
                 hdr = image[0].header
             t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
@@ -220,6 +224,11 @@ for filenum, file in enumerate(filenames):
         hdr = image[0].header                                                                                       # Store the fits header as a variable.
         imgdata = image[0].data                                                                                     # Store the image as a variable.
     print(file)
+    box_size_x = int(hdr['NAXIS1'] / 31)
+    box_size_y = int(hdr['NAXIS2'] / 31)
+    bkg = Background2D(imgdata, (box_size_x, box_size_y), filter_size=(3, 3),
+                       sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+    imgdata = imgdata - bkg.background
     while set_sat_positions:
         sat_locs = []
         mbox('Information',
@@ -227,7 +236,7 @@ for filenum, file in enumerate(filenames):
              0)
         cv.namedWindow('TestImage')
         cv.setMouseCallback('TestImage', set_sat_position)
-        logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+        logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
         cv.imshow('TestImage', logdata)
         cv.waitKey(0)
         cv.destroyAllWindows()
@@ -412,8 +421,8 @@ for filenum, file in enumerate(filenames):
                 # and pasting the code.
                 exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
                 mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
-                iraffind = IRAFStarFinder(threshold=median_val + 3 * std_val, fwhm=2)  # Find stars using IRAF.
-                irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
+                iraffind = IRAFStarFinder(threshold=bkg.background_median + 3 * bkg.background_rms_median, fwhm=2)  # Find stars using IRAF.
+                irafsources = iraffind(imgdata)  # Subtract background median value.
                 try:
                     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
                 except Exception as e:
@@ -473,7 +482,7 @@ for filenum, file in enumerate(filenames):
                                                 fitshape=size)
                 # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
                 # initial guess for the flux.
-                result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
+                result_tab = photometry(image=imgdata, init_guesses=pos)
                 fluxes = result_tab['flux_fit']  # Store the fluxes as a list.
                 fluxes = np.array(
                     fluxes) * u.ct  # Convert the fluxes to a numpy array and add the unit of count to it.
@@ -528,13 +537,14 @@ for filenum, file in enumerate(filenames):
         change_sat_positions = False
     exptime = hdr['EXPTIME'] * u.s                                                                                  # Store the exposure time with unit seconds.
     mean_val, median_val, std_val = sigma_clipped_stats(imgdata)                                                    # Calculate background stats.
-    iraffind = IRAFStarFinder(threshold=median_val+3*std_val, fwhm=2)                                               # Find stars using IRAF.
-    irafsources = iraffind(imgdata - median_val)                                                                    # Subtract background median value.
+    iraffind = IRAFStarFinder(threshold=bkg.background_median+3*bkg.background_rms_median, fwhm=2)                                               # Find stars using IRAF.
+    irafsources = iraffind(imgdata)                                                                    # Subtract background median value.
     try:
         irafsources.sort('flux', reverse=True)                                                                      # Sort the stars by flux, from greatest to least.
     except Exception as e:
         # Reset the NaN boolean as it doesn't count.
         num_nans[:] = 0
+        # change_sat_positions = True
         continue
     irafpositions = np.transpose((irafsources['xcentroid'], irafsources['ycentroid']))                              # Store source positions as a numpy array.
     if plot_results != 0:
@@ -586,7 +596,7 @@ for filenum, file in enumerate(filenames):
                                     fitshape=size)
     # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
     # initial guess for the flux.
-    result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
+    result_tab = photometry(image=imgdata, init_guesses=pos)
     fluxes = result_tab['flux_fit']                                                                                 # Store the fluxes as a list.
     fluxes = np.array(fluxes) * u.ct                                                                                # Convert the fluxes to a numpy array and add the unit of count to it.
     fluxes = fluxes / exptime                                                                                       # Normalize the fluxes by exposure time (unit is now counts / second)
@@ -607,18 +617,21 @@ for filenum, file in enumerate(filenames):
         instr_mags_sigma += r_zpoint_std
         instr_mags += r_zpoint
     # Calculate the FWHM in units of arcseconds as opposed to pixels.
-    focal_length = hdr['FOCALLEN'] * u.mm                                                                           # Store the telescope's focal length with unit millimetres.
-    xpixsz = hdr['XPIXSZ']                                                                                          # Store the size of the x pixels.
-    ypixsz = hdr['XPIXSZ']                                                                                          # Store the size of the y pixels.
-    if xpixsz == ypixsz:                                                                                            # If the pixels are square.
-        pixsz = xpixsz * u.um                                                                                       # Store the pixel size with unit micrometre.
-        # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
-        rad_per_pix = atan(pixsz / focal_length) * u.rad                                                            # Calculate the angular resolution of each pixel. Store with unit radians.
-        arcsec_per_pix = rad_per_pix.to(u.arcsec)                                                                   # Convert the per pixel angular resultion to arcseconds.
-        iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value                                                         # Convert the IRAFStarFinder FWHM from pixels to arcsec.
-        iraf_std_arcsec = iraf_std * arcsec_per_pix                                                                 # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
-        iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
-        print(f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")                   # Print the IRAFStarFinder FWHM in arcsec.
+    try:
+        focal_length = hdr['FOCALLEN'] * u.mm                                                                           # Store the telescope's focal length with unit millimetres.
+        xpixsz = hdr['XPIXSZ']                                                                                          # Store the size of the x pixels.
+        ypixsz = hdr['XPIXSZ']                                                                                          # Store the size of the y pixels.
+        if xpixsz == ypixsz:                                                                                            # If the pixels are square.
+            pixsz = xpixsz * u.um                                                                                       # Store the pixel size with unit micrometre.
+            # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
+            rad_per_pix = atan(pixsz / focal_length) * u.rad                                                            # Calculate the angular resolution of each pixel. Store with unit radians.
+            arcsec_per_pix = rad_per_pix.to(u.arcsec)                                                                   # Convert the per pixel angular resultion to arcseconds.
+            iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value                                                         # Convert the IRAFStarFinder FWHM from pixels to arcsec.
+            iraf_std_arcsec = iraf_std * arcsec_per_pix                                                                 # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
+            iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
+            print(f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")                   # Print the IRAFStarFinder FWHM in arcsec.
+    except KeyError:
+        iraf_FWHMs_arcsec = iraf_fwhms
     # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
     # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
     for obj_index, obj in enumerate(irafsources):
@@ -662,10 +675,10 @@ for filter_ in unique_filters['Filter']:
         r_uncertainty_table = uncertainty_table[mask]
         r_fwhm_table = sat_fwhm_table[mask]
 # ascii.write(b_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_instr_mags.csv', format='csv', overwrite=True)
-ascii.write(g_sats_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_instr_mags.csv', format='csv', overwrite=True)
+# ascii.write(g_sats_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_instr_mags.csv', format='csv', overwrite=True)
 # ascii.write(r_sats_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_instr_mags.csv', format='csv', overwrite=True)
 # ascii.write(b_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_uncertainty.csv', format='csv', overwrite=True)
-ascii.write(g_uncertainty_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_uncertainty.csv', format='csv', overwrite=True)
+# ascii.write(g_uncertainty_table, f'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Light curves/{date_string} g_uncertainty.csv', format='csv', overwrite=True)
 # ascii.write(r_uncertainty_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/r_uncertainty.csv', format='csv', overwrite=True)
 # ascii.write(b_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/b_fwhm.csv', format='csv', overwrite=True)
 # ascii.write(g_fwhm_table, 'C:/Users/jmwawrow/Documents/DRDC_Code/FITS Tutorial/CSV files/Mar 20 Light Curve/g_fwhm.csv', format='csv', overwrite=True)
