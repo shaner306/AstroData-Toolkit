@@ -27,9 +27,9 @@ from photutils.aperture import RectangularAperture
 matplotlib.use('TkAgg')
 
 # The directory where the Intelsat 10-02 files are stored.
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
 stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
 catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
 
@@ -631,6 +631,8 @@ for filenum, file in enumerate(filenames):
                 sats_table[filenum][sat_num] = instr_mags[obj_index]
                 uncertainty_table[filenum][sat_num] = instr_mags_sigma[obj_index]
                 sat_fwhm_table[filenum][sat_num] = iraf_FWHMs_arcsec[obj_index]
+                sat[0] = obj_x
+                sat[1] = obj_y
     print(sats_table[filenum])
     sat_mags = np.array(list(sats_table[filenum]))
     mask = np.isnan(sat_mags[2:].astype(float))
