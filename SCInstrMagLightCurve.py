@@ -183,7 +183,7 @@ plot_results = 0
 size = 25                                                                                                               # Size of the cutout to plot and fit the gaussian to (pixels).
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the 1D Gaussian.
-max_distance_from_sat = 20
+max_distance_from_sat = 100
 max_num_nan = 5
 num_nan = 0
 change_sat_positions = False
@@ -224,11 +224,11 @@ for filenum, file in enumerate(filenames):
         hdr = image[0].header                                                                                       # Store the fits header as a variable.
         imgdata = image[0].data                                                                                     # Store the image as a variable.
     print(file)
-    box_size_x = int(hdr['NAXIS1'] / 31)
-    box_size_y = int(hdr['NAXIS2'] / 31)
-    bkg = Background2D(imgdata, (box_size_x, box_size_y), filter_size=(3, 3),
-                       sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
-    imgdata = imgdata - bkg.background
+    # box_size_x = int(hdr['NAXIS1'] / 31)
+    # box_size_y = int(hdr['NAXIS2'] / 31)
+    # bkg = Background2D(imgdata, (box_size_x, box_size_y), filter_size=(3, 3),
+    #                    sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+    # imgdata = imgdata - bkg.background
     while set_sat_positions:
         sat_locs = []
         mbox('Information',
@@ -237,7 +237,7 @@ for filenum, file in enumerate(filenames):
         cv.namedWindow('TestImage')
         cv.setMouseCallback('TestImage', set_sat_position)
         logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
-        cv.imshow('TestImage', logdata)
+        cv.imshow('TestImage', imgdata)
         cv.waitKey(0)
         cv.destroyAllWindows()
         sat_locs = np.array(sat_locs)
@@ -421,8 +421,8 @@ for filenum, file in enumerate(filenames):
                 # and pasting the code.
                 exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
                 mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
-                iraffind = IRAFStarFinder(threshold=bkg.background_median + 3 * bkg.background_rms_median, fwhm=2)  # Find stars using IRAF.
-                irafsources = iraffind(imgdata)  # Subtract background median value.
+                iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
+                irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
                 try:
                     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
                 except Exception as e:
@@ -482,7 +482,7 @@ for filenum, file in enumerate(filenames):
                                                 fitshape=size)
                 # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
                 # initial guess for the flux.
-                result_tab = photometry(image=imgdata, init_guesses=pos)
+                result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
                 fluxes = result_tab['flux_fit']  # Store the fluxes as a list.
                 fluxes = np.array(
                     fluxes) * u.ct  # Convert the fluxes to a numpy array and add the unit of count to it.
@@ -504,21 +504,24 @@ for filenum, file in enumerate(filenames):
                     instr_mags_sigma += r_zpoint_std
                     instr_mags += r_zpoint
                 # Calculate the FWHM in units of arcseconds as opposed to pixels.
-                focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
-                xpixsz = hdr['XPIXSZ']  # Store the size of the x pixels.
-                ypixsz = hdr['XPIXSZ']  # Store the size of the y pixels.
-                if xpixsz == ypixsz:  # If the pixels are square.
-                    pixsz = xpixsz * u.um  # Store the pixel size with unit micrometre.
-                    # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
-                    rad_per_pix = atan(
-                        pixsz / focal_length) * u.rad  # Calculate the angular resolution of each pixel. Store with unit radians.
-                    arcsec_per_pix = rad_per_pix.to(
-                        u.arcsec)  # Convert the per pixel angular resultion to arcseconds.
-                    iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value  # Convert the IRAFStarFinder FWHM from pixels to arcsec.
-                    iraf_std_arcsec = iraf_std * arcsec_per_pix  # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
-                    iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
-                    print(
-                        f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")  # Print the IRAFStarFinder FWHM in arcsec.
+                try:
+                    focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
+                    xpixsz = hdr['XPIXSZ']  # Store the size of the x pixels.
+                    ypixsz = hdr['XPIXSZ']  # Store the size of the y pixels.
+                    if xpixsz == ypixsz:  # If the pixels are square.
+                        pixsz = xpixsz * u.um  # Store the pixel size with unit micrometre.
+                        # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
+                        rad_per_pix = atan(
+                            pixsz / focal_length) * u.rad  # Calculate the angular resolution of each pixel. Store with unit radians.
+                        arcsec_per_pix = rad_per_pix.to(
+                            u.arcsec)  # Convert the per pixel angular resultion to arcseconds.
+                        iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value  # Convert the IRAFStarFinder FWHM from pixels to arcsec.
+                        iraf_std_arcsec = iraf_std * arcsec_per_pix  # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
+                        iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
+                        print(
+                            f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")  # Print the IRAFStarFinder FWHM in arcsec.
+                except KeyError:
+                    iraf_FWHMs_arcsec = iraf_fwhms
                 # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
                 # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
                 for obj_index, obj in enumerate(irafsources):
@@ -537,8 +540,8 @@ for filenum, file in enumerate(filenames):
         change_sat_positions = False
     exptime = hdr['EXPTIME'] * u.s                                                                                  # Store the exposure time with unit seconds.
     mean_val, median_val, std_val = sigma_clipped_stats(imgdata)                                                    # Calculate background stats.
-    iraffind = IRAFStarFinder(threshold=bkg.background_median+3*bkg.background_rms_median, fwhm=2)                                               # Find stars using IRAF.
-    irafsources = iraffind(imgdata)                                                                    # Subtract background median value.
+    iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)                                               # Find stars using IRAF.
+    irafsources = iraffind(imgdata - median_val)                                                                    # Subtract background median value.
     try:
         irafsources.sort('flux', reverse=True)                                                                      # Sort the stars by flux, from greatest to least.
     except Exception as e:
@@ -596,7 +599,7 @@ for filenum, file in enumerate(filenames):
                                     fitshape=size)
     # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
     # initial guess for the flux.
-    result_tab = photometry(image=imgdata, init_guesses=pos)
+    result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
     fluxes = result_tab['flux_fit']                                                                                 # Store the fluxes as a list.
     fluxes = np.array(fluxes) * u.ct                                                                                # Convert the fluxes to a numpy array and add the unit of count to it.
     fluxes = fluxes / exptime                                                                                       # Normalize the fluxes by exposure time (unit is now counts / second)
@@ -659,6 +662,9 @@ for filenum, file in enumerate(filenames):
         change_sat_positions = True
 rmtree(temp_dir)
 sats_table.pprint_all()
+plt.plot(sats_table['Time (JD)'], sats_table['DESCENT'], 'o')
+plt.show(block=True)
+plt.close()
 unique_filters = unique(sats_table, keys='Filter')
 for filter_ in unique_filters['Filter']:
     mask = sats_table['Filter'] == filter_
