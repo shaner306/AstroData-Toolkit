@@ -89,7 +89,7 @@ def get_instr_filter_name(hdr, filter_key='FILTER'):
         Instrumental filter band of the image.
 
     """
-    instr_filter = hdr[filter_key].lower()
+    instr_filter = hdr[filter_key][0].lower()
     return instr_filter
 
 
@@ -190,7 +190,7 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
     return skypositions
 
 
-def convert_ra_dec_to_alt_az(skypositions, hdr):
+def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV'):
     """
     Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
@@ -208,9 +208,9 @@ def convert_ra_dec_to_alt_az(skypositions, hdr):
 
     """
     obstime = Time(hdr['DATE-OBS'], format='fits')
-    lat = hdr['SITELAT']
-    lon = hdr['SITELONG']
-    height = hdr['SITEELEV']
+    lat = hdr[lat_key]
+    lon = hdr[lon_key]
+    height = hdr[elev_key]
     location = EarthLocation.from_geodetic(lon=lon, lat=lat, height=height)
     current_aa = AltAz(location=location, obstime=obstime)
     altazpositions = skypositions.transform_to(current_aa)
@@ -252,6 +252,7 @@ def calculate_fwhm(irafsources):
     fwhm_std = fwhms.std()
     return fwhm, fwhm_std
 
+from photutils.background import MedianBackground
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
@@ -307,6 +308,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    bkg_estimator = MedianBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 

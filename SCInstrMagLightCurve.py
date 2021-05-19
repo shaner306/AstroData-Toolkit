@@ -29,7 +29,8 @@ matplotlib.use('TkAgg')
 
 # The directory where the Intelsat 10-02 files are stored.
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
@@ -183,7 +184,7 @@ plot_results = 0
 size = 25                                                                                                               # Size of the cutout to plot and fit the gaussian to (pixels).
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the 1D Gaussian.
-max_distance_from_sat = 100
+max_distance_from_sat = 20
 max_num_nan = 5
 num_nan = 0
 change_sat_positions = False
@@ -237,7 +238,7 @@ for filenum, file in enumerate(filenames):
         cv.namedWindow('TestImage')
         cv.setMouseCallback('TestImage', set_sat_position)
         logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
-        cv.imshow('TestImage', imgdata)
+        cv.imshow('TestImage', logdata)
         cv.waitKey(0)
         cv.destroyAllWindows()
         sat_locs = np.array(sat_locs)
