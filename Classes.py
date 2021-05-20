@@ -33,6 +33,35 @@ from scipy import ndimage
 from skimage import measure
 from skimage import filters
 
+def ref_star_folder_read(refstars_doc):
+    
+    refstars = pd.read_excel(refstars_doc)
+    refstars.head()
+    HIP= refstars["HIP"]
+    erad = refstars["erad"]
+    edec= refstars["edec"]
+    vref= refstars["V"]
+    bvindex=refstars["(B-V)"]
+    vrindex=refstars["(V-R)"]
+    refstarsfin= np.column_stack((HIP, erad,edec,vref))
+    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+
+def pinpoint_init():
+    f = win32com.client.Dispatch("Pinpoint.plate")
+    return f
+
+def getFileList(inbox):
+    directory = os.path.dirname(inbox)
+    list = os.listdir(inbox) #List of Files
+    listSize = len(list) #Number of Files
+    c=list[0]
+    #o=0;
+    for i in range(c):
+        filepath2 = inbox+"\\"+c[i]
+        filepathall.append(filepath2)
+        #o=o+1;
+    return filepathall
+    #o=0;
 
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
    
