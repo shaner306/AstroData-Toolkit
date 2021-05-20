@@ -1312,7 +1312,7 @@ for i in filepathall:
         vrindexdet=[]
         bvindexdet=[]
 
-
+        
         """Searching for Ref Stars"""
         for s in range(89):
             
@@ -1337,8 +1337,8 @@ for i in filepathall:
                 # else:
                 #     print('Pinpoint can''t process coords')
                                                           
-        nmstars = f.ImageStars.Count
-        mstars = f.ImageStars;
+        nmstars = f.MatchedStars.Count
+        mstars = f.MatchedStars;
         print("Matched Stars:"+ str(nmstars))
         print("Reference Stars Located:")
         print("")
@@ -1348,7 +1348,7 @@ for i in filepathall:
         """Calculation of Data from Pinpoint"""
         for i in range(1,nmstars):
             #print(i)
-            mstar = f.ImageStars.Item(i)
+            mstar = mstars.Item(i)
             X_min = mstar.X - 0.5*mstar.Width
             X_max = mstar.X + 0.5*mstar.Width
             Y_min = mstar.Y - 0.5*mstar.Height
@@ -1361,6 +1361,8 @@ for i in filepathall:
             Zp = f.MagZeroPoint;
             
             vmag= Zp - 2.5*(math.log10(rawflux/exptime))
+            starx= mstar.X
+            stary=mstar.Y
             #print(vmag)
 
             for j in range(length):
@@ -1383,9 +1385,103 @@ for i in filepathall:
                                   print("V-R Transform: " + str(Vrtransform))
                  
             #StarXY = [mstar.X mstar.Y]
-            #InstrumentalMag= -2.5*log10(mid_pix_valPP*1.00857579708099)
+            InstrumentalMag= -2.5*log10(mid_pix_valPP*1.00857579708099)
             #ppbgsigma = f.ImageBackgroundSigma;
             #ppbgmean = f.ImageBackgroundmean;
+            ppbgsigma = f.ImageBackgroundSigma;
+            ppbgmean = f.ImageBackgroundmean;
+            SQmean = bg_mean;
+            SQsigma = im_rms;
+            X = round(mstar.X)+1  
+            if X > image_size_y:
+                X = image_size_y
+            Y = round(mstar.Y)+1;
+            if Y > image_size_x:
+                Y = image_size_x;
+                
+            st_index = connected_image(Y,X);
+            [mask_x, mask_y] = find(connected_image == st_index);
+            [mobj_flux, mobj_max] = find_point_source_flux(mask_x, mask_y, bg_rem);
+               
+                if mobj_max < 60000   %fit unsaturated stars only
+    #%                 Border checks
+                      if (X > 10) && (X < (image_size_y-10)) && (Y > 10) && (Y < (image_size_x-10))
+                        %Find middle pixel value
+                        [cen_x, rms_x, cen_y, rms_y] = find_weighted_centroid(mask_x, mask_y, 0*bg_rem+1);
+
+                          if (cen_x > 10) && (cen_x < (image_size_x-10)) && (cen_y > 10) && (cen_y < (image_size_y-10))
+                            mid_pix_val = bg_rem(round(cen_x),round(cen_y));
+                            mid_pix_valPP = bg_rem(Y,X);
+                            if vmag < mag
+                                %Fit a moffat profile
+                                r = zeros(1,size(mask_x,1));  %holds radial distance from centroid
+                                S = zeros(1,size(mask_x,1));  %holds intensity
+                                for q = 1:size(mask_x,1)
+                                   r(q) = sqrt((mask_x(q)+0.5-(mstar.Y+1))^2 + (mask_y(q)+0.5-(mstar.X+1))^2);
+                                   S(q) = bg_rem(mask_x(q),mask_y(q));
+                                end
+   
+                                C_index = find(r==min(r),1);
+                                r(C_index) = 0; %centroid radial value
+                                C = S(C_index);
+                                %a holds [alpha Beta] moffat parameters
+                                %Fix a(2) Beta parameter to 1.5
+                                fun = @(a) sum((S - (C./((1+(r.^2)/(a(1)^2)).^1.5))).^2);
+                                aguess = 1;
+                                [a,fminres] = fminsearch(fun,aguess);
+                                %b holds [alpha Beta] moffat parameters
+                                fung = @(b) sum((S - (C*exp(-(r.^2)/(2*(b^2))))).^2);
+                                bguess = 2;
+                                [b,fminresg] = fminsearch(fung,bguess);
+                                %Optional plot the fits:
+                                scatter(r,S);
+                                E = @(a,r) (C./((1+(r.^2)/(a(1)^2)).^1.5));
+                                hold on
+                                ezplot(@(r)E(a,r),[0,max(r)]);  
+                                h=get(gca,'children');
+                                set(h(1),'color','red')
+                                F = @(b,r) (C*exp(-(r.^2)/(2*(b^2))));
+                                hold on
+                                ezplot(@(r)F(b,r),[0,max(r)]);
+                                axis([0,max(r),0,60000]);  %C+10 changed to 60000
+                                h=get(gca,'children');
+                                set(h(1),'color','green')
+                    %           Output results
+                                fprintf(starlog, [num2str(StarXY(1)) ',' num2str(StarXY(2)) ',' num2str(vmag) ',' num2str(rawflux) ',' num2str(mobj_flux) ',' num2str(mobj_max) ',' num2str(mid_pix_val) ',' ...
+                                    num2str(mid_pix_valPP) ',' num2str(Zp) ',' num2str(ppbgmean) ',' num2str(ppbgsigma) ',' num2str(p.ImageStatisticalMode) ','  num2str(SQmean) ',' num2str(SQsigma) ','  ...
+                                    num2str(p.ExposureInterval) ',' num2str(p.FullWidthHalfMax) ',' num2str(a(1)) ',' num2str(1.5) ',' num2str(b) ',' num2str(InstrumentalMag) ',' fpath1(i).name '\r\n']);
+                                else %don't fit the star profile
+                                    a = [0,0];
+                                    b = 0;
+                                end
+                            end
+                     
+                        star_count = star_count +1;
+                        pix_frac = pix_frac + mid_pix_valPP/rawflux;
+                        if vmag < mag
+                            mstar_count = mstar_count +1;
+                            moffat_avg = moffat_avg + a(1);
+                            gauss_avg = gauss_avg + b;
+                        end
+                       
+                    end
+                end
+            end
+            avg_pix_frac = pix_frac/star_count;
+            moffat_avg = moffat_avg/mstar_count;
+            gauss_avg = gauss_avg/mstar_count;
+            FWHM = 2*moffat_avg*0.7664;  %derived by hand ;)
+            DOY = str2num(fpath1(i).name(14:16))+str2num(fpath1(i).name(17:18))/24 + str2num(fpath1(i).name(19:20))/1440 + str2num(fpath1(i).name(21:22))/86400;
+            fprintf(statslog, [num2str(DOY) ',' num2str(avg_pix_frac) ',' num2str(moffat_avg) ',' num2str(gauss_avg) ',' num2str(FWHM) ',' p.ExposureStartTime ',' num2str(p.ExposureInterval) ',' num2str(p.FullWidthHalfMax) ',' fpath1(i).name '\r\n']);
+        end
+           %if flag = 0
+        
+        
+        
+        
+        
+        
+        
         
         f.DetachFITS()
         f=None
