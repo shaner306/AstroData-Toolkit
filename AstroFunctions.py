@@ -116,7 +116,7 @@ def calculate_img_bkg(imgdata, sigma=3.0):
     return bkg, bkg_std
 
 
-def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
+def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     """
     Detect stars using IRAFStarFinder.
 
@@ -130,6 +130,8 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
         Background value of the image in ADU.
     bkg_std : float
         Standard deviation of the image background in ADU.
+    sigma : float
+        Number of standard deviations above the background to use as the threshold.
 
     Returns
     -------
@@ -151,7 +153,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=4*bkg_std, fwhm=fwhm)
+    iraffind = IRAFStarFinder(threshold=sigma*bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -252,7 +254,7 @@ def calculate_fwhm(irafsources):
     fwhm_std = fwhms.std()
     return fwhm, fwhm_std
 
-from photutils.background import MedianBackground
+from photutils.background import MedianBackground, SExtractorBackground
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
@@ -308,7 +310,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
-    bkg_estimator = MedianBackground()
+    bkg_estimator = SExtractorBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -845,9 +847,9 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.angular_separation.extend(matched_stars.ang_separation.to(u.arcsec))
         updated_large_table_columns.img_star_mag.extend(matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.extend(matched_stars.img_instr_mag_sigma)
-        filter_name_repeat = np.full(num_stars, hdr['FILTER'])
+        filter_name_repeat = np.full(num_stars, hdr['FILTER'][0])
         updated_large_table_columns.filters.extend(filter_name_repeat)
-        updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V'])
+        updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V_ref'])
         try:
             updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['(B-V)'])
             updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['(U-B)'])
@@ -884,8 +886,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.angular_separation.append(matched_stars.ang_separation.to(u.arcsec))
         updated_large_table_columns.img_star_mag.append(matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.append(matched_stars.img_instr_mag_sigma)
-        updated_large_table_columns.filters.append(hdr['FILTER'])
-        updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V'])
+        updated_large_table_columns.filters.append(hdr['FILTER'][0])
+        updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V_ref'])
         try:
             updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['(B-V)'])
             updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['(U-B)'])
@@ -1043,7 +1045,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'mag_instrumental',
                 'mag_instrumental_sigma',
                 'filter',
-                'V',
+                'V_ref',
                 '(B-V)',
                 '(U-B)',
                 '(V-R)',
@@ -1090,7 +1092,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'mag_instrumental',
                 'mag_instrumental_sigma',
                 'filter',
-                'V',
+                'V_ref',
                 '(B-V)',
                 '(U-B)',
                 '(V-R)',
@@ -1196,7 +1198,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         names=[
             'Field',
             'Name',
-            'V',
+            'V_ref',
             '(B-V)',
             '(U-B)',
             '(V-R)',
@@ -1245,7 +1247,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                                     different_filter_sigma_table],
                                    join_type='exact')
     stars_table['Field'] = unique_stars['Field']
-    stars_table['V'] = unique_stars['V']
+    stars_table['V_ref'] = unique_stars['V_ref']
     stars_table['(B-V)'] = unique_stars['(B-V)']
     stars_table['(U-B)'] = unique_stars['(U-B)']
     stars_table['(V-R)'] = unique_stars['(V-R)']
@@ -1283,7 +1285,7 @@ def space_based_transform(stars_table,
                           plot_results=False, 
                           index='(B-V)', 
                           app_filter='V', 
-                          instr_filter='clear', 
+                          instr_filter='c', 
                           field=None):
     """
     Calculate the transforms for a space based sensor.
@@ -1346,11 +1348,11 @@ def space_based_transform(stars_table,
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    filter_fci, zprime_fci = np.polyfit(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 1, 
+    filter_fci, zprime_fci = np.polyfit(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 1, 
                                         full=False, w=1/err_sum)
     if plot_results:
         index_plot = np.arange(start=min(stars_table[index])-0.2, stop=max(stars_table[index])+0.2, step=0.1)
-        plt.errorbar(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 
+        plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
                      yerr=err_sum, fmt='o', capsize=2)
         plt.plot(index_plot, filter_fci * index_plot + zprime_fci)
         plt.ylabel(f"{app_filter}-{instr_filter}")
@@ -1583,27 +1585,27 @@ def get_app_mag_and_index(ref_star, instr_filter):
     if instr_filter == 'b':
         colour_index = 'B-V'
         app_filter = 'B'
-        app_mag = np.array(ref_star['V'] + ref_star[colour_index])
+        app_mag = np.array(ref_star['V_ref'] + ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
             np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
         app_filter = 'V'
-        app_mag = np.array(ref_star['V'])
+        app_mag = np.array(ref_star['V_ref'])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V']))
         # app_mag_sigma = np.array(ref_star['e_V'])
     elif instr_filter == 'r':
         colour_index = 'V-R'
         app_filter = 'R'
-        app_mag = np.array(ref_star['V'] - ref_star[colour_index])
+        app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
             np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'i':
         colour_index = 'V-I'
         app_filter = 'I'
-        app_mag = np.array(ref_star['V'] - ref_star[colour_index])
+        app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
             np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
@@ -2003,14 +2005,18 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_fil
 
     """
     # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
-    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
     colour_index, ci = get_colour_index_lower(instr_filter)
     instr_mag = stars_table[instr_filter]
     airmass = stars_table[f'X_{instr_filter}']
     c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
-    table_ci = ci.replace('v', 'g')
-    positive_instr_mag = stars_table[table_ci[0]]
-    negative_instr_mag = stars_table[table_ci[1]]
+    try:
+        positive_instr_mag = stars_table[ci[0]]
+        negative_instr_mag = stars_table[ci[1]]
+    except KeyError:
+        table_ci = ci.replace('v', 'g')
+        positive_instr_mag = stars_table[table_ci[0]]
+        negative_instr_mag = stars_table[table_ci[1]]
     lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
     app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
     app_mag_filter = instr_filter.upper()
