@@ -38,8 +38,12 @@ from collections import namedtuple
 from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
-
+from astropy.wcs import WCS
 import re
+
+
+
+
 
 """
 Classes:
@@ -67,10 +71,93 @@ AstroSolver
     (ME ONLY) PACKAGE V1 properly
     ADD additional photometry data
     
+    STAR STARE MODE (SSM)
+        Input Images Folder
+        Images are Indexed
+        First Image Selected
+        Store Header and Data
+        
+        Estimate Background and Background Standard Deviation
+            - bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0)
+            - backg,bkg_std = calculate_img_bkg(fitsdata)
+            
+        ------------------------    
+        STAR STARE MODE (SSM)
+        ------------------------
+            1.Solve Using pinpoint and IRAF
+                - iraf_Sources= detecting_stars(fitsdata, bkg, bkg_std)
+            
+            2.Convert Pixel Location to RA and DEC
+                - skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
+            
+            3.Convert RA Dec to Altitude and Azimuth
+                - altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
+            
+            4.Calculate FWHM
+                - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
+            
+            5.Produce Photometry data Fluxes and Centroids
+                - photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
+            
+            6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
+                - calculate_magnitudes(photometry_result, exposure_Time)
+                - calculate_magnitudes_sigma(photometry_result, exposure_Time)          
+                
+            7. Calculate Transforms
+
+                a. Space Based Sensor
+                   
+                    Construct Tables to Store Data
+                        large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
+                        large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+                        stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
+                
+                    Calculate Space Based Transforms    
+                        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False,index='(B-V)', app_filter='V', instr_filter='clear', field=None)
+        
+                    Calculate Standard Magnitude
+                
+                
+                b. Ground Based Sensor
+                    avg_Airmass= get_avg_airmass(altazpositions)
+                
+            8. Output Table to Excel
+            
+            9. Produce Plots and Save to PNG
+                - With error bars
+    
+
+        
+    2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+        avg_Airmass= get_avg_airmass(altazpositions)
+    
+    TRACK RATE MODE (TRM)
+        
 -------------------    
 AstroReducer    
 -------------------
 """
+def calculate_img_bkg(imgdata, sigma=3.0):
+    """
+    Calculate the median and standard deviation of the background of the sigma clipped image.
+
+    Parameters
+    ----------
+    imgdata : numpy.ndarray
+        Data from the fits file.
+    sigma : float
+        Number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
+
+    Returns
+    -------
+    bkg : float
+        Median background value of the image in ADU.
+    bkg_std : float
+        Standard deviation of the image background in ADU.3
+
+    """
+    _, bkg, bkg_std = sigma_clipped_stats(imgdata, sigma=3.0)
+    return bkg, bkg_std
 
 def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0):
     """
@@ -202,7 +289,7 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
     return skypositions
 
 
-def convert_ra_dec_to_alt_az(skypositions, hdr):
+def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV'):
     """
     Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
@@ -220,9 +307,9 @@ def convert_ra_dec_to_alt_az(skypositions, hdr):
 
     """
     obstime = Time(hdr['DATE-OBS'], format='fits')
-    lat = hdr['SITELAT']
-    lon = hdr['SITELONG']
-    height = hdr['SITEELEV']
+    lat = hdr[lat_key]
+    lon = hdr[lon_key]
+    height = hdr[elev_key]
     location = EarthLocation.from_geodetic(lon=lon, lat=lat, height=height)
     current_aa = AltAz(location=location, obstime=obstime)
     altazpositions = skypositions.transform_to(current_aa)
@@ -319,6 +406,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    bkg_estimator = MedianBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -326,6 +414,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
                                     fitshape=fitshape)
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
     return photometry_result
+
 
 
 def normalize_flux_by_time(fluxes_tab, exptime):
@@ -398,7 +487,186 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     snr = (fluxes / flux_uncs).value
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma
+def find_ref_stars(reference_stars, 
+                   ref_star_positions, 
+                   skypositions, 
+                   instr_mags, 
+                   instr_mags_sigma, 
+                   fluxes, 
+                   ground_based=False, 
+                   altazpositions=None, 
+                   max_ref_sep=10.0):
+    """
+    Match the stars detected in the image to those provided in the reference star file.
+    
+    Parameters
+    ----------
+    reference_stars : astropy.table.Table
+        Table with the data extracted from ref_stars_file.
+    ref_star_positions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec positions of all reference stars in the file.
+    skypositions : astropy.coordinates.sky_coordinate.SkyCoord
+        AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
+    instr_mags : numpy array
+        Array containing the instrumental magnitudes of the sources in the image.
+    instr_mags_sigma : numpy array
+        Array containing the standard deviation of the instrumental magnitudes of the sources in the image.
+    fluxes : numpy array
+        Array containing the non-normalized fluxes of all sources.
+    ground_based : bool, optional
+        Whether or not the image is from a ground-based sensor. The default is False.
+    altazpositions : astropy.coordinates.sky_coordinate.SkyCoord, optional
+        Alt/Az position(s) of the skyposition(s). Must be provided if ground_based is true. The default is None.
+    max_ref_sep : float, optional
+        Maximum angular separtation to consider an image star to be a reference star in arcsec. The default is 10.0.
 
+    Returns
+    -------
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            flux : numpy array
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
+            img_star_airmass : float
+                sec(z) of img_star_altaz. None if ground_based is False.
+    None : if no stars are matched.
+
+    """
+    # reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    max_ref_sep = max_ref_sep * u.arcsec
+    idx, sep2d, _ = match_coordinates_sky(ref_star_positions, skypositions)
+    ref_star_index = np.where(sep2d < max_ref_sep)
+    if len(ref_star_index[0]) == 0:
+        print("No reference star detected in the image.")
+        return
+    elif len(ref_star_index[0]) == 1:
+        ref_star_index = int(ref_star_index[0])
+    else:
+        ref_star_index = ref_star_index[0]
+    img_star_index = idx[ref_star_index]
+    ref_star = reference_stars[ref_star_index]
+    ref_star_loc = ref_star_positions[ref_star_index]
+    img_star_loc = skypositions[img_star_index]
+    ang_separation = sep2d[ref_star_index]
+    img_instr_mag = instr_mags[img_star_index]
+    img_instr_mag_sigma = instr_mags_sigma[img_star_index]
+    img_fluxes = fluxes[img_star_index]
+    img_star_altaz = None
+    img_star_airmass = None
+    if ground_based:
+        if not altazpositions:
+            print('altazpositions should be provided if ground_based is True.')
+            return
+        img_star_altaz = altazpositions[img_star_index]
+        img_star_airmass = img_star_altaz.secz.value
+    matched_stars = namedtuple('matched_stars', 
+                               ['ref_star_index',
+                                'img_star_index',
+                                'ref_star',
+                                'ref_star_loc',
+                                'img_star_loc',
+                                'ang_separation',
+                                'img_instr_mag',
+                                'img_instr_mag_sigma',
+                                'flux',
+                                'img_star_altaz',
+                                'img_star_airmass'])
+    return matched_stars(
+        ref_star_index, 
+        img_star_index, 
+        ref_star, 
+        ref_star_loc, 
+        img_star_loc, 
+        ang_separation, 
+        img_instr_mag, 
+        img_instr_mag_sigma,
+        img_fluxes,
+        img_star_altaz, 
+        img_star_airmass)
+
+
+
+def get_field_name(matched_stars, name_key='Name'):
+    """
+    Get the name of the field of the matched stars in the image.
+
+    Parameters
+    ----------
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            flux : numpy array
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
+            img_star_airmass : float
+                sec(z) of img_star_altaz. None if ground_based is False.
+    name_key : string, optional
+        The column name of the unique identifier/star name in matched_stars.ref_star. The default is 'Name'.
+
+    Returns
+    -------
+    field : string
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+
+    """
+    try:
+        num_stars = len(matched_stars.img_instr_mag)
+    except TypeError:
+        num_stars = 1
+    if num_stars > 1:
+        for row in matched_stars.ref_star:
+            split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
+            if len(split_string) > 1:
+                return ' '.join(split_string[:-1])
+            elif len(split_string) == 1:
+                return split_string[0]
+            else:
+                return
+    elif num_stars == 1:
+        split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
+        if len(split_string) > 1:
+            return ' '.join(split_string[:-1])
+        elif len(split_string) == 1:
+            return split_string[0]
+        else:
+            return
+    else:
+        return
 def init_large_table_columns():
     """
     Create all of the columns that will be turned into the large stars table.
@@ -1210,145 +1478,82 @@ def get_avg_airmass(altazpositions):
     airmasses = np.array(altazpositions.secz.value)
     avg_airmass = airmasses.mean()
     return avg_airmass
+
+
+
+
+
+def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
+   
+    sigma_clip = SigmaClip(sigma=2.5)
+    bkg = SExtractorBackground(sigma_clip)
+    bkg_value1 = bkg.calc_background(fitsdata)
     
-     
-inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
-    #inbox = 'D:\\2021-03-10 - Calibrated\\Intelsat 10-02 Post Eclipse\\LIGHT'
+    #print(bkg_value)
+    bkg = MeanBackground(sigma_clip)
+    bkg_value2 = bkg.calc_background(fitsdata)
     
-f = win32com.client.Dispatch("Pinpoint.plate")
-catloc = 'D:\squid\\USNOA20-All';
-refstars_doc = 'D:\\Reference_stars.xlsx'
-refstars = pd.read_excel(refstars_doc)
-refstars.head()
-HIP= refstars["HIP"]
-erad = refstars["erad"]
-edec= refstars["edec"]
-vref= refstars["V"]
-bvindex=refstars["(B-V)"]
-vrindex=refstars["(V-R)"]
-refstarsfin= np.column_stack((HIP, erad,edec,vref))
-#print(refstarsfin)
+    bkg = MedianBackground(sigma_clip)
+    bkg_value3 = bkg.calc_background(fitsdata)
+    
+    bkg = ModeEstimatorBackground(sigma_clip)
+    bkg_value4 = bkg.calc_background(fitsdata)
+    
+    
+    bkg_estimator1 = SExtractorBackground()
+    bkg_estimator2 = SExtractorBackground()
+    #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    bg_rem = fitsdata - bkg.background
 
-
-
-streak_array = [];         
-sigma_clip = 3.5;           
-edge_protect = 10;          
-min_obj_pixels = 5;
-SNRLimit = 0;
-
-
-
-"Opening Image Folder and Determing the number of files"
-def getFileList(directory = os.path.dirname(inbox)):
-    list = os.listdir(inbox) #List of Files
-    listSize = len(list) #Number of Files
-    return [list, listSize]
-
-print(getFileList())
-fpath1 = getFileList();
-c=fpath1[0]
-o=0;
-filepathall=[];
-for i in c:
-    filepath2 = inbox+"\\"+c[o]
-    filepathall.append(filepath2)
-    o=o+1;
-
-o=0;
-
-
-
-
-
-
-
-f.DetachFITS
-for i in filepathall:
-    f = win32com.client.Dispatch("Pinpoint.plate")
-    try:
-        """Import Data from FITS HEADER"""
-        imagehdularray = fits.open(filepathall[o])
-        date=imagehdularray[0].header['DATE-OBS']
-        exposuretime=imagehdularray[0].header['EXPTIME']
-        imagesizeX=imagehdularray[0].header['NAXIS1']
-        imagesizeY=imagehdularray[0].header['NAXIS2']
-        fitsdata =  imagehdularray[0].data
-        filt=get_instr_filter_name(imagehdularray, filter_key='FILTER')
+    if printval == 1:
+        print("Background Solutions")
+        print("Sigma Clip: " + str(sigma_clip))
+        print("Using: "+ bkgmethod)
+        print("---------------------------")
+        print("SExtractor Background: " + str(mean(bkg.background)))
+        print("SExtractor Background(Filtered): " + str(mean(bkg.background))+"\n "+ "     " + "Box Size: " +"50x50" +"\n "+ "     " + "Filter Size: " +"3x3")
+        print("Mean Background: " + str(bkg_value2))
+        print("Median Background: " + str(bkg_value3))
+        print("Mode Estimator Background: " + str(bkg_value4))
+        print("Remaining Background (subtracted): " + str(bg_rem))
+        print("Polyfit Background: Not Implemented Yet")
         
+    else:
+        return bkg_value1
+
+def ref_star_search(s,f,erad,edec):
+    for s in range(89):
+        
+        try:
+            f.SkyToXy(erad[s],edec[s]);
+            refSTAR_X  = f.ScratchX   #the x result of skytoxy
+            refSTAR_Y = f.ScratchY
+            if refSTAR_X>0 and refSTAR_X<1900:
                 
-        """Setting Pinpoint Solution Parameters"""
-        f.AttachFITS(filepathall[o])
-        #print(c[o])
-        f.Declination = f.targetDeclination;
-        f.RightAscension = f.targetRightAscension; 
-        yBin = 4.33562092816E-004*3600;
-        xBin =  4.33131246330E-004*3600; 
-        f.ArcsecperPixelHoriz  = xBin;
-        f.ArcsecperPixelVert = yBin;
-         
-        f.Catalog = 5;
-        f.CatalogPath = catloc;
-        f.CatalogMaximumMagnitude = 13;
-        f.CatalogExpansion = 0.8;
-        f.SigmaAboveMean = 3.0; 
-        f.FindImageStars; 
-        f.FindCatalogStars; 
-        f.MaxSolveTime = 60; 
-        f.MaxMatchResidual = 1.5; 
-        flag = 0;
-        f.FindCatalogStars()
-        f.Solve()
-        f.MatchedStars.count
-        f.FindImageStars()
-        #print(f.ImageStars)
-        o=o+1;
-        s=1
-        q=0
-        refx=[]
-        refy=[]
-        vref2=[]
-        HIP2=[]
-        vrindexdet=[]
-        bvindexdet=[]
-
-
-        """Searching for Ref Stars"""
-        for s in range(89):
-            
-            try:
-                f.SkyToXy(erad[s],edec[s]);
-                refSTAR_X  = f.ScratchX   #the x result of skytoxy
-                refSTAR_Y = f.ScratchY
-                if refSTAR_X>0 and refSTAR_X<1900:
-                    
-                    refx.append(refSTAR_X)
-                    refy.append(refSTAR_Y)
-                    vref2.append(vref[s])
-                    HIP2.append(HIP[s])
-                    vrindexdet.append(vrindex[s])
-                    bvindexdet.append(bvindex[s])
-                # else:
-                #   print("Star Found outside bounds of image")
-                #s=s+1
-            except:
-                if s > 89:
-                    print("Stop")
-                # else:
-                #     print('Pinpoint can''t process coords')
-                                                          
-        nmstars = f.ImageStars.Count
-        mstars = f.ImageStars;
-        print("Matched Stars:"+ str(nmstars))
-        print("Reference Stars Located:")
-        print("")
-        
-        
-        
-        """Calculation of Data from Pinpoint"""
-        for i in range(1,nmstars):
+                refx.append(refSTAR_X)
+                refy.append(refSTAR_Y)
+                vref2.append(vref[s])
+                HIP2.append(HIP[s])
+                vrindexdet.append(vrindex[s])
+                bvindexdet.append(bvindex[s])
+            # else:
+            #   print("Star Found outside bounds of image")
+            #s=s+1
+        except:
+            if s > 89:
+                print("Stop")
+            # else:
+            #     print('Pinpoint can''t process coords')
+                                                      
+    nmstars = f.MatchedStars.Count
+    mstars = f.MatchedStars;
+    print("Matched Stars:"+ str(nmstars))
+    print("Reference Stars Located:")
+    print("")
+    for i in range(1,nmstars):
             #print(i)
-            mstar = f.ImageStars.Item(i)
+            mstar = mstars.Item(i)
             X_min = mstar.X - 0.5*mstar.Width
             X_max = mstar.X + 0.5*mstar.Width
             Y_min = mstar.Y - 0.5*mstar.Height
@@ -1361,6 +1566,8 @@ for i in filepathall:
             Zp = f.MagZeroPoint;
             
             vmag= Zp - 2.5*(math.log10(rawflux/exptime))
+            starx= mstar.X
+            stary=mstar.Y
             #print(vmag)
 
             for j in range(length):
@@ -1381,11 +1588,238 @@ for i in filepathall:
                                   print("B-V Transform: " + str(Bvtransform))
                                   Vrtransform=(vref2[j]-vmag)/vrindexdet[j]
                                   print("V-R Transform: " + str(Vrtransform))
-                 
-            #StarXY = [mstar.X mstar.Y]
-            #InstrumentalMag= -2.5*log10(mid_pix_valPP*1.00857579708099)
-            #ppbgsigma = f.ImageBackgroundSigma;
-            #ppbgmean = f.ImageBackgroundmean;
+    
+    
+    
+def ref_star_folder_read(refstars_doc):
+    
+    refstars = pd.read_excel(refstars_doc)
+    refstars.head()
+    HIP= refstars["HIP"]
+    erad = refstars["erad"]
+    edec= refstars["edec"]
+    vref= refstars["V"]
+    bvindex=refstars["(B-V)"]
+    vrindex=refstars["(V-R)"]
+    refstarsfin= np.column_stack((HIP, erad,edec,vref))
+    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+
+def pinpoint_init():
+    f = win32com.client.Dispatch("Pinpoint.plate")
+    return f
+
+def getFileList(inbox):
+    filepathall = []
+    directory = os.path.dirname(inbox)
+    list = os.listdir(inbox) #List of Files
+    listSize = len(list) #Number of Files
+    c=list[0]
+    #o=0;
+    for i in range(c):
+        filepath2 = inbox+"\\"+c[i]
+        filepathall.append(filepath2)
+        #o=o+1;
+    return filepathall
+    #o=0;
+def fits_header_import(filepath):
+        imagehdularray = fits.open(filepath)
+        header = imagehdularray[0].header
+        date=imagehdularray[0].header['DATE-OBS']
+        exposuretime=imagehdularray[0].header['EXPTIME']
+        imagesizeX=imagehdularray[0].header['NAXIS1']
+        imagesizeY=imagehdularray[0].header['NAXIS2']
+        fitsdata =  imagehdularray[0].data
+        wcs = WCS(imagehdularray[1].header)
+        filt=get_instr_filter_name(imagehdularray, filter_key='FILTER')
+        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,wcs,header
+
+
+inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
+refstars_doc = 'D:\\Reference_stars.xlsx'
+catloc = 'D:\squid\\USNOA20-All';
+
+HIP, erad, edec, vref, bvindex, vrindex, refstarsfin = ref_star_folder_read(refstars_doc)
+f = pinpoint_init()
+
+
+streak_array= [];         
+sigma_clip = 3.5;           
+edge_protect = 10;          
+min_obj_pixels = 5;
+SNRLimit = 0;
+
+
+
+"Opening Image Folder and Determing the number of files"
+filepathall = getFileList(inbox);
+
+for i in range(filepathall):
+    f = win32com.client.Dispatch("Pinpoint.plate")
+    try:
+        
+        
+        """Import Data from FITS HEADER"""
+        imagehdularray,date,exposure_Time,imagesizeX,imagesizeY, fitsdata, filt,wcs,header = fits_header_import(filepathall[i])
+        
+        """STAR STARE MODE
+        
+        
+        1. Space Based - Airmass not a factor in determining transforms
+        2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+    
+        """
+        
+        
+        """Running Functions"""
+        bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0)
+        backg,bkg_std = calculate_img_bkg(fitsdata)
+        
+        iraf_Sources= detecting_stars(fitsdata, bkg, bkg_std)
+        skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
+        altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
+        fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
+        photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
+        avg_Airmass= get_avg_airmass(altazpositions)
+        calculate_magnitudes(photometry_result, exposure_Time)
+        calculate_magnitudes_sigma(photometry_result, exposure_Time)
+        large_table_columns= init_large_table_columns()
+        
+        "Space Based"
+        large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
+        large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+        stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
+        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False,index='(B-V)', app_filter='V', instr_filter='clear', field=None)
+        
+        
+        "Ground Based"
+        
+        
+        
+        """TRACK RATE MODE"""
+        
+        
+        """Setting Pinpoint Solution Parameters"""
+        f.AttachFITS(filepathall[i])
+        #print(c[o])
+        f.Declination = f.targetDeclination;
+        f.RightAscension = f.targetRightAscension; 
+        yBin = 4.33562092816E-004*3600;
+        xBin =  4.33131246330E-004*3600; 
+        f.ArcsecperPixelHoriz  = xBin;
+        f.ArcsecperPixelVert = yBin;
+         
+        f.Catalog = 5;
+        f.CatalogPath = catloc;
+        f.CatalogMaximumMagnitude = 13;
+        f.CatalogExpansion = 0.8;
+        f.SigmaAboveMean = 2.5; 
+        f.FindImageStars; 
+        f.FindCatalogStars; 
+        f.MaxSolveTime = 60; 
+        f.MaxMatchResidual = 1.5; 
+        flag = 0;
+        f.FindCatalogStars()
+        f.Solve()
+        f.MatchedStars.count
+        f.FindImageStars()
+        #print(f.ImageStars)
+        
+        s=1
+        q=0
+        refx=[]
+        refy=[]
+        vref2=[]
+        HIP2=[]
+        vrindexdet=[]
+        bvindexdet=[]
+
+        ref_star_search(s,f,erad,edec)
+        
+        
+                
+    #         st_index = connected_image(Y,X);
+    #         [mask_x, mask_y] = find(connected_image == st_index);
+    #         [mobj_flux, mobj_max] = find_point_source_flux(mask_x, mask_y, bg_rem);
+               
+    #             if mobj_max < 60000   %fit unsaturated stars only
+    # #%                 Border checks
+    #                   if (X > 10) && (X < (image_size_y-10)) && (Y > 10) && (Y < (image_size_x-10))
+    #                     %Find middle pixel value
+    #                     [cen_x, rms_x, cen_y, rms_y] = find_weighted_centroid(mask_x, mask_y, 0*bg_rem+1);
+
+    #                       if (cen_x > 10) && (cen_x < (image_size_x-10)) && (cen_y > 10) && (cen_y < (image_size_y-10))
+    #                         mid_pix_val = bg_rem(round(cen_x),round(cen_y));
+    #                         mid_pix_valPP = bg_rem(Y,X);
+    #                         if vmag < mag
+    #                             %Fit a moffat profile
+    #                             r = zeros(1,size(mask_x,1));  %holds radial distance from centroid
+    #                             S = zeros(1,size(mask_x,1));  %holds intensity
+    #                             for q = 1:size(mask_x,1)
+    #                                r(q) = sqrt((mask_x(q)+0.5-(mstar.Y+1))^2 + (mask_y(q)+0.5-(mstar.X+1))^2);
+    #                                S(q) = bg_rem(mask_x(q),mask_y(q));
+    #                             end
+   
+    #                             C_index = find(r==min(r),1);
+    #                             r(C_index) = 0; %centroid radial value
+    #                             C = S(C_index);
+    #                             %a holds [alpha Beta] moffat parameters
+    #                             %Fix a(2) Beta parameter to 1.5
+    #                             fun = @(a) sum((S - (C./((1+(r.^2)/(a(1)^2)).^1.5))).^2);
+    #                             aguess = 1;
+    #                             [a,fminres] = fminsearch(fun,aguess);
+    #                             %b holds [alpha Beta] moffat parameters
+    #                             fung = @(b) sum((S - (C*exp(-(r.^2)/(2*(b^2))))).^2);
+    #                             bguess = 2;
+    #                             [b,fminresg] = fminsearch(fung,bguess);
+    #                             %Optional plot the fits:
+    #                             scatter(r,S);
+    #                             E = @(a,r) (C./((1+(r.^2)/(a(1)^2)).^1.5));
+    #                             hold on
+    #                             ezplot(@(r)E(a,r),[0,max(r)]);  
+    #                             h=get(gca,'children');
+    #                             set(h(1),'color','red')
+    #                             F = @(b,r) (C*exp(-(r.^2)/(2*(b^2))));
+    #                             hold on
+    #                             ezplot(@(r)F(b,r),[0,max(r)]);
+    #                             axis([0,max(r),0,60000]);  %C+10 changed to 60000
+    #                             h=get(gca,'children');
+    #                             set(h(1),'color','green')
+    #                 %           Output results
+    #                             fprintf(starlog, [num2str(StarXY(1)) ',' num2str(StarXY(2)) ',' num2str(vmag) ',' num2str(rawflux) ',' num2str(mobj_flux) ',' num2str(mobj_max) ',' num2str(mid_pix_val) ',' ...
+    #                                 num2str(mid_pix_valPP) ',' num2str(Zp) ',' num2str(ppbgmean) ',' num2str(ppbgsigma) ',' num2str(p.ImageStatisticalMode) ','  num2str(SQmean) ',' num2str(SQsigma) ','  ...
+    #                                 num2str(p.ExposureInterval) ',' num2str(p.FullWidthHalfMax) ',' num2str(a(1)) ',' num2str(1.5) ',' num2str(b) ',' num2str(InstrumentalMag) ',' fpath1(i).name '\r\n']);
+    #                             else %don't fit the star profile
+    #                                 a = [0,0];
+    #                                 b = 0;
+    #                             end
+    #                         end
+                     
+    #                     star_count = star_count +1;
+    #                     pix_frac = pix_frac + mid_pix_valPP/rawflux;
+    #                     if vmag < mag
+    #                         mstar_count = mstar_count +1;
+    #                         moffat_avg = moffat_avg + a(1);
+    #                         gauss_avg = gauss_avg + b;
+    #                     end
+                       
+    #                 end
+    #             end
+    #         end
+    #         avg_pix_frac = pix_frac/star_count;
+    #         moffat_avg = moffat_avg/mstar_count;
+    #         gauss_avg = gauss_avg/mstar_count;
+    #         FWHM = 2*moffat_avg*0.7664;  %derived by hand ;)
+    #         DOY = str2num(fpath1(i).name(14:16))+str2num(fpath1(i).name(17:18))/24 + str2num(fpath1(i).name(19:20))/1440 + str2num(fpath1(i).name(21:22))/86400;
+    #         fprintf(statslog, [num2str(DOY) ',' num2str(avg_pix_frac) ',' num2str(moffat_avg) ',' num2str(gauss_avg) ',' num2str(FWHM) ',' p.ExposureStartTime ',' num2str(p.ExposureInterval) ',' num2str(p.FullWidthHalfMax) ',' fpath1(i).name '\r\n']);
+    #     end
+    #        %if flag = 0
+        
+        
+        
+        
+        
+        
+        
         
         f.DetachFITS()
         f=None
