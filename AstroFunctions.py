@@ -89,7 +89,7 @@ def get_instr_filter_name(hdr, filter_key='FILTER'):
         Instrumental filter band of the image.
 
     """
-    instr_filter = hdr[filter_key].lower()
+    instr_filter = hdr[filter_key][0].lower()
     return instr_filter
 
 
@@ -190,7 +190,7 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
     return skypositions
 
 
-def convert_ra_dec_to_alt_az(skypositions, hdr):
+def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV'):
     """
     Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
@@ -208,9 +208,9 @@ def convert_ra_dec_to_alt_az(skypositions, hdr):
 
     """
     obstime = Time(hdr['DATE-OBS'], format='fits')
-    lat = hdr['SITELAT']
-    lon = hdr['SITELONG']
-    height = hdr['SITEELEV']
+    lat = hdr[lat_key]
+    lon = hdr[lon_key]
+    height = hdr[elev_key]
     location = EarthLocation.from_geodetic(lon=lon, lat=lat, height=height)
     current_aa = AltAz(location=location, obstime=obstime)
     altazpositions = skypositions.transform_to(current_aa)
@@ -252,6 +252,7 @@ def calculate_fwhm(irafsources):
     fwhm_std = fwhms.std()
     return fwhm, fwhm_std
 
+from photutils.background import MedianBackground
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
@@ -307,6 +308,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    bkg_estimator = MedianBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -1613,7 +1615,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
     return app_mag, app_mag_sigma, app_filter, colour_index
 
 
-def ground_based_first_order_transforms(matched_stars, instr_filter, plot_results=False, field=None):
+def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, plot_results=False, field=None):
     """
     Perform the intermediary step to calculating the ground based transforms.
 
@@ -1646,6 +1648,8 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
                 sec(z) of img_star_altaz.
     instr_filter : string
         Instrumental filter band to calculate the transform for.
+    colour_index : string
+        TODO
     plot_results : bool, optional
         Controls whether or not to plot the results from the transforms. The default is False.
     field : string, optional
@@ -1664,7 +1668,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
         len(matched_stars.img_instr_mag)
     except TypeError:
         return
-    app_mag, app_mag_sigma, app_filter, colour_index = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
     err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
@@ -1687,6 +1691,25 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, plot_result
         plt.show()
         plt.close()
     return c_fci, zprime_fci
+
+
+def get_all_colour_indices(instr_filter):
+    if instr_filter == 'b':
+        colour_indices = ['B-V']
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_indices = ['B-V', 'V-R', 'V-I']
+    elif instr_filter == 'r':
+        colour_indices = ['V-R']
+    elif instr_filter == 'i':
+        colour_indices = ['V-I']
+    else:
+        colour_indices = None
+    return colour_indices
+
+
+def remove_large_airmass(gb_transform_table, max_airmass=2.0):
+    gb_transform_table = gb_transform_table[gb_transform_table['X'] <= 2.0]
+    return gb_transform_table
 
 
 def ground_based_second_order_transforms(gb_transform_table, plot_results=False):
@@ -1731,7 +1754,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
 
     """
     gb_final_transforms = Table()
-    unique_filters = table.unique(gb_transform_table, keys='filter')
+    unique_filters = table.unique(gb_transform_table, keys=['filter', 'CI'])
     num_filters = len(unique_filters)
     nan_array = np.empty(num_filters)
     nan_array.fill(np.nan)
@@ -1758,7 +1781,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
         current_index = unique_filter_row['CI']
         gb_final_transforms['filter'][unique_filter_index] = unique_filter
         gb_final_transforms['CI'][unique_filter_index] = current_index
-        mask = gb_transform_table['filter'] == unique_filter
+        mask = ((gb_transform_table['filter'] == unique_filter) & (gb_transform_table['CI'] == current_index))
         current_filter = gb_transform_table[mask]
         kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
         kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
@@ -1786,3 +1809,247 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False)
             plt.close()
     
     return gb_final_transforms
+
+
+# TODO
+# This will be harder than I thought. Namely, keeping track of which star was which when it's not known (unless maybe 
+# I do assume to know it because it is just a check? Maybe by using matched_stars or large_stars_table instead of 
+# creating a whole new table?). Either way, I'll start to convert the light curve code first and then come back to this 
+# later.
+
+
+def get_colour_index_lower(instr_filter):
+    """
+    Get the colour index for the desired instrumental filter band.
+
+    Parameters
+    ----------
+    instr_filter : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    colour_index : TYPE
+        DESCRIPTION.
+    ci : TYPE
+        DESCRIPTION.
+
+    """
+    if instr_filter == 'b':
+        colour_index = 'B-V'
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_index = 'B-V'
+    elif instr_filter == 'r':
+        colour_index = 'V-R'
+    elif instr_filter == 'i':
+        colour_index = 'V-I'
+    else:
+        colour_index = None
+    ci = re.sub('[^a-zA-Z]+', '', colour_index)
+    ci = ci.lower()
+    return colour_index, ci
+
+
+def init_unknown_object_table_columns():
+    """
+    Initialize the columns that will create the unknown object table.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    instr_filter = []
+    name = []
+    instr_mag = []
+    
+    unknown_object_table_columns = namedtuple('unknown_object_table_columns', 
+                                              ['instr_filter',
+                                              'name',
+                                              'instr_mag'])
+    return unknown_object_table_columns(instr_filter, 
+                                        name, 
+                                        instr_mag)
+
+
+def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, filter_key='FILTER'):
+    """
+    Update the columns tha will create the unknown object table.
+
+    Parameters
+    ----------
+    unknown_object_table_columns : TYPE
+        DESCRIPTION.
+    hdr : TYPE
+        DESCRIPTION.
+    instr_mag : TYPE
+        DESCRIPTION.
+    filter_key : TYPE, optional
+        DESCRIPTION. The default is 'FILTER'.
+
+    Returns
+    -------
+    updated_unknown_object_table_columns : TYPE
+        DESCRIPTION.
+
+    """
+    updated_unknown_object_table_columns = unknown_object_table_columns
+    instr_filter = get_instr_filter_name(hdr=hdr, filter_key=filter_key)
+    name = hdr['OBJECT']
+    updated_unknown_object_table_columns.instr_filter.append(instr_filter)
+    updated_unknown_object_table_columns.name.append(name)
+    updated_unknown_object_table_columns.instr_mag.append(instr_mag)
+    return updated_unknown_object_table_columns
+
+def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+    row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'v':
+        instr_filter = 'g'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
+    c_fci = float(row_of_transforms['T_fCI']) - (float(row_of_transforms["k''_fCI"]) * airmass)
+    return c_fci
+
+
+def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
+    """
+    Calculate the C' coefficient to use when applying the transforms.
+
+    Parameters
+    ----------
+    gb_final_transforms : TYPE
+        DESCRIPTION.
+    instr_filter : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    c_prime_fci : TYPE
+        DESCRIPTION.
+        TODO
+
+    """
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index)
+    c_negative = calculate_c_fci(gb_final_transforms, ci[0], airmass, colour_index)
+    c_positive = calculate_c_fci(gb_final_transforms, ci[1], airmass, colour_index)
+    c_prime_fci = c_numerator / (1 - c_negative + c_positive)
+    return c_prime_fci
+
+
+def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index):
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+    row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'v':
+        instr_filter = 'g'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
+    z_prime_f = float(row_of_transforms['Z_f']) - (float(row_of_transforms["k'_f"]) * airmass)
+    return z_prime_f
+
+
+def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass):
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+    z_prime_positive = calculate_z_prime_f(gb_final_transforms, ci[0], airmass, colour_index)
+    z_prime_negative = calculate_z_prime_f(gb_final_transforms, ci[1], airmass, colour_index)
+    z_prime_no_brackets = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index)
+    lower_z_f = c_prime_fci * (z_prime_positive - z_prime_negative) + z_prime_no_brackets
+    return lower_z_f
+
+
+def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter):
+    """
+    Apply the transforms to a source with an unknown standard magnitude.
+
+    Parameters
+    ----------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    unknown_object_table : astropy.table.Table
+        Table containing the stars to calculate the apparent magnitudes for. Has columns:
+            filter : string
+                Instrumental filter band used to take the image.
+            name : string
+                Unique identifier of the source to apply the transform to.
+            instrumental mag : float
+                Instrumental magnitude of the source.
+                TODO: Change this so that it accepts multiple sources somehow.
+
+    Returns
+    -------
+    app_mag_table : astropy.table.Table
+        Table containing the apparent magnitudes of the object after applying the transforms. Has columns:
+            time : float
+                Julian date that the image was taken.
+            filter : string
+                Apparent filter that the image was transformed to.
+            apparent mag : float
+                Apparent magnitude of the source after applying the transforms.
+
+    """
+    # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
+    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    colour_index, ci = get_colour_index_lower(instr_filter)
+    instr_mag = stars_table[instr_filter]
+    airmass = stars_table[f'X_{instr_filter}']
+    c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+    table_ci = ci.replace('v', 'g')
+    positive_instr_mag = stars_table[table_ci[0]]
+    negative_instr_mag = stars_table[table_ci[1]]
+    lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+    app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
+    app_mag_filter = instr_filter.upper()
+    app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
+    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column])
+    return app_mag_table
+
+
+def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
+    """
+    Apply the transforms to a timeseries of observations.
+
+    Parameters
+    ----------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    large_sats_table : astropy.table.Table
+        DESCRIPTION.
+
+    Returns
+    -------
+    app_large_sats_table : TYPE
+        DESCRIPTION.
+
+    """
+    app_large_sats_table = large_sats_table
+    return app_large_sats_table
+
+
+# TODO: change the SCInstrMagLightCurve.py code into functions in this file.
