@@ -2197,6 +2197,18 @@ def _main_sb_transform_calc(directory,
     for index in transform_index_list:
         filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=plot_results, index=index)
         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        
+
+def __debugging__():
+    """
+    Debug the main functions. This should simplify git commits by only needing to edit this file.
+
+    Returns
+    -------
+    None.
+
+    """
+    return
 
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
