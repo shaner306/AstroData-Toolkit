@@ -16,12 +16,14 @@ from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable
 import astropy.units as u
 from astropy.time import Time
+from astropy.wcs import WCS
 from collections import namedtuple
 from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
 import re
+import os
 
 
 def read_ref_stars(ref_stars_file):
@@ -2056,6 +2058,148 @@ def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
     """
     app_large_sats_table = large_sats_table
     return app_large_sats_table
+
+
+def _main_gb_transform_calc(directory, 
+                            ref_stars_file, 
+                            plot_results=False, 
+                            file_suffix=".fits", 
+                            exposure_key='EXPTIME', 
+                            lat_key='SITELAT', 
+                            lon_key='SITELONG', 
+                            elev_key='SITEELEV', 
+                            name_key='Name'):
+    
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    gb_transform_table_columns = init_gb_transform_table_columns()
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                altazpositions = None
+                try:
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, 
+                                                              lon_key=lon_key, elev_key=elev_key)
+                except AttributeError as e:
+                    print(e)
+                    continue
+                matched_stars = find_ref_stars(reference_stars, 
+                                               ref_star_positions,
+                                               skypositions,
+                                               instr_mags,
+                                               instr_mags_sigma,
+                                               fluxes,
+                                               ground_based=True,
+                                               altazpositions=altazpositions)
+                if not matched_stars:
+                    continue
+                
+                instr_filter = get_instr_filter_name(hdr)
+                colour_indices = get_all_colour_indices(instr_filter)
+                for colour_index in colour_indices:
+                    field = get_field_name(matched_stars, name_key=name_key)
+                    if np.isnan(matched_stars.ref_star[colour_index]).any():
+                        no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                        matched_stars = matched_stars._replace(
+                            ref_star_index = matched_stars.ref_star_index[no_nan_indices],
+                            img_star_index = matched_stars.img_star_index[no_nan_indices],
+                            ref_star = matched_stars.ref_star[no_nan_indices],
+                            ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
+                            img_star_loc = matched_stars.img_star_loc[no_nan_indices],
+                            ang_separation = matched_stars.ang_separation[no_nan_indices],
+                            img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
+                            img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
+                            flux = matched_stars.flux[no_nan_indices],
+                            img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
+                            img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
+                            )
+                    try:
+                        len(matched_stars.img_instr_mag)
+                    except TypeError:
+                        print("Only 1 reference star detected in the image.")
+                        continue
+                    c_fci, zprime_f = ground_based_first_order_transforms(matched_stars, 
+                                                                          instr_filter, 
+                                                                          colour_index, 
+                                                                          plot_results=plot_results)
+                    gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                   field,
+                                                                                   c_fci,
+                                                                                   zprime_f,
+                                                                                   instr_filter,
+                                                                                   colour_index,
+                                                                                   altazpositions)
+    gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
+    gb_transform_table = remove_large_airmass(gb_transform_table)
+    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, plot_results=plot_results)
+    return gb_final_transforms
+
+
+def _main_sb_transform_calc(directory, 
+                            ref_stars_file, 
+                            plot_results=False, 
+                            file_suffix=".fits", 
+                            exposure_key='EXPTIME',  
+                            name_key='Name',
+                            transform_index_list=['(B-V)', '(V-R)', '(V-I)']):
+    
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                altazpositions = None
+                matched_stars = find_ref_stars(reference_stars, 
+                                                     ref_star_positions,
+                                                     skypositions,
+                                                     instr_mags,
+                                                     instr_mags_sigma,
+                                                     fluxes,
+                                                     ground_based=False,
+                                                     altazpositions=altazpositions)
+                if not matched_stars:
+                    continue
+                                
+                large_table_columns = update_large_table_columns(large_table_columns, 
+                                                                 matched_stars, 
+                                                                 hdr, 
+                                                                 exptime, 
+                                                                 ground_based=False, 
+                                                                 name_key=name_key)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+    stars_table = group_each_star(large_stars_table, ground_based=False)
+    for index in transform_index_list:
+        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=plot_results, index=index)
+        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
 
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
