@@ -256,7 +256,6 @@ def calculate_fwhm(irafsources):
     fwhm_std = fwhms.std()
     return fwhm, fwhm_std
 
-from photutils.background import MedianBackground, SExtractorBackground
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
@@ -312,7 +311,6 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
-    bkg_estimator = SExtractorBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -2069,7 +2067,7 @@ def _main_gb_transform_calc(directory,
                             lon_key='SITELONG', 
                             elev_key='SITEELEV', 
                             name_key='Name'):
-    
+    # TODO: Doctring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
     
@@ -2156,7 +2154,7 @@ def _main_sb_transform_calc(directory,
                             exposure_key='EXPTIME',  
                             name_key='Name',
                             transform_index_list=['(B-V)', '(V-R)', '(V-I)']):
-    
+    # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
     
@@ -2177,7 +2175,6 @@ def _main_sb_transform_calc(directory,
                 instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                altazpositions = None
                 matched_stars = find_ref_stars(reference_stars, 
                                                      ref_star_positions,
                                                      skypositions,
@@ -2185,7 +2182,7 @@ def _main_sb_transform_calc(directory,
                                                      instr_mags_sigma,
                                                      fluxes,
                                                      ground_based=False,
-                                                     altazpositions=altazpositions)
+                                                     altazpositions=None)
                 if not matched_stars:
                     continue
                                 
