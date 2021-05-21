@@ -23,7 +23,8 @@ ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference
 # ground_based = True
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\NEOSSat-SA32\Solved'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\NEOSSat-SA32\Solved'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
 ground_based = False
 
 reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
