@@ -30,13 +30,14 @@ matplotlib.use('TkAgg')
 # The directory where the Intelsat 10-02 files are stored.
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021 02 07\2021 02 07 - Intelsat 10-02 - G Band'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
 # catloc = r'C:\Program Files (x86)\PinPoint\UCAC4'
 
-date_string = '11 May'
+date_string = '07 Feb'
 
 # b_zpoints = []
 # g_zpoints = []
@@ -118,15 +119,15 @@ date_string = '11 May'
 # r_zpoint_std = r_zpoints.std()
 # print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
-# b_zpoint = 20
-# b_zpoint_std = 0
-# print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
-# g_zpoint = 20
-# g_zpoint_std = 0
-# print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
-# r_zpoint = 20
-# r_zpoint_std = 0
-# print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
+b_zpoint = 20
+b_zpoint_std = 0
+print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
+g_zpoint = 20
+g_zpoint_std = 0
+print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
+r_zpoint = 20
+r_zpoint_std = 0
+print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
 """
 #### For the mouse click: ####
@@ -206,7 +207,7 @@ else:
 filecount = 0
 for dirpth, _, files in os.walk(directory):
     for file in files:
-        if file.endswith(".fit"):
+        if file.endswith(".fits"):
             with fits.open(os.path.join(dirpth, file)) as image:
                 hdr = image[0].header
             t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
@@ -409,7 +410,7 @@ for filenum, file in enumerate(filenames):
                      0)
                 cv.namedWindow('TestImage')
                 cv.setMouseCallback('TestImage', change_sat_position, index)
-                logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+                logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
                 cv.imshow('TestImage', logdata)
                 cv.waitKey(0)
             print(sat_locs)
@@ -665,7 +666,7 @@ for filenum, file in enumerate(filenames):
         change_sat_positions = True
 rmtree(temp_dir)
 sats_table.pprint_all()
-plt.plot(sats_table['Time (JD)'], sats_table['DESCENT'], 'o')
+plt.plot(sats_table['Time (JD)'], sats_table['Intelsat 10-02'], 'o')
 plt.show(block=True)
 plt.close()
 unique_filters = unique(sats_table, keys='Filter')
