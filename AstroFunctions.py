@@ -20,6 +20,8 @@ from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
 import cv2 as cv
+from math import sqrt, atan
+from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -2174,7 +2176,7 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
             print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
         print(names)
         
-        cmap = plt.get_cmap(cmap_set)
+        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
         colours = [cmap(i) for i in range(0, num_sats)]
         legend_elements = []
         window = tk.Tk()
@@ -2228,6 +2230,217 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
         sats_table.pprint_all()
     # TODO: Figure out what needs to be returned from this function and return it (maybe as a nametuple?).
     return
+
+
+def change_sat_positions(filenames, 
+                         filenum, 
+                         sats_table, 
+                         uncertainty_table, 
+                         sat_fwhm_table, 
+                         num_nan, 
+                         num_nans, 
+                         sat_names, 
+                         num_sats, 
+                         names, 
+                         max_distance_from_sat=20, 
+                         size=25, 
+                         temp_dir='tmp', 
+                         cmap_set='Set1', 
+                         plot_results=0):
+    # Change the position
+    # Display filenames[filenum - num_nan]
+    def mbox(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    def change_sat_position(event, x, y, flags, params):
+        global sat_locs
+        if event == cv.EVENT_LBUTTONDOWN:
+            sat_locs[params[0]] = [x, y]
+            cv.destroyAllWindows()
+    global change_sat_positions
+    print(filenames[filenum - num_nan])
+    # sat_checked = np.zeros(num_sats, dtype=IntVar())
+    with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}") as image:
+        hdr = image[0].header
+        imgdata = image[0].data
+    root = tk.Tk()
+    root.title("Current satellite positions")
+    input_frame = tk.Frame(root)
+    input_frame.pack(side=tk.RIGHT)
+    img_frame = tk.Frame(root)
+    img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+    label = tk.Label(input_frame, text='Select the satellite(s) whose position you would like to change.')
+    label.grid(row=0)
+    sat_checked = []
+    for sat_num, sat in enumerate(sat_names):
+        sat_checked.append(tk.IntVar())
+        checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
+        checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
+    none_select = tk.IntVar()
+    checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
+    checkbutton.grid(row=num_sats+2, sticky=tk.W, padx=5)
+    closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
+    closebutton.grid(row=num_sats+3)
+    legend_elements = []
+    fig = Figure()
+    ax = fig.add_subplot()
+    ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+    cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+    colours = [cmap(i) for i in range(0, num_sats)]
+    for i in range(0, num_sats):
+        sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                           h=max_distance_from_sat * 2)
+        sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+        legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                      label=names[i + 2]))
+    fig.legend(handles=legend_elements, framealpha=1)
+    canvas = FigureCanvasTkAgg(fig, master=img_frame)
+    canvas.draw()
+    toolbar = NavigationToolbar2Tk(canvas, img_frame)
+    toolbar.update()
+    canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+    root.mainloop()
+    if none_select.get() == 1:
+        none_sats = True
+    elif none_select.get() == 0:
+        none_sats = False
+    if not none_sats:
+        sat_checked_int = np.empty(len(sat_checked), dtype=int)
+        for sat_num, sat in enumerate(sat_checked):
+            sat_checked_int[sat_num] = sat.get()
+        print(sat_checked_int)
+        sat_checked_mask = sat_checked_int == 1
+        print(sat_checked_mask)
+        for sat in sat_names[sat_checked_mask]:
+            print(sat)
+            index = np.where(sat_names == sat)
+            mbox('Information',
+                 f'Please select the new position of {sat} on the following image.',
+                 0)
+            cv.namedWindow('TestImage')
+            cv.setMouseCallback('TestImage', change_sat_position, index)
+            logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+            cv.imshow('TestImage', logdata)
+            cv.waitKey(0)
+        print(sat_locs)
+        # If some selection is none
+        # none_sats = True
+        for reversing_index in range(1, num_nan+1):
+            with fits.open(f"{temp_dir}/{filenames[filenum - reversing_index]}") as image:
+                hdr = image[0].header
+                imgdata = image[0].data
+            print(filenames[filenum - reversing_index])
+            # Do the photometry on the images. Should change this to a bunch of function calls, rather than copy
+            # and pasting the code.
+            exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
+            mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
+            iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
+            irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
+            try:
+                irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
+            except Exception as e:
+                # Reset the NaN boolean as it doesn't count.
+                num_nans[:] = 0
+                continue
+            irafpositions = np.transpose((irafsources['xcentroid'],
+                                          irafsources['ycentroid']))  # Store source positions as a numpy array.
+            if plot_results != 0:
+                fig, ax = plt.subplots()
+                ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+                ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
+                           s=100, edgecolor='red', facecolor='none')
+                for i in range(0, num_sats):
+                    rect = patches.Rectangle(
+                        (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
+                        width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
+                        edgecolor='green', facecolor='none')
+                    ax.add_patch(rect)
+                plt.title(filenames[filenum - reversing_index])
+                if plot_results == 1:
+                    plt.show(block=False)
+                    plt.pause(2)
+                elif plot_results == 2:
+                    plt.show()
+                plt.close()
+            iraf_fwhms = irafsources['fwhm']  # Save FWHM in a list.
+            iraf_fwhms = np.array(iraf_fwhms)  # Convert FWHM list to numpy array.
+            # Print information about the file                                                                              #####
+            # Calculate statistics of the FWHMs given by the loop over each source.                                         #####
+            iraf_sdom = iraf_fwhms.std() / sqrt(len(iraf_fwhms))  # Standard deviation of the mean. Not used.
+            num_IRAF_sources = len(irafsources)  # Number of stars IRAF found.
+            print(f"No. of IRAF sources: {num_IRAF_sources}")  # Print number of IRAF stars found.
+            iraf_fwhm = iraf_fwhms.mean()  # Calculate IRAF FWHM mean.
+            iraf_std = iraf_fwhms.std()  # Calculate IRAF standard deviation.
+            print(f"IRAF Calculated FWHM (pixels): {iraf_fwhm:.3f} +/- {iraf_std:.3f}")  # Print IRAF FWHM.
+            # Calculate the flux of each star using PSF photometry. This uses the star positions calculated by
+            # IRAFStarFinder earlier.
+            daogroup = DAOGroup(2 * iraf_fwhm)  # Groups overlapping stars together.
+            # sigma_clip = SigmaClip()
+            # mmm_bkg = MMMBackground(sigma_clip=sigma_clip)
+            # bkg_value = mmm_bkg(imgdata)
+            psf_model = IntegratedGaussianPRF(
+                sigma=iraf_fwhm * gaussian_fwhm_to_sigma)  # Defime the PSF model to be used for photometry.
+            psf_model.x_0.fixed = True  # Don't change the initial 'guess' of the star x positions to be provided.
+            psf_model.y_0.fixed = True  # Don't change the initial 'guess' of the star y positions to be provided.
+            # Provide the initial guesses for the x-y positions and the flux. The flux will be fit using the psf_model,
+            # so that will change, but the star positions will remain the same.
+            pos = Table(names=['x_0', 'y_0', 'flux_0'],
+                        data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+            # Initialize the photometry to be performed. Do not estimate the background, as it will be subtracted from
+            # the image when fitting the PSF.
+            photometry = BasicPSFPhotometry(group_maker=daogroup,
+                                            bkg_estimator=None,
+                                            psf_model=psf_model,
+                                            fitter=LevMarLSQFitter(),
+                                            fitshape=size)
+            # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
+            # initial guess for the flux.
+            result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
+            fluxes = result_tab['flux_fit']  # Store the fluxes as a list.
+            fluxes = np.array(
+                fluxes) * u.ct  # Convert the fluxes to a numpy array and add the unit of count to it.
+            fluxes = fluxes / exptime  # Normalize the fluxes by exposure time (unit is now counts / second)
+            flux_uncs = result_tab['flux_unc']
+            flux_uncs = np.array(flux_uncs) * u.ct
+            flux_uncs = flux_uncs / exptime
+            snr = (fluxes / flux_uncs).value
+            instr_mags_sigma = 1.0857 / np.sqrt(snr)
+            instr_mags_units = u.Magnitude(fluxes)  # Convert the fluxes to an instrumental magnitude.
+            instr_mags = instr_mags_units.value  # Store the magnitudes without the unit attached.
+            # Calculate the FWHM in units of arcseconds as opposed to pixels.
+            try:
+                focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
+                xpixsz = hdr['XPIXSZ']  # Store the size of the x pixels.
+                ypixsz = hdr['XPIXSZ']  # Store the size of the y pixels.
+                if xpixsz == ypixsz:  # If the pixels are square.
+                    pixsz = xpixsz * u.um  # Store the pixel size with unit micrometre.
+                    # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
+                    rad_per_pix = atan(
+                        pixsz / focal_length) * u.rad  # Calculate the angular resolution of each pixel. Store with unit radians.
+                    arcsec_per_pix = rad_per_pix.to(
+                        u.arcsec)  # Convert the per pixel angular resultion to arcseconds.
+                    iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value  # Convert the IRAFStarFinder FWHM from pixels to arcsec.
+                    iraf_std_arcsec = iraf_std * arcsec_per_pix  # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
+                    iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
+                    print(
+                        f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")  # Print the IRAFStarFinder FWHM in arcsec.
+            except KeyError:
+                iraf_FWHMs_arcsec = iraf_fwhms
+            # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
+            # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
+            for obj_index, obj in enumerate(irafsources):
+                obj_x = obj['xcentroid']
+                obj_y = obj['ycentroid']
+                for sat_num, sat in enumerate(sat_locs, start=2):
+                    sat_x = sat[0]
+                    sat_y = sat[1]
+                    if abs(sat_x - obj_x) < max_distance_from_sat and abs(
+                            sat_y - obj_y) < max_distance_from_sat:
+                        sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
+                        uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
+                        sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
+            print(sats_table[filenum - reversing_index])
+        num_nans[sat_checked_mask] = 0
+    change_sat_positions = False
 
 
 def _main_gb_transform_calc(directory, 
@@ -2374,6 +2587,7 @@ def _main_sb_transform_calc(directory,
 def _main_sc_lightcurve(directory, temp_dir='tmp'):
     filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
     set_sat_positions = True
+    change_sat_positions = False
     for filenum, file in enumerate(filenames):
         with fits.open(f"{temp_dir}/{file}") as image:
             hdr = image[0].header
