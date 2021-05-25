@@ -324,6 +324,8 @@ for filenum, file in enumerate(filenames):
         # set_sat_positions to True/False or change_sat_positions
         if yes_no.get() == 1:
             set_sat_positions = False
+        else:
+            continue
         # elif yes_no.get() == 2:
         #     sat_locs = []
         #     names = []

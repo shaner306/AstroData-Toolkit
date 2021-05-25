@@ -13,17 +13,26 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinate
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
-from astropy.table import Table, QTable
+from astropy.table import Table, QTable, hstack
 import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
 from collections import namedtuple
+import ctypes
+import cv2 as cv
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from photutils.aperture import RectangularAperture
+from matplotlib.colors import LogNorm
+from matplotlib.lines import Line2D
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
+import tkinter as tk
 import re
 import os
+from shutil import copy2, rmtree
 
 
 def read_ref_stars(ref_stars_file):
@@ -2058,6 +2067,169 @@ def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
     return app_large_sats_table
 
 
+def copy_and_rename(directory, 
+                    file_suffix=".fits", 
+                    time_key='DATE-OBS', 
+                    filter_key='FILTER', 
+                    temp_dir='tmp', 
+                    debugging=False):
+    if not debugging:
+        try:
+            os.mkdir(temp_dir)
+        except FileExistsError as e:
+            print(e)
+    else:
+        if os.path.exists(temp_dir):
+            rmtree(temp_dir)
+        os.mkdir(temp_dir)
+    
+    filecount = 0
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                with fits.open(os.path.join(dirpth, file)) as image:
+                    hdr = image[0].header
+                t = Time(hdr[time_key], format='fits', scale='utc')
+                filter_name = hdr[filter_key]
+                t_datetime = t.to_datetime()
+                new_filename = f'{t_datetime.strftime("%Y%m%d%H%M%S")}{filter_name}.fits'
+                copy2(os.path.join(dirpth, file), f'{temp_dir}/{new_filename}')
+                filecount += 1
+    filenames = sorted(os.listdir(temp_dir))
+    return filecount, filenames
+
+
+def remove_temp_dir(temp_dir='tmp'):
+    rmtree(temp_dir)
+
+
+def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
+    def mbox(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    def set_sat_position(event, x, y, flags, params):
+        global sat_locs
+        if event == cv.EVENT_LBUTTONDOWN:
+            sat_locs.append([x, y])
+    def return_entry(event=None):
+        """Get and print the content of the entry."""
+        # global entry
+        global content
+        content = entry.get()
+        root.destroy()
+    global set_sat_positions
+    while set_sat_positions:
+        sat_locs = []
+        mbox('Information',
+             'Please select the positions of the satellites on the following image. Press any key when finished.',
+             0)
+        cv.namedWindow('TestImage')
+        cv.setMouseCallback('TestImage', set_sat_position)
+        logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+        cv.imshow('TestImage', logdata)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+        sat_locs = np.array(sat_locs)
+        print(sat_locs)
+        num_sats = len(sat_locs)
+        num_nans = np.zeros(num_sats, dtype=int)
+        names = np.empty(num_sats + 2, dtype=object)
+        names[0] = 'Time (JD)'
+        names[1] = 'Filter'
+        date_col = np.empty((filecount, 1))
+        date_col.fill(np.nan)
+        filter_col = np.empty((filecount, 1), dtype=object)
+        data = np.empty((filecount, num_sats))
+        data.fill(np.nan)
+
+        for i, name in enumerate(names[2:]):
+            fig = Figure()
+            ax = fig.add_subplot()
+            ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
+            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color='r', lw=1.5, alpha=0.5)
+            root = tk.Tk()
+            root.title("Set Satellite Position")
+            img_frame = tk.Frame(root)
+            img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            input_frame = tk.Frame(root)
+            input_frame.pack(side=tk.RIGHT)
+            label = tk.Label(input_frame, text='Enter Satellite')
+            label.pack()
+            entry = tk.Entry(input_frame)
+            entry.bind("<Return>", return_entry)
+            entry.pack(padx=5)
+            button = tk.Button(input_frame, text="OK", command=return_entry)
+            button.pack()
+            canvas = FigureCanvasTkAgg(fig, master=img_frame)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, img_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            root.update()
+            root.focus_force()
+            entry.focus_set()
+            root.mainloop()
+            names[i + 2] = content
+            print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
+        print(names)
+        
+        cmap = plt.get_cmap(cmap_set)
+        colours = [cmap(i) for i in range(0, num_sats)]
+        legend_elements = []
+        window = tk.Tk()
+        window.title('Plotting in Tkinter Test')
+        img_frame = tk.Frame(window)
+        img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        input_frame = tk.Frame(window)
+        input_frame.pack(side=tk.RIGHT)
+        label = tk.Label(input_frame, text='Are the satellite positions correct?')
+        label.pack()
+        yes_no = tk.IntVar()
+        yes_btn = tk.Radiobutton(input_frame, text='Yes', variable=yes_no, value=1)
+        yes_btn.pack(anchor=tk.W, padx=5)
+        no_btn = tk.Radiobutton(input_frame, text='No', variable=yes_no, value=2)
+        no_btn.pack(anchor=tk.W, padx=5)
+        closebutton = tk.Button(input_frame, text='OK', command=window.destroy)
+        closebutton.pack()
+        fig = Figure()
+        ax = fig.add_subplot()
+        ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+        for i in range(0, num_sats):
+            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                          label=names[i + 2]))
+        fig.legend(handles=legend_elements, framealpha=1)
+        canvas = FigureCanvasTkAgg(fig, master=img_frame)
+        canvas.draw()
+        toolbar = NavigationToolbar2Tk(canvas, img_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        window.mainloop()
+        # Have a way for the user to confirm the satellite locations. If it is wrong, then decide whether to change
+        # set_sat_positions to True/False or change_sat_positions
+        if yes_no.get() == 1:
+            set_sat_positions = False
+        else:
+            continue
+        # elif yes_no.get() == 2:
+        #     sat_locs = []
+        #     names = []
+        # print(names[0])
+        # print(date_col)
+        date_table = Table(names=[names[0]], data=date_col)
+        filter_table = Table(names=[names[1]], data=filter_col)
+        data_table = Table(names=names[2:], data=data)
+        sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sats_table.pprint_all()
+    # TODO: Figure out what needs to be returned from this function and return it (maybe as a nametuple?).
+    return
+
+
 def _main_gb_transform_calc(directory, 
                             ref_stars_file, 
                             plot_results=False, 
@@ -2197,6 +2369,17 @@ def _main_sb_transform_calc(directory,
     for index in transform_index_list:
         filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=plot_results, index=index)
         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+
+
+def _main_sc_lightcurve(directory, temp_dir='tmp'):
+    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
+    set_sat_positions = True
+    for filenum, file in enumerate(filenames):
+        with fits.open(f"{temp_dir}/{file}") as image:
+            hdr = image[0].header
+            imgdata = image[0].data
+        if set_sat_positions:
+            set_sat_positions(imgdata, filecount)
         
 
 def __debugging__():
