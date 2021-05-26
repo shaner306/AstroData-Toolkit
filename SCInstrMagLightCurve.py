@@ -681,7 +681,7 @@ for filenum, file in enumerate(filenames):
     num_nan = max(num_nans)
     # print(num_nan)
     # if num_nan >= max_num_nan:
-    if num_nan >= max_num_nan:
+    if num_nan == max_num_nan:
         change_sat_positions = True
 rmtree(temp_dir)
 sats_table.pprint_all()
