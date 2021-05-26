@@ -32,6 +32,7 @@ matplotlib.use('TkAgg')
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021 02 07\2021 02 07 - Intelsat 10-02 - G Band'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-111\2016-111'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
@@ -186,7 +187,7 @@ size = 25                                                                       
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the 1D Gaussian.
 max_distance_from_sat = 20
-max_num_nan = 5
+max_num_nan = 1
 num_nan = 0
 change_sat_positions = False
 none_sats = False
@@ -207,11 +208,14 @@ else:
 filecount = 0
 for dirpth, _, files in os.walk(directory):
     for file in files:
-        if file.endswith(".fits"):
+        if file.endswith(".FIT"):
             with fits.open(os.path.join(dirpth, file)) as image:
                 hdr = image[0].header
             t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
-            filter_name = hdr['FILTER']
+            try:
+                filter_name = hdr['FILTER']
+            except KeyError:
+                filter_name = 'C'
             t_datetime = t.to_datetime()
             new_filename = f'{t_datetime.strftime("%Y%m%d%H%M%S")}{filter_name}.fits'
             copy2(os.path.join(dirpth, file), f'{temp_dir}/{new_filename}')
@@ -343,11 +347,20 @@ for filenum, file in enumerate(filenames):
     sat_names = names[2:]
     t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
     sats_table['Time (JD)'][filenum] = t.jd
-    sats_table['Filter'][filenum] = hdr['FILTER']
+    try:
+        sats_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        sats_table['Filter'][filenum] = 'C'
     uncertainty_table['Time (JD)'][filenum] = t.jd
-    uncertainty_table['Filter'][filenum] = hdr['FILTER']
+    try:
+        uncertainty_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        uncertainty_table['Filter'][filenum] = 'C'
     sat_fwhm_table['Time (JD)'][filenum] = t.jd
-    sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
+    try:
+        sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        sat_fwhm_table['Filter'][filenum] = 'C'
     if change_sat_positions:
         # Change the position
         # Display filenames[filenum - num_nan]
@@ -498,15 +511,18 @@ for filenum, file in enumerate(filenames):
                 instr_mags_sigma = 1.0857 / np.sqrt(snr)
                 instr_mags_units = u.Magnitude(fluxes)  # Convert the fluxes to an instrumental magnitude.
                 instr_mags = instr_mags_units.value  # Store the magnitudes without the unit attached.
-                if hdr['FILTER'] == 'B':
-                    instr_mags_sigma += b_zpoint_std
-                    instr_mags += b_zpoint
-                elif hdr['FILTER'] == 'V' or hdr['FILTER'] == 'G':
-                    instr_mags_sigma += g_zpoint_std
-                    instr_mags += g_zpoint
-                elif hdr['FILTER'] == 'R':
-                    instr_mags_sigma += r_zpoint_std
-                    instr_mags += r_zpoint
+                try:
+                    if hdr['FILTER'] == 'B':
+                        instr_mags_sigma += b_zpoint_std
+                        instr_mags += b_zpoint
+                    elif hdr['FILTER'] == 'V' or hdr['FILTER'] == 'G':
+                        instr_mags_sigma += g_zpoint_std
+                        instr_mags += g_zpoint
+                    elif hdr['FILTER'] == 'R':
+                        instr_mags_sigma += r_zpoint_std
+                        instr_mags += r_zpoint
+                except KeyError:
+                    pass
                 # Calculate the FWHM in units of arcseconds as opposed to pixels.
                 try:
                     focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
@@ -614,15 +630,18 @@ for filenum, file in enumerate(filenames):
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     instr_mags_units = u.Magnitude(fluxes)                                                                          # Convert the fluxes to an instrumental magnitude.
     instr_mags = instr_mags_units.value                                                                             # Store the magnitudes without the unit attached.
-    if hdr['FILTER'] == 'B':
-        instr_mags_sigma += b_zpoint_std
-        instr_mags += b_zpoint
-    elif hdr['FILTER'] == 'V' or hdr['FILTER'] == 'G':
-        instr_mags_sigma += g_zpoint_std
-        instr_mags += g_zpoint
-    elif hdr['FILTER'] == 'R':
-        instr_mags_sigma += r_zpoint_std
-        instr_mags += r_zpoint
+    try:
+        if hdr['FILTER'] == 'B':
+            instr_mags_sigma += b_zpoint_std
+            instr_mags += b_zpoint
+        elif hdr['FILTER'] == 'V' or hdr['FILTER'] == 'G':
+            instr_mags_sigma += g_zpoint_std
+            instr_mags += g_zpoint
+        elif hdr['FILTER'] == 'R':
+            instr_mags_sigma += r_zpoint_std
+            instr_mags += r_zpoint
+    except KeyError:
+        pass
     # Calculate the FWHM in units of arcseconds as opposed to pixels.
     try:
         focal_length = hdr['FOCALLEN'] * u.mm                                                                           # Store the telescope's focal length with unit millimetres.
@@ -662,11 +681,11 @@ for filenum, file in enumerate(filenames):
     num_nan = max(num_nans)
     # print(num_nan)
     # if num_nan >= max_num_nan:
-    if num_nan == max_num_nan:
+    if num_nan >= max_num_nan:
         change_sat_positions = True
 rmtree(temp_dir)
 sats_table.pprint_all()
-plt.plot(sats_table['Time (JD)'], sats_table['Intelsat 10-02'], 'o')
+plt.plot(sats_table['Time (JD)'], sats_table['NEOSSat'], 'o')
 plt.show(block=True)
 plt.close()
 unique_filters = unique(sats_table, keys='Filter')
