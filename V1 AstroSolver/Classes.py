@@ -39,8 +39,9 @@ from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
+import astropy.wcs
 import re
-
+#from AstroFunctions import *
 
 
 
@@ -255,7 +256,7 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         
     else:
         return
-def convert_pixel_to_ra_dec(irafsources, wcs):
+def convert_pixel_to_ra_dec(irafsources,wcs):
     """
     Convert the locations of the sources from pixels to RA/dec.
 
@@ -450,7 +451,7 @@ def calculate_magnitudes(photometry_result, exptime):
         Table with the photometry results, i.e., centroids and fluxes estimations and the initial estimates used to 
         start the fitting process.
     exptime : float
-        Expsure time of the image in seconds.
+        Exposure time of the image in seconds.
 
     Returns
     -------
@@ -1496,11 +1497,10 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     bkg = MedianBackground(sigma_clip)
     bkg_value3 = bkg.calc_background(fitsdata)
     
-    bkg = ModeEstimatorBackground(sigma_clip)
-    bkg_value4 = bkg.calc_background(fitsdata)
+    #bkg = ModeEstimatorBackground(sigma_clip)
+   #bkg_value4 = bkg.calc_background(fitsdata)
     
     
-    bkg_estimator1 = SExtractorBackground()
     bkg_estimator2 = SExtractorBackground()
     #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
     bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
@@ -1515,14 +1515,37 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         print("SExtractor Background(Filtered): " + str(mean(bkg.background))+"\n "+ "     " + "Box Size: " +"50x50" +"\n "+ "     " + "Filter Size: " +"3x3")
         print("Mean Background: " + str(bkg_value2))
         print("Median Background: " + str(bkg_value3))
-        print("Mode Estimator Background: " + str(bkg_value4))
+        #print("Mode Estimator Background: " + str(bkg_value4))
         print("Remaining Background (subtracted): " + str(bg_rem))
         print("Polyfit Background: Not Implemented Yet")
         
     else:
-        return bkg_value1
+        return bkg
+    
+def ref_star_folder_read(refstars_doc):
+    
+    refstars = pd.read_excel(refstars_doc)
+    refstars.head()
+    HIP= refstars["HIP"]
+    erad = refstars["erad"]
+    edec= refstars["edec"]
+    vref= refstars["V"]
+    bvindex=refstars["(B-V)"]
+    vrindex=refstars["(V-R)"]
+    refstarsfin= np.column_stack((HIP, erad,edec,vref))
+    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
 
-def ref_star_search(s,f,erad,edec):
+
+
+def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
+    refx=[]
+    refy=[]
+    vref2=[]
+    HIP2=[]
+    vrindexdet=[]
+    bvindexdet=[]
+    
+    
     for s in range(89):
         
         try:
@@ -1611,17 +1634,20 @@ def pinpoint_init():
 def getFileList(inbox):
     filepathall = []
     directory = os.path.dirname(inbox)
-    list = os.listdir(inbox) #List of Files
-    listSize = len(list) #Number of Files
-    c=list[0]
+    list1 = os.listdir(inbox) #List of Files
+    listSize = len(list1) #Number of Files
+    print(listSize)
+    c=list1
+    print(c)
     #o=0;
-    for i in range(c):
+    for i in range(1,listSize):
+        print(c[i])
         filepath2 = inbox+"\\"+c[i]
         filepathall.append(filepath2)
         #o=o+1;
     return filepathall
     #o=0;
-def fits_header_import(filepath):
+def fits_header_import(filepath, filter_key='FILTER'):
         imagehdularray = fits.open(filepath)
         header = imagehdularray[0].header
         date=imagehdularray[0].header['DATE-OBS']
@@ -1629,11 +1655,32 @@ def fits_header_import(filepath):
         imagesizeX=imagehdularray[0].header['NAXIS1']
         imagesizeY=imagehdularray[0].header['NAXIS2']
         fitsdata =  imagehdularray[0].data
-        wcs = WCS(imagehdularray[1].header)
-        filt=get_instr_filter_name(imagehdularray, filter_key='FILTER')
-        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,wcs,header
+        #wcs = WCS(imagehdularray[1].header)
+        focal_Length=imagehdularray[0].header['FOCALLEN']
+        XPIXSZ=imagehdularray[0].header['XPIXSZ']
+        YPIXSZ=imagehdularray[0].header['YPIXSZ']
+        filt=imagehdularray[0].header['FILTER']
+   
+    
+        
+        
+        
+        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ
 
+def calc_ArcsecPerPixel(header):
+   focal_Length= header['FOCALLEN']
+   xpix_size=header['XPIXSZ']
+   ypix_size=header['XPIXSZ']
+   xbin=header['XPIXSZ']
+   ybin=header['XPIXSZ']
+   x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
+   y_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*ybin
+   
+   return x_arcsecperpixel, y_arcsecperpixel
+   
 
+   
+   
 inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
 refstars_doc = 'D:\\Reference_stars.xlsx'
 catloc = 'D:\squid\\USNOA20-All';
@@ -1653,14 +1700,15 @@ SNRLimit = 0;
 "Opening Image Folder and Determing the number of files"
 filepathall = getFileList(inbox);
 
-for i in range(filepathall):
+for i in range(0,len(filepathall)):
     f = win32com.client.Dispatch("Pinpoint.plate")
+    print(i)
     try:
         
         
         """Import Data from FITS HEADER"""
-        imagehdularray,date,exposure_Time,imagesizeX,imagesizeY, fitsdata, filt,wcs,header = fits_header_import(filepathall[i])
-        
+        imagehdularray,date,exposure_Time,imagesizeX,imagesizeY, fitsdata, filt,header,XPIXSZ, YPIXSZ = fits_header_import(filepathall[i])
+        print(date)
         """STAR STARE MODE
         
         
@@ -1672,10 +1720,12 @@ for i in range(filepathall):
         
         """Running Functions"""
         bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0)
-        backg,bkg_std = calculate_img_bkg(fitsdata)
         
-        iraf_Sources= detecting_stars(fitsdata, bkg, bkg_std)
-        skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
+        backg, bkg_std = calculate_img_bkg(fitsdata)
+        
+        iraf_Sources= detecting_stars(fitsdata, backg, bkg_std)
+        wcs = WCS(header)
+        skypositions= convert_pixel_to_ra_dec(iraf_Sources,wcs)
         altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
         fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
         photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
@@ -1683,6 +1733,10 @@ for i in range(filepathall):
         calculate_magnitudes(photometry_result, exposure_Time)
         calculate_magnitudes_sigma(photometry_result, exposure_Time)
         large_table_columns= init_large_table_columns()
+        
+        fluxes = np.array(photometry_result['flux_fit'])
+        instr_mags = calculate_magnitudes(photometry_result, exposure_Time)
+        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exposure_Time)
         
         "Space Based"
         large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
@@ -1700,14 +1754,13 @@ for i in range(filepathall):
         
         """Setting Pinpoint Solution Parameters"""
         f.AttachFITS(filepathall[i])
-        #print(c[o])
         f.Declination = f.targetDeclination;
         f.RightAscension = f.targetRightAscension; 
-        yBin = 4.33562092816E-004*3600;
-        xBin =  4.33131246330E-004*3600; 
-        f.ArcsecperPixelHoriz  = xBin;
-        f.ArcsecperPixelVert = yBin;
-         
+        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+        # yBin = 4.33562092816E-004*3600;
+        # xBin =  4.33131246330E-004*3600; 
+        f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
+        f.ArcsecperPixelVert =  y_arcsecperpixel;
         f.Catalog = 5;
         f.CatalogPath = catloc;
         f.CatalogMaximumMagnitude = 13;
@@ -1717,23 +1770,17 @@ for i in range(filepathall):
         f.FindCatalogStars; 
         f.MaxSolveTime = 60; 
         f.MaxMatchResidual = 1.5; 
-        flag = 0;
+
+        
+        "Pinpoint Solving"
         f.FindCatalogStars()
         f.Solve()
         f.MatchedStars.count
         f.FindImageStars()
         #print(f.ImageStars)
         
-        s=1
-        q=0
-        refx=[]
-        refy=[]
-        vref2=[]
-        HIP2=[]
-        vrindexdet=[]
-        bvindexdet=[]
-
-        ref_star_search(s,f,erad,edec)
+        "Searching for Ref Stars"
+        ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
         
         
                 
@@ -1764,9 +1811,13 @@ for i in range(filepathall):
     #                             C = S(C_index);
     #                             %a holds [alpha Beta] moffat parameters
     #                             %Fix a(2) Beta parameter to 1.5
+    
+    
     #                             fun = @(a) sum((S - (C./((1+(r.^2)/(a(1)^2)).^1.5))).^2);
     #                             aguess = 1;
     #                             [a,fminres] = fminsearch(fun,aguess);
+    
+    
     #                             %b holds [alpha Beta] moffat parameters
     #                             fung = @(b) sum((S - (C*exp(-(r.^2)/(2*(b^2))))).^2);
     #                             bguess = 2;
