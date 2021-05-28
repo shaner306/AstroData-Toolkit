@@ -13,15 +13,28 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinate
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
-from astropy.table import Table, QTable
+from astropy.table import Table, QTable, hstack
 import astropy.units as u
 from astropy.time import Time
+from astropy.wcs import WCS
 from collections import namedtuple
+import ctypes
+import cv2 as cv
+from math import sqrt, atan
+from matplotlib import patches
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from photutils.aperture import RectangularAperture
+from matplotlib.colors import LogNorm
+from matplotlib.lines import Line2D
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
+import tkinter as tk
 import re
+import os
+from shutil import copy2, rmtree
 
 
 def read_ref_stars(ref_stars_file):
@@ -254,7 +267,6 @@ def calculate_fwhm(irafsources):
     fwhm_std = fwhms.std()
     return fwhm, fwhm_std
 
-from photutils.background import MedianBackground, SExtractorBackground
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
     """
@@ -310,7 +322,6 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
-    bkg_estimator = SExtractorBackground()
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -2056,6 +2067,555 @@ def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
     """
     app_large_sats_table = large_sats_table
     return app_large_sats_table
+
+
+def copy_and_rename(directory, 
+                    file_suffix=".fits", 
+                    time_key='DATE-OBS', 
+                    filter_key='FILTER', 
+                    temp_dir='tmp', 
+                    debugging=False):
+    if not debugging:
+        try:
+            os.mkdir(temp_dir)
+        except FileExistsError as e:
+            print(e)
+    else:
+        if os.path.exists(temp_dir):
+            rmtree(temp_dir)
+        os.mkdir(temp_dir)
+    
+    filecount = 0
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                with fits.open(os.path.join(dirpth, file)) as image:
+                    hdr = image[0].header
+                t = Time(hdr[time_key], format='fits', scale='utc')
+                filter_name = hdr[filter_key]
+                t_datetime = t.to_datetime()
+                new_filename = f'{t_datetime.strftime("%Y%m%d%H%M%S")}{filter_name}.fits'
+                copy2(os.path.join(dirpth, file), f'{temp_dir}/{new_filename}')
+                filecount += 1
+    filenames = sorted(os.listdir(temp_dir))
+    return filecount, filenames
+
+
+def remove_temp_dir(temp_dir='tmp'):
+    rmtree(temp_dir)
+
+
+def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
+    def mbox(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    def set_sat_position(event, x, y, flags, params):
+        global sat_locs
+        if event == cv.EVENT_LBUTTONDOWN:
+            sat_locs.append([x, y])
+    def return_entry(event=None):
+        """Get and print the content of the entry."""
+        # global entry
+        global content
+        content = entry.get()
+        root.destroy()
+    global set_sat_positions
+    while set_sat_positions:
+        sat_locs = []
+        mbox('Information',
+             'Please select the positions of the satellites on the following image. Press any key when finished.',
+             0)
+        cv.namedWindow('TestImage')
+        cv.setMouseCallback('TestImage', set_sat_position)
+        logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+        cv.imshow('TestImage', logdata)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+        sat_locs = np.array(sat_locs)
+        print(sat_locs)
+        num_sats = len(sat_locs)
+        num_nans = np.zeros(num_sats, dtype=int)
+        names = np.empty(num_sats + 2, dtype=object)
+        names[0] = 'Time (JD)'
+        names[1] = 'Filter'
+        date_col = np.empty((filecount, 1))
+        date_col.fill(np.nan)
+        filter_col = np.empty((filecount, 1), dtype=object)
+        data = np.empty((filecount, num_sats))
+        data.fill(np.nan)
+
+        for i, name in enumerate(names[2:]):
+            fig = Figure()
+            ax = fig.add_subplot()
+            ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
+            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color='r', lw=1.5, alpha=0.5)
+            root = tk.Tk()
+            root.title("Set Satellite Position")
+            img_frame = tk.Frame(root)
+            img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            input_frame = tk.Frame(root)
+            input_frame.pack(side=tk.RIGHT)
+            label = tk.Label(input_frame, text='Enter Satellite')
+            label.pack()
+            entry = tk.Entry(input_frame)
+            entry.bind("<Return>", return_entry)
+            entry.pack(padx=5)
+            button = tk.Button(input_frame, text="OK", command=return_entry)
+            button.pack()
+            canvas = FigureCanvasTkAgg(fig, master=img_frame)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, img_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            root.update()
+            root.focus_force()
+            entry.focus_set()
+            root.mainloop()
+            names[i + 2] = content
+            print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
+        print(names)
+        
+        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        colours = [cmap(i) for i in range(0, num_sats)]
+        legend_elements = []
+        window = tk.Tk()
+        window.title('Plotting in Tkinter Test')
+        img_frame = tk.Frame(window)
+        img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        input_frame = tk.Frame(window)
+        input_frame.pack(side=tk.RIGHT)
+        label = tk.Label(input_frame, text='Are the satellite positions correct?')
+        label.pack()
+        yes_no = tk.IntVar()
+        yes_btn = tk.Radiobutton(input_frame, text='Yes', variable=yes_no, value=1)
+        yes_btn.pack(anchor=tk.W, padx=5)
+        no_btn = tk.Radiobutton(input_frame, text='No', variable=yes_no, value=2)
+        no_btn.pack(anchor=tk.W, padx=5)
+        closebutton = tk.Button(input_frame, text='OK', command=window.destroy)
+        closebutton.pack()
+        fig = Figure()
+        ax = fig.add_subplot()
+        ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+        for i in range(0, num_sats):
+            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                          label=names[i + 2]))
+        fig.legend(handles=legend_elements, framealpha=1)
+        canvas = FigureCanvasTkAgg(fig, master=img_frame)
+        canvas.draw()
+        toolbar = NavigationToolbar2Tk(canvas, img_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        window.mainloop()
+        # Have a way for the user to confirm the satellite locations. If it is wrong, then decide whether to change
+        # set_sat_positions to True/False or change_sat_positions
+        if yes_no.get() == 1:
+            set_sat_positions = False
+        else:
+            continue
+        # elif yes_no.get() == 2:
+        #     sat_locs = []
+        #     names = []
+        # print(names[0])
+        # print(date_col)
+        sat_names = names[2:]
+        date_table = Table(names=[names[0]], data=date_col)
+        filter_table = Table(names=[names[1]], data=filter_col)
+        data_table = Table(names=names[2:], data=data)
+        sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sats_table.pprint_all()
+    # TODO: Figure out what needs to be returned from this function and return it (maybe as a nametuple?).
+    return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
+
+
+def change_sat_positions(filenames, 
+                         filenum, 
+                         sats_table, 
+                         uncertainty_table, 
+                         sat_fwhm_table, 
+                         num_nan, 
+                         num_nans, 
+                         sat_names, 
+                         num_sats, 
+                         max_distance_from_sat=20, 
+                         size=25, 
+                         temp_dir='tmp', 
+                         cmap_set='Set1', 
+                         plot_results=0):
+    # Change the position
+    # Display filenames[filenum - num_nan]
+    def mbox(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    def change_sat_position(event, x, y, flags, params):
+        global sat_locs
+        if event == cv.EVENT_LBUTTONDOWN:
+            sat_locs[params[0]] = [x, y]
+            cv.destroyAllWindows()
+    global change_sat_positions
+    print(filenames[filenum - num_nan])
+    # sat_checked = np.zeros(num_sats, dtype=IntVar())
+    with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}") as image:
+        hdr = image[0].header
+        imgdata = image[0].data
+    root = tk.Tk()
+    root.title("Current satellite positions")
+    input_frame = tk.Frame(root)
+    input_frame.pack(side=tk.RIGHT)
+    img_frame = tk.Frame(root)
+    img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+    label = tk.Label(input_frame, text='Select the satellite(s) whose position you would like to change.')
+    label.grid(row=0)
+    sat_checked = []
+    for sat_num, sat in enumerate(sat_names):
+        sat_checked.append(tk.IntVar())
+        checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
+        checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
+    none_select = tk.IntVar()
+    checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
+    checkbutton.grid(row=num_sats+2, sticky=tk.W, padx=5)
+    closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
+    closebutton.grid(row=num_sats+3)
+    legend_elements = []
+    fig = Figure()
+    ax = fig.add_subplot()
+    ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+    cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+    colours = [cmap(i) for i in range(0, num_sats)]
+    for i in range(0, num_sats):
+        sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                           h=max_distance_from_sat * 2)
+        sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+        legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                      label=sat_names[i]))
+    fig.legend(handles=legend_elements, framealpha=1)
+    canvas = FigureCanvasTkAgg(fig, master=img_frame)
+    canvas.draw()
+    toolbar = NavigationToolbar2Tk(canvas, img_frame)
+    toolbar.update()
+    canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+    root.mainloop()
+    if none_select.get() == 1:
+        none_sats = True
+    elif none_select.get() == 0:
+        none_sats = False
+    if not none_sats:
+        sat_checked_int = np.empty(len(sat_checked), dtype=int)
+        for sat_num, sat in enumerate(sat_checked):
+            sat_checked_int[sat_num] = sat.get()
+        print(sat_checked_int)
+        sat_checked_mask = sat_checked_int == 1
+        print(sat_checked_mask)
+        for sat in sat_names[sat_checked_mask]:
+            print(sat)
+            index = np.where(sat_names == sat)
+            mbox('Information',
+                 f'Please select the new position of {sat} on the following image.',
+                 0)
+            cv.namedWindow('TestImage')
+            cv.setMouseCallback('TestImage', change_sat_position, index)
+            logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+            cv.imshow('TestImage', logdata)
+            cv.waitKey(0)
+        print(sat_locs)
+        # If some selection is none
+        # none_sats = True
+        for reversing_index in range(1, num_nan+1):
+            filepath = f"{temp_dir}/{filenames[filenum - reversing_index]}"
+            hdr, imgdata = read_fits_file(filepath)
+            print(filenames[filenum - reversing_index])
+            # Do the photometry on the images. Should change this to a bunch of function calls, rather than copy
+            # and pasting the code.
+            exptime = hdr['EXPTIME']# * u.s  # Store the exposure time with unit seconds.
+            bkg, bkg_std = calculate_img_bkg(imgdata)
+            # mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
+            irafsources = detecting_stars(imgdata, bkg, bkg_std)
+            # iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
+            # irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
+            if not irafsources:
+                num_nans[:] = 0
+                continue
+            # try:
+            #     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
+            # except Exception as e:
+            #     # Reset the NaN boolean as it doesn't count.
+            #     num_nans[:] = 0
+            #     continue
+            # irafpositions = np.transpose((irafsources['xcentroid'],
+            #                               irafsources['ycentroid']))  # Store source positions as a numpy array.
+            if plot_results != 0:
+                fig, ax = plt.subplots()
+                ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+                ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
+                           s=100, edgecolor='red', facecolor='none')
+                for i in range(0, num_sats):
+                    rect = patches.Rectangle(
+                        (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
+                        width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
+                        edgecolor='green', facecolor='none')
+                    ax.add_patch(rect)
+                plt.title(filenames[filenum - reversing_index])
+                if plot_results == 1:
+                    plt.show(block=False)
+                    plt.pause(2)
+                elif plot_results == 2:
+                    plt.show()
+                plt.close()
+            # TODO: Calculate array of FWHM to be used later.
+            fwhm, fwhm_std = calculate_fwhm(irafsources)
+            # iraf_fwhms = irafsources['fwhm']  # Save FWHM in a list.
+            # iraf_fwhms = np.array(iraf_fwhms)  # Convert FWHM list to numpy array.
+            # # Print information about the file                                                                              #####
+            # # Calculate statistics of the FWHMs given by the loop over each source.                                         #####
+            # iraf_sdom = iraf_fwhms.std() / sqrt(len(iraf_fwhms))  # Standard deviation of the mean. Not used.
+            # num_IRAF_sources = len(irafsources)  # Number of stars IRAF found.
+            # print(f"No. of IRAF sources: {num_IRAF_sources}")  # Print number of IRAF stars found.
+            # iraf_fwhm = iraf_fwhms.mean()  # Calculate IRAF FWHM mean.
+            # iraf_std = iraf_fwhms.std()  # Calculate IRAF standard deviation.
+            # print(f"IRAF Calculated FWHM (pixels): {iraf_fwhm:.3f} +/- {iraf_std:.3f}")  # Print IRAF FWHM.
+            # Calculate the flux of each star using PSF photometry. This uses the star positions calculated by
+            # IRAFStarFinder earlier.
+            photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
+            # daogroup = DAOGroup(2 * iraf_fwhm)  # Groups overlapping stars together.
+            # # sigma_clip = SigmaClip()
+            # # mmm_bkg = MMMBackground(sigma_clip=sigma_clip)
+            # # bkg_value = mmm_bkg(imgdata)
+            # psf_model = IntegratedGaussianPRF(
+            #     sigma=iraf_fwhm * gaussian_fwhm_to_sigma)  # Defime the PSF model to be used for photometry.
+            # psf_model.x_0.fixed = True  # Don't change the initial 'guess' of the star x positions to be provided.
+            # psf_model.y_0.fixed = True  # Don't change the initial 'guess' of the star y positions to be provided.
+            # # Provide the initial guesses for the x-y positions and the flux. The flux will be fit using the psf_model,
+            # # so that will change, but the star positions will remain the same.
+            # pos = Table(names=['x_0', 'y_0', 'flux_0'],
+            #             data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+            # # Initialize the photometry to be performed. Do not estimate the background, as it will be subtracted from
+            # # the image when fitting the PSF.
+            # photometry = BasicPSFPhotometry(group_maker=daogroup,
+            #                                 bkg_estimator=None,
+            #                                 psf_model=psf_model,
+            #                                 fitter=LevMarLSQFitter(),
+            #                                 fitshape=size)
+            # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
+            # initial guess for the flux.
+            # result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
+            # fluxes = photometry_result['flux_fit']  # Store the fluxes as a list.
+            instr_mags = calculate_magnitudes(photometry_result, exptime)
+            instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+            # fluxes = np.array(
+            #     fluxes) * u.ct  # Convert the fluxes to a numpy array and add the unit of count to it.
+            # fluxes = fluxes / exptime  # Normalize the fluxes by exposure time (unit is now counts / second)
+            # flux_uncs = result_tab['flux_unc']
+            # flux_uncs = np.array(flux_uncs) * u.ct
+            # flux_uncs = flux_uncs / exptime
+            # snr = (fluxes / flux_uncs).value
+            # instr_mags_sigma = 1.0857 / np.sqrt(snr)
+            # instr_mags_units = u.Magnitude(fluxes)  # Convert the fluxes to an instrumental magnitude.
+            # instr_mags = instr_mags_units.value  # Store the magnitudes without the unit attached.
+            # Calculate the FWHM in units of arcseconds as opposed to pixels.
+            # TODO: Calculate FWHM in arcsec (create function if one doesn't already exist).
+            # try:
+            #     focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
+            #     xpixsz = hdr['XPIXSZ']  # Store the size of the x pixels.
+            #     ypixsz = hdr['XPIXSZ']  # Store the size of the y pixels.
+            #     if xpixsz == ypixsz:  # If the pixels are square.
+            #         pixsz = xpixsz * u.um  # Store the pixel size with unit micrometre.
+            #         # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
+            #         rad_per_pix = atan(
+            #             pixsz / focal_length) * u.rad  # Calculate the angular resolution of each pixel. Store with unit radians.
+            #         arcsec_per_pix = rad_per_pix.to(
+            #             u.arcsec)  # Convert the per pixel angular resultion to arcseconds.
+            #         iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value  # Convert the IRAFStarFinder FWHM from pixels to arcsec.
+            #         iraf_std_arcsec = iraf_std * arcsec_per_pix  # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
+            #         iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
+            #         print(
+            #             f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")  # Print the IRAFStarFinder FWHM in arcsec.
+            # except KeyError:
+            #     iraf_FWHMs_arcsec = iraf_fwhms
+            # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
+            # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
+            for obj_index, obj in enumerate(irafsources):
+                obj_x = obj['xcentroid']
+                obj_y = obj['ycentroid']
+                for sat_num, sat in enumerate(sat_locs, start=2):
+                    sat_x = sat[0]
+                    sat_y = sat[1]
+                    if abs(sat_x - obj_x) < max_distance_from_sat and abs(
+                            sat_y - obj_y) < max_distance_from_sat:
+                        sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
+                        uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
+                        # TODO: array FWHMs
+                        # sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
+            print(sats_table[filenum - reversing_index])
+        num_nans[sat_checked_mask] = 0
+    change_sat_positions = False
+
+
+def _main_gb_transform_calc(directory, 
+                            ref_stars_file, 
+                            plot_results=False, 
+                            file_suffix=".fits", 
+                            exposure_key='EXPTIME', 
+                            lat_key='SITELAT', 
+                            lon_key='SITELONG', 
+                            elev_key='SITEELEV', 
+                            name_key='Name'):
+    # TODO: Doctring.
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    gb_transform_table_columns = init_gb_transform_table_columns()
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                altazpositions = None
+                try:
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, 
+                                                              lon_key=lon_key, elev_key=elev_key)
+                except AttributeError as e:
+                    print(e)
+                    continue
+                matched_stars = find_ref_stars(reference_stars, 
+                                               ref_star_positions,
+                                               skypositions,
+                                               instr_mags,
+                                               instr_mags_sigma,
+                                               fluxes,
+                                               ground_based=True,
+                                               altazpositions=altazpositions)
+                if not matched_stars:
+                    continue
+                
+                instr_filter = get_instr_filter_name(hdr)
+                colour_indices = get_all_colour_indices(instr_filter)
+                for colour_index in colour_indices:
+                    field = get_field_name(matched_stars, name_key=name_key)
+                    if np.isnan(matched_stars.ref_star[colour_index]).any():
+                        no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                        matched_stars = matched_stars._replace(
+                            ref_star_index = matched_stars.ref_star_index[no_nan_indices],
+                            img_star_index = matched_stars.img_star_index[no_nan_indices],
+                            ref_star = matched_stars.ref_star[no_nan_indices],
+                            ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
+                            img_star_loc = matched_stars.img_star_loc[no_nan_indices],
+                            ang_separation = matched_stars.ang_separation[no_nan_indices],
+                            img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
+                            img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
+                            flux = matched_stars.flux[no_nan_indices],
+                            img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
+                            img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
+                            )
+                    try:
+                        len(matched_stars.img_instr_mag)
+                    except TypeError:
+                        print("Only 1 reference star detected in the image.")
+                        continue
+                    c_fci, zprime_f = ground_based_first_order_transforms(matched_stars, 
+                                                                          instr_filter, 
+                                                                          colour_index, 
+                                                                          plot_results=plot_results)
+                    gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                   field,
+                                                                                   c_fci,
+                                                                                   zprime_f,
+                                                                                   instr_filter,
+                                                                                   colour_index,
+                                                                                   altazpositions)
+    gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
+    gb_transform_table = remove_large_airmass(gb_transform_table)
+    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, plot_results=plot_results)
+    return gb_final_transforms
+
+
+def _main_sb_transform_calc(directory, 
+                            ref_stars_file, 
+                            plot_results=False, 
+                            file_suffix=".fits", 
+                            exposure_key='EXPTIME',  
+                            name_key='Name',
+                            transform_index_list=['(B-V)', '(V-R)', '(V-I)']):
+    # TODO: Docstring.
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                matched_stars = find_ref_stars(reference_stars, 
+                                                     ref_star_positions,
+                                                     skypositions,
+                                                     instr_mags,
+                                                     instr_mags_sigma,
+                                                     fluxes,
+                                                     ground_based=False,
+                                                     altazpositions=None)
+                if not matched_stars:
+                    continue
+                                
+                large_table_columns = update_large_table_columns(large_table_columns, 
+                                                                 matched_stars, 
+                                                                 hdr, 
+                                                                 exptime, 
+                                                                 ground_based=False, 
+                                                                 name_key=name_key)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+    stars_table = group_each_star(large_stars_table, ground_based=False)
+    for index in transform_index_list:
+        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=plot_results, index=index)
+        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+
+
+def _main_sc_lightcurve(directory, temp_dir='tmp'):
+    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
+    set_sat_positions = True
+    change_sat_positions = False
+    for filenum, file in enumerate(filenames):
+        filepath = f"{temp_dir}/{file}"
+        hdr, imgdata = read_fits_file(filepath)
+        if set_sat_positions:
+            set_sat_positions(imgdata, filecount)
+        
+
+def __debugging__():
+    """
+    Debug the main functions. This should simplify git commits by only needing to edit this file.
+
+    Returns
+    -------
+    None.
+
+    """
+    return
 
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
