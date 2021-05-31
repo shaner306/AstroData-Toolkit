@@ -1306,10 +1306,12 @@ def write_table_to_latex(table, output_file, formats=None):
 
 def space_based_transform(stars_table, 
                           plot_results=False, 
+                          save_plots=False,
                           index='(B-V)', 
                           app_filter='V', 
                           instr_filter='c', 
-                          field=None):
+                          field=None,
+                          **kwargs):
     """
     Calculate the transforms for a space based sensor.
 
@@ -1388,6 +1390,9 @@ def space_based_transform(stars_table,
         plt.xlabel(f"{index}")
         plt.legend()
         plt.title(f"Space Based Transform Calculation for {index}")
+        if save_plots:
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'TZfci_{index}')}.png"
+            plt.savefig(save_loc)
         # if not field:
         #     plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         # else:
@@ -2550,15 +2555,21 @@ def change_sat_positions(filenames,
 def _main_gb_transform_calc(directory, 
                             ref_stars_file, 
                             plot_results=False, 
+                            save_plots=False, 
+                            remove_large_airmass=True, 
                             file_suffix=".fits", 
                             exposure_key='EXPTIME', 
                             lat_key='SITELAT', 
                             lon_key='SITELONG', 
                             elev_key='SITEELEV', 
-                            name_key='Name'):
-    # TODO: Doctring.
+                            name_key='Name',
+                            **kwargs):
+    # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
+    
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
@@ -2619,33 +2630,59 @@ def _main_gb_transform_calc(directory,
                     except TypeError:
                         print("Only 1 reference star detected in the image.")
                         continue
-                    c_fci, zprime_f = ground_based_first_order_transforms(matched_stars, 
-                                                                          instr_filter, 
-                                                                          colour_index, 
-                                                                          plot_results=plot_results)
+                    if not save_plots:
+                        c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
+                                                                                                           instr_filter, 
+                                                                                                           colour_index, 
+                                                                                                           plot_results=plot_results)
+                    else:
+                        unique_id = filename
+                        c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
+                                                                                                           instr_filter, 
+                                                                                                           colour_index, 
+                                                                                                           plot_results=plot_results,
+                                                                                                           save_plots=save_plots,
+                                                                                                           save_loc=save_loc,
+                                                                                                           unique_id=unique_id)
                     gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
                                                                                    field,
                                                                                    c_fci,
+                                                                                   c_fci_sigma,
                                                                                    zprime_f,
+                                                                                   zprime_f_sigma,
                                                                                    instr_filter,
                                                                                    colour_index,
                                                                                    altazpositions)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
-    gb_transform_table = remove_large_airmass(gb_transform_table)
-    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, plot_results=plot_results)
+    if remove_large_airmass:
+        gb_transform_table = remove_large_airmass(gb_transform_table)
+    if save_plots:
+        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
+                                                                   plot_results=plot_results, 
+                                                                   save_plots=save_plots,
+                                                                   save_loc=save_loc)
+    else:
+        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
+                                                                   plot_results=plot_results, 
+                                                                   save_plots=save_plots)
     return gb_final_transforms
 
 
 def _main_sb_transform_calc(directory, 
                             ref_stars_file, 
                             plot_results=False, 
+                            save_plots=False,
                             file_suffix=".fits", 
                             exposure_key='EXPTIME',  
                             name_key='Name',
-                            transform_index_list=['(B-V)', '(V-R)', '(V-I)']):
+                            transform_index_list=['(B-V)', '(V-R)', '(V-I)'],
+                            **kwargs):
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
+    
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
@@ -2683,9 +2720,26 @@ def _main_sb_transform_calc(directory,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
     stars_table = group_each_star(large_stars_table, ground_based=False)
-    for index in transform_index_list:
-        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=plot_results, index=index)
-        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
+        write_table_to_latex(stars_table, f"{os.path.join(save_loc, 'stars_table')}.txt", formats={'c': '%0.3f',
+                                                                                                   'c_sigma': '%0.3f'})
+        for index in transform_index_list:
+            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
+                                                                                               plot_results=plot_results, 
+                                                                                               index=index,
+                                                                                               save_plots=save_plots, 
+                                                                                               save_loc=save_loc)
+            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
+    else:
+        for index in transform_index_list:
+            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
+                                                                                               plot_results=plot_results, 
+                                                                                               index=index,
+                                                                                               save_plots=save_plots)
+            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
 
 
 def _main_sc_lightcurve(directory, temp_dir='tmp'):
@@ -2699,7 +2753,7 @@ def _main_sc_lightcurve(directory, temp_dir='tmp'):
             set_sat_positions(imgdata, filecount)
         
 
-def __debugging__():
+def __debugging__(gb_final_transforms, save_loc):
     """
     Debug the main functions. This should simplify git commits by only needing to edit this file.
 
@@ -2708,6 +2762,18 @@ def __debugging__():
     None.
 
     """
+    # Maybe put the write table option in here?
+    formats = {
+    'k\'\'_fCI': '%0.3f',
+    'k\'\'_fCI_sigma': '%0.3f',
+    'T_fCI': '%0.3f',
+    'T_fCI_sigma': '%0.3f',
+    'k\'_f': '%0.3f',
+    'k\'_f_sigma': '%0.3f',
+    'Z_f': '%0.3f',
+    'Z_f_sigma': '%0.3f'
+    }
+    write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     return
 
 
