@@ -11,8 +11,9 @@ Created on Thu Apr 15 10:14:43 2021
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
-from astropy.modeling.fitting import LevMarLSQFitter
-from astropy.stats import sigma_clipped_stats, gaussian_fwhm_to_sigma
+from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter, FittingWithOutlierRemoval
+from astropy.modeling.models import Linear1D
+from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
 import astropy.units as u
 from astropy.time import Time
@@ -41,6 +42,13 @@ from scipy.optimize import curve_fit
 def linear_func(x, m, b):
     y = (m * x) + b
     return y
+
+
+def init_linear_fitting(niter=3, sigma=3.0):
+    fit = LevMarLSQFitter(calc_uncertainties=True)
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
+    line_init = Linear1D()
+    return fit, or_fit, line_init
 
 
 def read_ref_stars(ref_stars_file):
@@ -1729,24 +1737,26 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    a_fit, cov = curve_fit(linear_func, 
-                           matched_stars.ref_star[colour_index], 
-                           app_mag - matched_stars.img_instr_mag, 
-                           sigma=err_sum)
-    c_fci = a_fit[0]
-    zprime_f = a_fit[1]
+    x = matched_stars.ref_star[colour_index]
+    y = app_mag - matched_stars.img_instr_mag
+    fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+    fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
+    filtered_data = np.ma.masked_array(app_mag - matched_stars.img_instr_mag, mask=mask)
+    c_fci = fitted_line.slope.value
+    zprime_f = fitted_line.intercept.value
+    cov = fit.fit_info['param_cov']
     c_fci_sigma = cov[0][0]
     zprime_f_sigma = cov[1][1]
-    # c_fci, zprime_fci = np.polyfit(matched_stars.ref_star[colour_index], app_mag - matched_stars.img_instr_mag, 1, 
-    #                                     full=False, w=1/err_sum)
     if plot_results:
-        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index])-0.2, 
-                               stop=max(matched_stars.ref_star[colour_index])+0.2, 
+        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index])-0.1, 
+                               stop=max(matched_stars.ref_star[colour_index])+0.1, 
                                step=0.1)
-        plt.errorbar(matched_stars.ref_star[colour_index], app_mag - matched_stars.img_instr_mag, 
-                     yerr=err_sum, fmt='o', capsize=2)
-        plt.plot(index_plot, c_fci * index_plot + zprime_f, 
+        plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
                  label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
+        # plt.plot(index_plot, c_fci * index_plot + zprime_f, 
+        #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{colour_index}")
         plt.legend()
