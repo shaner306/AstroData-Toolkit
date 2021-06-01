@@ -1381,25 +1381,42 @@ def space_based_transform(stars_table,
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    a_fit, cov = curve_fit(linear_func, stars_table[index], 
-                             stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
-                             sigma=err_sum)
-    filter_fci = a_fit[0]
+    
+    
+    x = stars_table[index]
+    y = stars_table[f'{app_filter}_ref'] - stars_table[instr_filter]
+    fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+    fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
+    filtered_data = np.ma.masked_array(y, mask=mask)
+    filter_fci = fitted_line.slope.value
+    zprime_fci = fitted_line.intercept.value
+    cov = fit.fit_info['param_cov']
+    
+    # a_fit, cov = curve_fit(linear_func, stars_table[index], 
+    #                          stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
+    #                          sigma=err_sum)
+    # filter_fci = a_fit[0]
     filter_fci_sigma = sqrt(cov[0][0])
-    zprime_fci = a_fit[1]
+    # zprime_fci = a_fit[1]
     zprime_fci_sigma = sqrt(cov[1][1])
     if plot_results:
-        index_plot = np.arange(start=min(stars_table[index])-0.2, stop=max(stars_table[index])+0.2, step=0.1)
-        plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
-                     yerr=err_sum, fmt='o', capsize=2)
-        plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
+        index_plot = np.arange(start=min(stars_table[index]), stop=max(stars_table[index])+0.01, step=0.01)
+        plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
                  label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        
+        # plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
+        #              yerr=err_sum, fmt='o', capsize=2)
+        # plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
+        #          label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{index}")
         plt.legend()
         plt.title(f"Space Based Transform Calculation for {index}")
         if save_plots:
-            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'TZfci_{index}')}.png"
+            unique_id = kwargs.get('unique_id')
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'{unique_id}_TZfci_{index}')}.png"
             plt.savefig(save_loc)
         # if not field:
         #     plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
@@ -1409,6 +1426,59 @@ def space_based_transform(stars_table,
         plt.close()
     return filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma
 
+
+def init_sb_final_transform_columns():
+    index = []
+    filter_fci = []
+    filter_fci_sigma = []
+    zprime_fci = [] 
+    zprime_fci_sigma = []
+    sb_final_transform_columns = namedtuple('sb_final_transform_columns', 
+                                            ['index',
+                                             'filter_fci',
+                                             'filter_fci_sigma',
+                                             'zprime_fci',
+                                             'zprime_fci_sigma'])
+    return sb_final_transform_columns(index, 
+                                      filter_fci, 
+                                      filter_fci_sigma, 
+                                      zprime_fci, 
+                                      zprime_fci_sigma)
+
+
+def update_sb_final_transform_columns(sb_final_transform_columns,
+                                      index,
+                                      filter_fci, 
+                                      filter_fci_sigma, 
+                                      zprime_fci, 
+                                      zprime_fci_sigma):
+    updated_sb_final_transform_columns = sb_final_transform_columns
+    updated_sb_final_transform_columns.index.append(index)
+    updated_sb_final_transform_columns.filter_fci.append(filter_fci)
+    updated_sb_final_transform_columns.filter_fci_sigma.append(filter_fci_sigma)
+    updated_sb_final_transform_columns.zprime_fci.append(zprime_fci)
+    updated_sb_final_transform_columns.zprime_fci_sigma.append(zprime_fci_sigma)
+    return updated_sb_final_transform_columns
+
+
+def create_sb_final_transform_table(sb_final_transform_columns):
+    sb_final_transform_table = Table(
+        names=[
+            'CI',
+            'T_fCI',
+            'T_fCI_sigma',
+            'Z_fCI',
+            'Z_fCI_sigma'
+            ],
+        data=[
+            sb_final_transform_columns.index,
+            sb_final_transform_columns.filter_fci,
+            sb_final_transform_columns.filter_fci_sigma,
+            sb_final_transform_columns.zprime_fci,
+            sb_final_transform_columns.zprime_fci_sigma
+            ]
+        )
+    return sb_final_transform_table
 
 def get_avg_airmass(altazpositions):
     """
@@ -1741,16 +1811,16 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     y = app_mag - matched_stars.img_instr_mag
     fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
     fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
-    filtered_data = np.ma.masked_array(app_mag - matched_stars.img_instr_mag, mask=mask)
+    filtered_data = np.ma.masked_array(y, mask=mask)
     c_fci = fitted_line.slope.value
     zprime_f = fitted_line.intercept.value
     cov = fit.fit_info['param_cov']
-    c_fci_sigma = cov[0][0]
-    zprime_f_sigma = cov[1][1]
+    c_fci_sigma = sqrt(cov[0][0])
+    zprime_f_sigma = sqrt(cov[1][1])
     if plot_results:
-        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index])-0.1, 
-                               stop=max(matched_stars.ref_star[colour_index])+0.1, 
-                               step=0.1)
+        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]), 
+                               stop=max(matched_stars.ref_star[colour_index])+0.01, 
+                               step=0.01)
         plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
         plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
@@ -1874,19 +1944,38 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         gb_final_transforms['CI'][unique_filter_index] = current_index
         mask = ((gb_transform_table['filter'] == unique_filter) & (gb_transform_table['CI'] == current_index))
         current_filter = gb_transform_table[mask]
-        a_fit_c, cov_c = curve_fit(linear_func, current_filter['X'], current_filter['C_fCI'], 
-                                   sigma=current_filter['C_fCI_sigma'])
-        kprimeprime_fci = a_fit_c[0]
-        t_fci = a_fit_c[1]
-        kprimeprime_fci_sigma = cov_c[0][0]
-        t_fci_sigma = cov_c[1][1]
+        x = current_filter['X']
+        y = current_filter['C_fCI']
+        sigma = current_filter['C_fCI_sigma']
+        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+        fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+        filtered_data_c = np.ma.masked_array(y, mask=mask)
+        kprimeprime_fci = fitted_line_c.slope.value
+        t_fci = fitted_line_c.intercept.value
+        cov_c = fit.fit_info['param_cov']
+        # c_fci_sigma = cov[0][0]
+        # zprime_f_sigma = cov[1][1]
+        # a_fit_c, cov_c = curve_fit(linear_func, current_filter['X'], current_filter['C_fCI'], 
+        #                            sigma=current_filter['C_fCI_sigma'])
+        # kprimeprime_fci = a_fit_c[0]
+        # t_fci = a_fit_c[1]
+        kprimeprime_fci_sigma = sqrt(cov_c[0][0])
+        t_fci_sigma = sqrt(cov_c[1][1])
         # kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
-        a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'], current_filter['Zprime_f'], 
-                                   sigma=current_filter['Zprime_f_sigma'])
-        kprime_f = a_fit_z[0]
-        zprime_f = a_fit_z[1]
-        kprime_f_sigma = cov_z[0][0]
-        zprime_f_sigma = cov_z[1][1]
+        y = current_filter['Zprime_f']
+        sigma = current_filter['Zprime_f_sigma']
+        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+        fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+        filtered_data_z = np.ma.masked_array(y, mask=mask)
+        kprime_f = fitted_line_z.slope.value
+        zprime_f = fitted_line_z.intercept.value
+        cov_z = fit.fit_info['param_cov']
+        # a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'], current_filter['Zprime_f'], 
+        #                            sigma=current_filter['Zprime_f_sigma'])
+        # kprime_f = a_fit_z[0]
+        # zprime_f = a_fit_z[1]
+        kprime_f_sigma = sqrt(cov_z[0][0])
+        zprime_f_sigma = sqrt(cov_z[1][1])
         # kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
         gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
         gb_final_transforms['k\'\'_fCI_sigma'][unique_filter_index] = kprimeprime_fci_sigma
@@ -1897,12 +1986,13 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
         gb_final_transforms['Z_f_sigma'][unique_filter_index] = zprime_f_sigma
         if plot_results:
-            X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
+            X_plot = np.arange(start=min(current_filter['X']), stop=max(current_filter['X'])+0.01, step=0.01)
             ci_plot = re.sub('[^a-zA-Z]+', '', current_index)
             ci_plot = ci_plot.lower()
-            plt.errorbar(current_filter['X'], current_filter['C_fCI'], 
-                         yerr=current_filter['C_fCI_sigma'], fmt='o', capsize=2)
-            plt.plot(X_plot, kprimeprime_fci*X_plot+t_fci, 
+            plt.errorbar(x, current_filter['C_fCI'], yerr=current_filter['C_fCI_sigma'], 
+                         color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+            plt.plot(x, filtered_data_c, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(X_plot, fitted_line_c(X_plot), '-', color='#ff7f0e',
                      label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.legend()
             plt.title(f"k''_{unique_filter}{ci_plot} and T_{unique_filter}{ci_plot} Coefficient calculations")
@@ -1914,9 +2004,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
-            plt.errorbar(current_filter['X'], current_filter['Zprime_f'], 
-                         yerr=current_filter['Zprime_f_sigma'], fmt='o', capsize=2)
-            plt.plot(X_plot, kprime_f*X_plot+zprime_f, 
+            plt.errorbar(x, current_filter['Zprime_f'], yerr=current_filter['Zprime_f_sigma'], 
+                         color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+            plt.plot(x, filtered_data_z, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(X_plot, fitted_line_z(X_plot), '-', color='#ff7f0e',
                      label=f'Z\'_{unique_filter} = {kprime_f:.3f} * X + {zprime_f:.3f}')
             plt.legend()
             plt.title(f"Z_{unique_filter} and k'_{unique_filter} Coefficient Calculations")
@@ -2566,7 +2657,7 @@ def _main_gb_transform_calc(directory,
                             ref_stars_file, 
                             plot_results=False, 
                             save_plots=False, 
-                            remove_large_airmass=True, 
+                            remove_large_airmass_bool=True, 
                             file_suffix=".fits", 
                             exposure_key='EXPTIME', 
                             lat_key='SITELAT', 
@@ -2664,7 +2755,7 @@ def _main_gb_transform_calc(directory,
                                                                                    colour_index,
                                                                                    altazpositions)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
-    if remove_large_airmass:
+    if remove_large_airmass_bool:
         gb_transform_table = remove_large_airmass(gb_transform_table)
     if save_plots:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
@@ -2675,6 +2766,127 @@ def _main_gb_transform_calc(directory,
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots)
+    formats = {
+    'k\'\'_fCI': '%0.3f',
+    'k\'\'_fCI_sigma': '%0.3f',
+    'T_fCI': '%0.3f',
+    'T_fCI_sigma': '%0.3f',
+    'k\'_f': '%0.3f',
+    'k\'_f_sigma': '%0.3f',
+    'Z_f': '%0.3f',
+    'Z_f_sigma': '%0.3f'
+    }
+    write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
+    # Test the Transforms.
+    # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
+    # large_table_columns = init_large_table_columns()
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in filenames:
+    #         if filename.endswith(".fit"):
+    #             filepath = os.path.join(dirpath, filename)
+    #             hdr, imgdata = read_fits_file(filepath)
+    #             exptime = hdr['EXPTIME']
+    #             bkg, bkg_std = calculate_img_bkg(imgdata)
+    #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+    #             if not irafsources:
+    #                 continue
+    #             fwhm, fwhm_std = calculate_fwhm(irafsources)
+    #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+    #             fluxes = np.array(photometry_result['flux_fit'])
+    #             instr_mags = calculate_magnitudes(photometry_result, exptime)
+    #             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+    #             wcs = WCS(hdr)
+    #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+    #             altazpositions = None
+    #             try:
+    #                 altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
+    #                                                                 lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
+    #             except AttributeError as e:
+    #                 print(e)
+    #                 continue
+    #             matched_stars = find_ref_stars(reference_stars, 
+    #                                                   ref_star_positions,
+    #                                                   skypositions,
+    #                                                   instr_mags,
+    #                                                   instr_mags_sigma,
+    #                                                   fluxes,
+    #                                                   ground_based=True,
+    #                                                   altazpositions=altazpositions)
+    #             if not matched_stars:
+    #                 continue
+    #             large_table_columns = update_large_table_columns(large_table_columns, 
+    #                                                                     matched_stars, 
+    #                                                                     hdr, 
+    #                                                                     exptime, 
+    #                                                                     ground_based=True, 
+    #                                                                     name_key='Name')
+    
+    # large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table.pprint_all()
+    # # large_stars_table = remove_large_airmass(large_stars_table)
+    # stars_table = group_each_star(large_stars_table, ground_based=True)
+    # stars_table.pprint_all()
+    
+    # instr_filters = ['b', 'v', 'r', 'i']
+    # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    # for instr_filter in instr_filters:
+    #     app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+    #     app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
+    
+    # app_mag_table.pprint_all()
+    
+    # import matplotlib.pyplot as plt
+    # # import matplotlib
+    # # matplotlib.use('TkAgg')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('B (calculated)')
+    # plt.xlabel('B (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
+    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('V (calculated)')
+    # plt.xlabel('V (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
+    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('R (calculated)')
+    # plt.xlabel('R (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
+    #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-I)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['V_ref'] - app_mag_table['(V-I)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('I (calculated)')
+    # plt.xlabel('I (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     return gb_final_transforms
 
 
@@ -2693,6 +2905,7 @@ def _main_sb_transform_calc(directory,
     
     if save_plots:
         save_loc = kwargs.get('save_loc')
+        unique_id = kwargs.get('unique_id')
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
@@ -2730,27 +2943,51 @@ def _main_sb_transform_calc(directory,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
     stars_table = group_each_star(large_stars_table, ground_based=False)
+    sb_final_transform_columns = init_sb_final_transform_columns()
     if save_plots:
-        save_loc = kwargs.get('save_loc')
-        write_table_to_latex(stars_table, f"{os.path.join(save_loc, 'stars_table')}.txt", formats={'c': '%0.3f',
-                                                                                                   'c_sigma': '%0.3f'})
+        write_table_to_latex(stars_table, f"{os.path.join(save_loc, f'{unique_id}_stars_table')}.txt", 
+                             formats={'c': '%0.3f',
+                                      'c_sigma': '%0.3f'})
         for index in transform_index_list:
             filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
                                                                                                plot_results=plot_results, 
                                                                                                index=index,
                                                                                                save_plots=save_plots, 
-                                                                                               save_loc=save_loc)
-            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
-                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
+                                                                                               save_loc=save_loc,
+                                                                                               unique_id=unique_id)
+            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
+                                                                           index, 
+                                                                           filter_fci, 
+                                                                           filter_fci_sigma, 
+                                                                           zprime_fci, 
+                                                                           zprime_fci_sigma)
+            # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+            #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
     else:
         for index in transform_index_list:
             filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
                                                                                                plot_results=plot_results, 
                                                                                                index=index,
                                                                                                save_plots=save_plots)
-            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
-                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
-
+            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
+                                                                           index, 
+                                                                           filter_fci, 
+                                                                           filter_fci_sigma, 
+                                                                           zprime_fci, 
+                                                                           zprime_fci_sigma)
+            # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+            #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
+    sb_final_transform_table = create_sb_final_transform_table(sb_final_transform_columns)
+    if save_plots:
+        formats = {
+        'T_fCI': '%0.3f',
+        'T_fCI_sigma': '%0.3f',
+        'Z_fCI': '%0.3f',
+        'Z_fCI_sigma': '%0.3f'
+        }
+        write_table_to_latex(sb_final_transform_table, f"{os.path.join(save_loc, f'{unique_id}_transform_table')}.txt",
+                             formats=formats)
+    return sb_final_transform_table
 
 def _main_sc_lightcurve(directory, temp_dir='tmp'):
     filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)

@@ -13,7 +13,7 @@ directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = False
+save_plots = True
 remove_large_airmass = False
 file_suffix=".fit"
 exposure_key='EXPTIME'
@@ -32,7 +32,7 @@ gb_final_transforms = astro._main_gb_transform_calc(directory,
                                                     ref_stars_file, 
                                                     plot_results=plot_results, 
                                                     save_plots=save_plots, 
-                                                    remove_large_airmass=remove_large_airmass, 
+                                                    remove_large_airmass_bool=remove_large_airmass, 
                                                     file_suffix=file_suffix, 
                                                     exposure_key=exposure_key, 
                                                     lat_key=lat_key, 
