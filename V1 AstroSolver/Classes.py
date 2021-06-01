@@ -41,8 +41,11 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
 import astropy.wcs
 import re
-#from AstroFunctions import *
+import AstroFunctions as astro
 
+#import TRMtester.py as trm
+import numpy
+import PySimpleGUI as sg
 
 
 
@@ -138,6 +141,57 @@ AstroSolver
 AstroReducer    
 -------------------
 """
+
+
+def Gui ():
+
+    sg.theme("Default1")
+    
+    layout = [[sg.T("AstroSolver Processor V0.1")], [sg.T("   ")],
+              [sg.Text("Image Folder: "), 
+               sg.Input(key="-IN2-" ,change_submits=True), 
+               sg.FolderBrowse(key="-IN1-")],
+              [sg.Text("Catalog Folder: "), 
+               sg.Input(key="-IN3-" ,change_submits=True), 
+               sg.FolderBrowse(key="-IN4-")],
+              [sg.Text("Reference Stars: "), 
+               sg.Input(key="-IN5-" ,change_submits=True), 
+               sg.FileBrowse(key="-IN6-")],
+              [sg.Button("Submit")]]
+    
+    # layout = [[sg.T(" ")], 
+    #           [sg.Text("Image Folder: "), 
+    #            sg.Input(key="-IN2-" ,change_submits=True), 
+    #            sg.FolderBrowse(key="-IN1-")],
+    #           [sg.Text("Catalog Folder: "), 
+    #            sg.Input(key="-IN3-" ,change_submits=True), 
+    #            sg.FolderBrowse(key="-IN4-")],
+    #           [sg.Text("Reference Stars: "), 
+    #            sg.Input(key="-IN5-" ,change_submits=True), 
+    #            sg.FileBrowse(key="-IN6-")],
+    #          [sg.T("                   "), sg.Checkbox('Print On:', default=True, key="-IN7-")],
+    #           [sg.T("         "), sg.Radio('Permission Granted', "RADIO1", default=False, key="-IN8-")],
+    #           [sg.T("         "), sg.Radio('Permission not Granted', "RADIO1", default=True)],
+    #           [sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN9-"),
+    #            sg.Radio('Star Stare Mode', "RADIO3", default=True)],
+    #           [sg.Button("Submit")]]
+    
+    ###Building Window
+    window = sg.Window('My File Browser', layout, size=(600,250))
+        
+    while True:
+        event, values = window.read()
+        #print(values["-IN2-"])
+        if event == sg.WIN_CLOSED or event=="Exit":
+            break
+        elif event == "Submit":
+            
+            imagefolder =values["-IN2-"]
+            catalogfolder = values["-IN3-"]
+            refdoc = values["-IN5-"]
+            #print(values["-IN2-"])
+            window.close()
+            return imagefolder, catalogfolder, refdoc
 def calculate_img_bkg(imgdata, sigma=3.0):
     """
     Calculate the median and standard deviation of the background of the sigma clipped image.
@@ -551,10 +605,13 @@ def find_ref_stars(reference_stars,
     None : if no stars are matched.
 
     """
+    max_ref_sep=10.0
     # reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     max_ref_sep = max_ref_sep * u.arcsec
+    
     idx, sep2d, _ = match_coordinates_sky(ref_star_positions, skypositions)
     ref_star_index = np.where(sep2d < max_ref_sep)
+    
     if len(ref_star_index[0]) == 0:
         print("No reference star detected in the image.")
         return
@@ -786,7 +843,7 @@ def init_large_table_columns():
                                )
 
 
-def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, ground_based=False, name_key='Name'):
+def update_large_table_columns(large_table_columns, matched_stars, header, exptime,ref_star, ground_based=False,  name_key='Name'):
     """
     Update columns to be used for the large stars table based on information from the current image.
 
@@ -914,6 +971,7 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
                 Sec(z) of the reference star(s) found in the image. Only output if ground_based is True.
 
     """
+    #exptime= 5.0
     updated_large_table_columns = large_table_columns
     try:
         num_stars = len(matched_stars.img_instr_mag)
@@ -930,7 +988,7 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
                 print('Could not find the name of the field.')
         updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
-        time = Time(hdr['DATE-OBS'], format='fits')
+        time = Time(header['DATE-OBS'], format='fits')
         time_repeat = np.full(num_stars, time.jd)
         updated_large_table_columns.times.extend(time_repeat)
         exposure_repeat = np.full(num_stars, exptime)
@@ -942,36 +1000,43 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.angular_separation.extend(matched_stars.ang_separation.to(u.arcsec))
         updated_large_table_columns.img_star_mag.extend(matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.extend(matched_stars.img_instr_mag_sigma)
-        filter_name_repeat = np.full(num_stars, hdr['FILTER'])
+        filter_name_repeat = np.full(num_stars, header['FILTER'])
         updated_large_table_columns.filters.extend(filter_name_repeat)
-        updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V'])
+        updated_large_table_columns.V_apparents.extend(ref_star['V'])
         try:
-            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['(B-V)'])
-            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['(U-B)'])
-            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['(V-R)'])
-            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['(V-I)'])
-            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['V_sigma'])
+            updated_large_table_columns.B_V_apparents.extend(ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.extend(ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.extend(ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.extend(ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.extend(ref_star['V_sigma'])
         except KeyError:
-            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['B-V'])
-            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['U-B'])
-            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['V-R'])
-            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['V-I'])
-            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_apparents.extend(ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.extend(ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.extend(ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.extend(ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.extend(ref_star['e_V'])
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
         # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
-        split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
+        star= matched_stars.ref_star
+        try:
+            split_string = re.split('[^a-zA-Z0-9]', str(star[name_key]))
+        except:
+            split_string = []
+            
         if len(split_string) > 1:
             updated_large_table_columns.field.append(' '.join(split_string[:-1]))
         elif len(split_string) == 1:
             updated_large_table_columns.field.append(split_string[0])
         else:
             print('Could not find the name of the field.')
-        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
+            updated_large_table_columns.field.append("Not Found")
+        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star)   
         updated_large_table_columns.flux_table.append(matched_stars.flux)
-        time = Time(hdr['DATE-OBS'], format='fits')
+        time = Time(header['DATE-OBS'], format='fits')
+        
         updated_large_table_columns.times.append(time.jd)
         updated_large_table_columns.exposure.append(exptime)
         updated_large_table_columns.ref_star_RA.append(matched_stars.ref_star_loc.ra.to(u.hourangle))
@@ -981,20 +1046,21 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.angular_separation.append(matched_stars.ang_separation.to(u.arcsec))
         updated_large_table_columns.img_star_mag.append(matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.append(matched_stars.img_instr_mag_sigma)
-        updated_large_table_columns.filters.append(hdr['FILTER'])
-        updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V'])
+        updated_large_table_columns.filters.append(header['FILTER'])
+        updated_large_table_columns.V_apparents.append(ref_star['V'])
         try:
-            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['(B-V)'])
-            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['(U-B)'])
-            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['(V-R)'])
-            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['(V-I)'])
-            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['V_sigma'])
+            
+            updated_large_table_columns.B_V_apparents.append(ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.append(ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.append(ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.append(ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.append(ref_star['V_sigma'])
         except KeyError:
-            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['B-V'])
-            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['U-B'])
-            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['V-R'])
-            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['V-I'])
-            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_apparents.append(ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.append(ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.append(ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.append(ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.append(ref_star['e_V'])
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.append(matched_stars.img_star_airmass)
@@ -1123,7 +1189,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_R_apparents, 
                 large_table_columns.V_I_apparents, 
                 large_table_columns.V_sigma_apparents, 
-                large_table_columns.img_star_airmass, 
+                #large_table_columns.img_star_airmass, 
                 # large_table_columns.X_rounded
                 ],
             names=[
@@ -1146,7 +1212,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 '(V-R)',
                 '(V-I)',
                 'V_sigma',
-                'X',
+                #'X',
                 # 'X_rounded'
                 ]
             )
@@ -1291,6 +1357,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     nan_array.fill(np.nan)
     apparent_mags_table = Table(
         names=[
+            'Image'
             'Field',
             'Name',
             'V',
@@ -1377,11 +1444,11 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
 
 
 def space_based_transform(stars_table, 
-                          plot_results=False, 
+                          plot_results=True, 
                           index='(B-V)', 
                           app_filter='V', 
                           instr_filter='clear', 
-                          field=None):
+                          field=False):
     """
     Calculate the transforms for a space based sensor.
 
@@ -1437,7 +1504,7 @@ def space_based_transform(stars_table,
         Zero point magnitude for filter f.
 
     """
-    max_app_filter_sigma = max(stars_table[f'{app_filter}_sigma'])
+    max_app_filter_sigma = max(stars_table['V_sigma'])
     max_instr_filter_sigma = max(stars_table[f'{instr_filter}_sigma'])
     err_sum = np.nan_to_num(stars_table[f'{app_filter}_sigma'], nan=max_app_filter_sigma) + \
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
@@ -1655,17 +1722,12 @@ def fits_header_import(filepath, filter_key='FILTER'):
         imagesizeX=imagehdularray[0].header['NAXIS1']
         imagesizeY=imagehdularray[0].header['NAXIS2']
         fitsdata =  imagehdularray[0].data
-        #wcs = WCS(imagehdularray[1].header)
         focal_Length=imagehdularray[0].header['FOCALLEN']
         XPIXSZ=imagehdularray[0].header['XPIXSZ']
         YPIXSZ=imagehdularray[0].header['YPIXSZ']
         filt=imagehdularray[0].header['FILTER']
-   
-    
-        
-        
-        
-        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ
+        wcs = WCS(header)
+        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ, wcs
 
 def calc_ArcsecPerPixel(header):
    focal_Length= header['FOCALLEN']
@@ -1677,131 +1739,299 @@ def calc_ArcsecPerPixel(header):
    y_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*ybin
    
    return x_arcsecperpixel, y_arcsecperpixel
-   
 
-   
-   
+def edge_Protect (bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
+                    
+        bg_rem[1:edge_protect,1:edge_protect] = 0;
+        bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
+        bg_rem[:, 1:edge_protect] = 0
+        bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
+        im_mean = mean(bg_rem)
+        im_rms=np.std(fitsdata)
+        return im_mean, bg_rem, im_rms
+
+"#TODO Initialize these"
+
+# inbox, catloc, refstars_doc = Gui()
+# print(imagefolder, catalogfolder, refdoc)
+
 inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
 refstars_doc = 'D:\\Reference_stars.xlsx'
+refstars_csv='D:\\Reference_stars.csv'
 catloc = 'D:\squid\\USNOA20-All';
 
+
+"#TODO Initialize these once astroreduction is included"
+bias = 0 
+darks = 0 
+flats = 0
+OutputsaveLoc = 0 ; #0 Default will save outputs in image folder
+
+"Read Ref Doc"
+
 HIP, erad, edec, vref, bvindex, vrindex, refstarsfin = ref_star_folder_read(refstars_doc)
+reference_stars, ref_star_positions = astro.read_ref_stars(refstars_csv)
 f = pinpoint_init()
 
-
+"Set Variables"
 streak_array= [];         
 sigma_clip = 3.5;           
 edge_protect = 10;          
 min_obj_pixels = 5;
 SNRLimit = 0;
-
-
+ground_based = False
+pinpoint = False
 
 "Opening Image Folder and Determing the number of files"
 filepathall = getFileList(inbox);
+large_table_columns= init_large_table_columns()
+gb_transform_table_columns = astro.init_gb_transform_table_columns()
+large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
 
-for i in range(0,len(filepathall)):
-    f = win32com.client.Dispatch("Pinpoint.plate")
-    print(i)
-    try:
+
+
+for i in range(1,len(filepathall)):
+    #f = win32com.client.Dispatch("Pinpoint.plate")
+    print("Processing Image: " + filepathall[i])
+    #try:
         
-        
-        """Import Data from FITS HEADER"""
-        imagehdularray,date,exposure_Time,imagesizeX,imagesizeY, fitsdata, filt,header,XPIXSZ, YPIXSZ = fits_header_import(filepathall[i])
-        print(date)
-        """STAR STARE MODE
-        
-        
-        1. Space Based - Airmass not a factor in determining transforms
-        2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+    "Import Data from FITS Image"
+    imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
+
+
+    """
+    1. Space Based - Airmass not a factor in determining transforms
+    2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+
+    """
     
-        """
+    
+    
+    """Running Functions"""
+    bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0) #Background Estimation
+    backg, bkg_std = calculate_img_bkg(fitsdata) # Find Median Bkg and bkg_std
+    iraf_Sources= detecting_stars(fitsdata, backg, bkg_std) # Solve Image using IRAF Starfinder
+    
+    skypositions= convert_pixel_to_ra_dec(iraf_Sources,wcs)
+    altazpositions = None
+    
+    if ground_based:
+        try:
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, header, lat_key='OBSGEO-B', 
+                                                            lon_key='OBSGEO-L', elev_key='OBSGEO-H')
+            
+            avg_Airmass= get_avg_airmass(altazpositions) 
+            # altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
+        except AttributeError as e:
+            print(e)
+            continue
         
+    fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources) #Calculate Full-Width Half-Max
+    photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, backg)
+    calculate_magnitudes(photometry_result, exposure_Time)
+    calculate_magnitudes_sigma(photometry_result, exposure_Time)
+    
+    
+    fluxes = np.array(photometry_result['flux_fit'])
+    instr_mags = calculate_magnitudes(photometry_result, exposure_Time)
+    instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exposure_Time)
+    matched_stars = astro.find_ref_stars(reference_stars, 
+                                             ref_star_positions,
+                                             skypositions,
+                                             instr_mags,
+                                             instr_mags_sigma,
+                                             fluxes,
+                                             ground_based=ground_based,
+                                             altazpositions=False)
+    
+    ref_star = reference_stars[matched_stars.ref_star_index]
+    print (matched_stars)
+    
+    if not matched_stars:
+            continue
+    
+    instr_filter = astro.get_instr_filter_name(header)
+    colour_indices = astro.get_all_colour_indices(instr_filter)
+    large_table_columns= update_large_table_columns(large_table_columns, matched_stars, header, exposure_Time, ref_star,  ground_based=False, name_key='Name')
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+    stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
+    print(stars_table)
+    transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+    for index in transform_index_list:
+        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
+        print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+    
+    "Ground Based"
+    
+    
+    """Setting Pinpoint Solution Parameters"""
+    
+    if pinpoint:
+        try:
+            f.AttachFITS(filepathall[i])
+            f.Declination = f.targetDeclination;
+            f.RightAscension = f.targetRightAscension; 
+            x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+            # yBin = 4.33562092816E-004*3600;
+            # xBin =  4.33131246330E-004*3600; 
+            f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
+            f.ArcsecperPixelVert =  y_arcsecperpixel;
+            f.Catalog = 5;
+            f.CatalogPath = catloc;
+            f.CatalogMaximumMagnitude = 13;
+            f.CatalogExpansion = 0.8;
+            f.SigmaAboveMean = 2.5; 
+            f.FindImageStars; 
+            f.FindCatalogStars; 
+            f.MaxSolveTime = 60; 
+            f.MaxMatchResidual = 1.5; 
+    
+            
+            "Pinpoint Solving"
+            f.FindCatalogStars()
+            f.Solve()
+            f.MatchedStars.count
+            f.FindImageStars()
+            #print(f.ImageStars)
+            
+            "Searching for Ref Stars"
+            #TODO Fix ref star search
+            #ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
+            f.DetachFITS()
+            f=None
+        except:
+                continue
+    
+#except:
+    #print(stars_table)
+    #continue
         
-        """Running Functions"""
-        bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0)
-        
-        backg, bkg_std = calculate_img_bkg(fitsdata)
-        
-        iraf_Sources= detecting_stars(fitsdata, backg, bkg_std)
-        wcs = WCS(header)
-        skypositions= convert_pixel_to_ra_dec(iraf_Sources,wcs)
-        altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
-        fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
-        photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
-        avg_Airmass= get_avg_airmass(altazpositions)
-        calculate_magnitudes(photometry_result, exposure_Time)
-        calculate_magnitudes_sigma(photometry_result, exposure_Time)
-        large_table_columns= init_large_table_columns()
-        
-        fluxes = np.array(photometry_result['flux_fit'])
-        instr_mags = calculate_magnitudes(photometry_result, exposure_Time)
-        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exposure_Time)
-        
-        "Space Based"
-        large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
-        large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
-        stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
-        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False,index='(B-V)', app_filter='V', instr_filter='clear', field=None)
-        
-        
-        "Ground Based"
-        
-        
-        
-        """TRACK RATE MODE"""
-        
-        
-        """Setting Pinpoint Solution Parameters"""
-        f.AttachFITS(filepathall[i])
-        f.Declination = f.targetDeclination;
-        f.RightAscension = f.targetRightAscension; 
-        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
-        # yBin = 4.33562092816E-004*3600;
-        # xBin =  4.33131246330E-004*3600; 
-        f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
-        f.ArcsecperPixelVert =  y_arcsecperpixel;
-        f.Catalog = 5;
-        f.CatalogPath = catloc;
-        f.CatalogMaximumMagnitude = 13;
-        f.CatalogExpansion = 0.8;
-        f.SigmaAboveMean = 2.5; 
-        f.FindImageStars; 
-        f.FindCatalogStars; 
-        f.MaxSolveTime = 60; 
-        f.MaxMatchResidual = 1.5; 
 
-        
-        "Pinpoint Solving"
-        f.FindCatalogStars()
-        f.Solve()
-        f.MatchedStars.count
-        f.FindImageStars()
-        #print(f.ImageStars)
-        
-        "Searching for Ref Stars"
-        ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
-        
-        
+# transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+# for index in transform_index_list:
+#     filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
+#     print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+
+
+
+
+#TODO Add Moffat and Gaussian Fit, SimpleSquid data collection
+
+
+#         im_rms=np.std(fitsdata)
+#         im_mean, im_rms = trm.BackgroundIteration(bg_rem, 0.1);
+#         low_clip = im_mean + 2.5 * im_rms;
+#         high_clip = 60000
+#         binary_image = np.zeros((imagesizeX,imagesizeY))
+#         bg_rem[bg_rem<= low_clip]
+
+# #binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
+#         th, im_th = cv2.threshold(bg_rem, low_clip, 1, cv2.THRESH_BINARY)
+# #print(im_mean)
+#         connected_image = measure.label(im_th, background=0)
+# # plt.subplot(133)
+# # plt.imshow(connected_image, cmap='nipy_spectral')
+# # plt.axis('off')
+# # plt.tight_layout()
+# # plt.show()
+# #im = cv2.imread(bg_rem)
+# # th, im_th = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
+
+# #num_labels, labels_im = cv2.connectedComponents(im_th)
+# #num_sourcepix = cv2.connectedComponentsWithStats(binary_image, np.array(connected_image), np.array(stats), np.array(centroids), 4, np.int(CV_32S))
+#         num_sourcepix =numpy.zeros(shape=(100000,1))
+#         [size_x, size_y] = imagesizeX,imagesizeY
+            
+#         for x in range(0,size_x):
+#             for y in range(0,size_y):
+#                 pixval = connected_image[x,y]
                 
-    #         st_index = connected_image(Y,X);
-    #         [mask_x, mask_y] = find(connected_image == st_index);
-    #         [mobj_flux, mobj_max] = find_point_source_flux(mask_x, mask_y, bg_rem);
+#                 if (pixval != 0):
+#                     num_sourcepix[pixval, 0] = num_sourcepix[pixval, 0] + 1;
+         
+#         [valid_sources, temp] = numpy.nonzero(num_sourcepix > min_obj_pixels)
+#         num_valid_sources = valid_sources.size
+        
+#         centroid_x = np.zeros((num_valid_sources,1));
+#         centroid_y = np.zeros((num_valid_sources,1));
+#         rms_x_pos = np.zeros((num_valid_sources,1));
+#         rms_y_pos = np.zeros((num_valid_sources,1));
+#         m11        = np.zeros((num_valid_sources,1));
+#         m02        = np.zeros((num_valid_sources,1));
+#         m20        = np.zeros((num_valid_sources,1));
+#         ecct       = np.zeros((num_valid_sources,1));
+#         compact    = np.zeros((num_valid_sources,1));
+#         obj_flux   = np.zeros((num_valid_sources,1));
+#         obj_max1   = np.zeros((num_valid_sources,1));
+#         length     = np.zeros((num_valid_sources,1));
+        
+        
+#         for j in range(num_valid_sources):
+        
+#             vsj = valid_sources[j];  
+        
+#             [mask_x, mask_y] = numpy.nonzero(connected_image == vsj);
+#             obj_flux[j], obj_max1[j] = trm.PointSourceFluxExtraction(mask_x, mask_y, bg_rem);
+            
+          
+#             centroid_x[j] = mean(mask_x);
+#             rms_x_pos[j] = numpy.std(mask_x);
+#             centroid_y[j] = mean(mask_y);
+#             rms_y_pos[j] = numpy.std(mask_y);
+        
+#             m11[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 1,1);
+#             m02[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 0,2);
+#             m20[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 2,0);
+#             compact[j] = Compact(num_sourcepix[vsj], m02[j], m20[j]);
+#             ecct[j] = EccentricityCalculation(m11[j], m02[j], m20[j]);
+        
+#             x_length = (max(mask_x) - min(mask_x));
+#             y_length = (max(mask_y) - min(mask_y));
+#             length[j] = numpy.sqrt(x_length**2 + y_length**2);
+        
+                    
+        
+#         [compact_mean, compact_rms] = BackgroundIteration(compact,0.1);
+#         [ecct_mean, ecct_rms] = BackgroundIteration(ecct,0.1)
+#         compact_cut = compact_mean  + 1 * compact_rms;  
+#         ecct_cut = 0.7; 
+#         stars = numpy.nonzero(ecct < ecct_cut);
+#         streaks = numpy.nonzero(ecct > ecct_cut);
+#         stars= np.delete(stars, 1,0)
+#         streaks= np.delete(streaks, 1,0)
+#         sda = valid_sources[stars]
+#         num_pix_in_stars = num_sourcepix[sda]
+#         [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1);
+        
+#         pix_cutoff = mean_starpix + 10 * rms_starpix;
+        
+#         num_stars = stars.size;
+        
+#         stellar_flux_SNR = np.zeros((num_valid_sources,1));
+                    
+#         xmin = edge_protect;
+#         xmax = imagesizeX - edge_protect;
+#         ymin = edge_protect;
+#         ymax = imagesizeY - edge_protect;
+#         streaksize = streaks.size
+#     #         st_index = connected_image(Y,X);
+#     #         [mask_x, mask_y] = find(connected_image == st_index);
+#     #         [mobj_flux, mobj_max] = find_point_source_flux(mask_x, mask_y, bg_rem);
+#         [mask_x, mask_y] = numpy.nonzero(connected_image == vsj);
+#         obj_flux[j], obj_max1[j] = trm.PointSourceFluxExtraction(mask_x, mask_y, bg_rem);
                
-    #             if mobj_max < 60000   %fit unsaturated stars only
-    # #%                 Border checks
-    #                   if (X > 10) && (X < (image_size_y-10)) && (Y > 10) && (Y < (image_size_x-10))
-    #                     %Find middle pixel value
-    #                     [cen_x, rms_x, cen_y, rms_y] = find_weighted_centroid(mask_x, mask_y, 0*bg_rem+1);
+#         if obj_max1[j] < 60000: 
+#             if (X > 10) && (X < (image_size_y-10)) && (Y > 10) && (Y < (image_size_x-10))
+#     #                     %Find middle pixel value
+#                          [cen_x, rms_x, cen_y, rms_y] = trm.find_weighted_centroid(mask_x, mask_y, 0*bg_rem+1);
 
-    #                       if (cen_x > 10) && (cen_x < (image_size_x-10)) && (cen_y > 10) && (cen_y < (image_size_y-10))
-    #                         mid_pix_val = bg_rem(round(cen_x),round(cen_y));
-    #                         mid_pix_valPP = bg_rem(Y,X);
-    #                         if vmag < mag
-    #                             %Fit a moffat profile
-    #                             r = zeros(1,size(mask_x,1));  %holds radial distance from centroid
-    #                             S = zeros(1,size(mask_x,1));  %holds intensity
-    #                             for q = 1:size(mask_x,1)
+#                            if (cen_x > 10) && (cen_x < (image_size_x-10)) && (cen_y > 10) && (cen_y < (image_size_y-10))
+#                             mid_pix_val = bg_rem(round(cen_x),round(cen_y));
+#                             mid_pix_valPP = bg_rem(Y,X);
+#                              if vmag < mag
+#                                  r = zeros(1,size(mask_x,1));
+#                                  S = zeros(1,size(mask_x,1));
+#                                  for q in range(1,size(mask_x,1)):
     #                                r(q) = sqrt((mask_x(q)+0.5-(mstar.Y+1))^2 + (mask_y(q)+0.5-(mstar.X+1))^2);
     #                                S(q) = bg_rem(mask_x(q),mask_y(q));
     #                             end
@@ -1809,6 +2039,7 @@ for i in range(0,len(filepathall)):
     #                             C_index = find(r==min(r),1);
     #                             r(C_index) = 0; %centroid radial value
     #                             C = S(C_index);
+    
     #                             %a holds [alpha Beta] moffat parameters
     #                             %Fix a(2) Beta parameter to 1.5
     
@@ -1872,10 +2103,17 @@ for i in range(0,len(filepathall)):
         
         
         
-        f.DetachFITS()
-        f=None
-    except:
-        None;
+
+# large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+# stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
+
+# transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+# for index in transform_index_list:
+#     filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
+#     print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+
+
+
 n=0;
 flag = 1;
 
