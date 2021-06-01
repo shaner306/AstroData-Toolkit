@@ -32,13 +32,14 @@ for subfolder in subfolder_list:
     directory = f'C:\\Users\\jmwawrow\\Documents\\DRDC_Code\\NEOSSat Landolt Stars\\{subfolder}'
     save_loc = os.path.join(directory, 'Outputs')
     
-    astro._main_sb_transform_calc(directory, 
-                                  ref_stars_file, 
-                                  plot_results=plot_results, 
-                                  save_plots=save_plots,
-                                  file_suffix=file_suffix, 
-                                  exposure_key=exposure_key,  
-                                  name_key=name_key,
-                                  transform_index_list=transform_index_list,
-                                  save_loc=save_loc,
-                                  unique_id=unique_id)
+    sb_final_transform_table = astro._main_sb_transform_calc(directory, 
+                                                             ref_stars_file, 
+                                                             plot_results=plot_results, 
+                                                             save_plots=save_plots,
+                                                             file_suffix=file_suffix, 
+                                                             exposure_key=exposure_key,  
+                                                             name_key=name_key,
+                                                             transform_index_list=transform_index_list,
+                                                             save_loc=save_loc,
+                                                             unique_id=unique_id)
+    sb_final_transform_table.pprint_all()
