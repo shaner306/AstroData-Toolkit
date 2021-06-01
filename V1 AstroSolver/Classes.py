@@ -47,7 +47,35 @@ import AstroFunctions as astro
 import numpy
 import PySimpleGUI as sg
 
-
+from astropy import table
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
+from astropy.io import fits, ascii
+from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter, FittingWithOutlierRemoval
+from astropy.modeling.models import Linear1D
+from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
+from astropy.table import Table, QTable, hstack
+import astropy.units as u
+from astropy.time import Time
+from astropy.wcs import WCS
+from collections import namedtuple
+import ctypes
+import cv2 as cv
+from math import sqrt, atan
+from matplotlib import patches
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from photutils.aperture import RectangularAperture
+from matplotlib.colors import LogNorm
+from matplotlib.lines import Line2D
+from photutils.detection import IRAFStarFinder
+from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
+import numpy as np
+import tkinter as tk
+import re
+import os
+from shutil import copy2, rmtree
+from scipy.optimize import curve_fit
 
 """
 Classes:
@@ -142,6 +170,16 @@ AstroReducer
 -------------------
 """
 
+def linear_func(x, m, b):
+    y = (m * x) + b
+    return y
+
+
+def init_linear_fitting(niter=3, sigma=3.0):
+    fit = LevMarLSQFitter(calc_uncertainties=True)
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
+    line_init = Linear1D()
+    return fit, or_fit, line_init
 
 def Gui ():
 
@@ -979,14 +1017,17 @@ def update_large_table_columns(large_table_columns, matched_stars, header, expti
         num_stars = 1
     if num_stars > 1:
         for row in matched_stars.ref_star:
-            split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
+            split_string = re.split('[^a-zA-Z0-9]', str(row['HIP']))
             if len(split_string) > 1:
                 updated_large_table_columns.field.append(' '.join(split_string[:-1]))
             elif len(split_string) == 1:
                 updated_large_table_columns.field.append(split_string[0])
             else:
                 print('Could not find the name of the field.')
-        updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
+                
+                
+                
+        updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star['HIP'])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
         time = Time(header['DATE-OBS'], format='fits')
         time_repeat = np.full(num_stars, time.jd)
@@ -1020,7 +1061,8 @@ def update_large_table_columns(large_table_columns, matched_stars, header, expti
         updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
         # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
-        star= matched_stars.ref_star
+        
+        star= matched_stars.ref_star['HIP']
         try:
             split_string = re.split('[^a-zA-Z0-9]', str(star[name_key]))
         except:
@@ -1033,7 +1075,7 @@ def update_large_table_columns(large_table_columns, matched_stars, header, expti
         else:
             print('Could not find the name of the field.')
             updated_large_table_columns.field.append("Not Found")
-        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star)   
+        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star['HIP'])   
         updated_large_table_columns.flux_table.append(matched_stars.flux)
         time = Time(header['DATE-OBS'], format='fits')
         
@@ -1264,7 +1306,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     return large_stars_table
 
 
-def group_each_star(large_stars_table, ground_based=False, keys='Name'):
+def group_each_star(large_stars_table, vref, ground_based=False, keys='Name'):
     """
     Group all detections of unique reference stars together.
 
@@ -1351,13 +1393,13 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                 column for each different filter used across the images. Only output if ground_based is True.
 
     """
+    
     unique_stars = table.unique(large_stars_table, keys=keys)
     N = len(unique_stars)
     nan_array = np.empty(N)
     nan_array.fill(np.nan)
     apparent_mags_table = Table(
         names=[
-            'Image'
             'Field',
             'Name',
             'V',
@@ -1443,12 +1485,21 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     return stars_table
 
 
+def write_table_to_latex(table, output_file, formats=None):
+    if not formats:
+        ascii.write(table, output=output_file, format='latex')
+    else:
+        ascii.write(table, output=output_file, format='latex', formats=formats)
+
+
 def space_based_transform(stars_table, 
-                          plot_results=True, 
+                          plot_results=False, 
+                          save_plots=False,
                           index='(B-V)', 
                           app_filter='V', 
-                          instr_filter='clear', 
-                          field=False):
+                          instr_filter='b', 
+                          field=None,
+                          **kwargs):
     """
     Calculate the transforms for a space based sensor.
 
@@ -1504,28 +1555,39 @@ def space_based_transform(stars_table,
         Zero point magnitude for filter f.
 
     """
-    max_app_filter_sigma = max(stars_table['V_sigma'])
+    max_app_filter_sigma = max(stars_table[f'{app_filter}_sigma'])
     max_instr_filter_sigma = max(stars_table[f'{instr_filter}_sigma'])
     err_sum = np.nan_to_num(stars_table[f'{app_filter}_sigma'], nan=max_app_filter_sigma) + \
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    filter_fci, zprime_fci = np.polyfit(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 1, 
-                                        full=False, w=1/err_sum)
+    a_fit, cov = curve_fit(linear_func, stars_table[index], 
+                             stars_table[f'{app_filter}'] - stars_table[instr_filter], 
+                             sigma=0)
+    filter_fci = a_fit[0]
+    filter_fci_sigma = sqrt(cov[0][0])
+    zprime_fci = a_fit[1]
+    zprime_fci_sigma = sqrt(cov[1][1])
     if plot_results:
         index_plot = np.arange(start=min(stars_table[index])-0.2, stop=max(stars_table[index])+0.2, step=0.1)
-        plt.errorbar(stars_table[index], stars_table[app_filter] - stars_table[instr_filter], 
+        plt.errorbar(stars_table[index], stars_table[f'{app_filter}'] - stars_table[instr_filter], 
                      yerr=err_sum, fmt='o', capsize=2)
-        plt.plot(index_plot, filter_fci * index_plot + zprime_fci)
+        plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
+                 label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{index}")
-        if not field:
-            plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-        else:
-            plt.title(f"{field}: ({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        plt.legend()
+        plt.title(f"Space Based Transform Calculation for {index}")
+        if save_plots:
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'TZfci_{index}')}.png"
+            plt.savefig(save_loc)
+        # if not field:
+        #     plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+        # else:
+        #     plt.title(f"{field}: ({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         plt.show()
         plt.close()
-    return filter_fci, zprime_fci
+    return filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma
 
 
 def get_avg_airmass(altazpositions):
@@ -1750,16 +1812,16 @@ def edge_Protect (bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
         im_rms=np.std(fitsdata)
         return im_mean, bg_rem, im_rms
 
-"#TODO Initialize these"
+"#TODO GUI SETUP"
 
 # inbox, catloc, refstars_doc = Gui()
 # print(imagefolder, catalogfolder, refdoc)
 
-inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
+inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B\\' #Image Location of .fits Format
 refstars_doc = 'D:\\Reference_stars.xlsx'
-refstars_csv='D:\\Reference_stars.csv'
-catloc = 'D:\squid\\USNOA20-All';
-
+refstars_csv='D:\\Reference_stars.csv' #Reference Star List
+catloc = 'D:\squid\\USNOA20-All'; #Catalog #TODO Change Catalog to UCAC3 
+save_loc = os.path.join(inbox, 'Outputs') # Output Folder for Files
 
 "#TODO Initialize these once astroreduction is included"
 bias = 0 
@@ -1770,150 +1832,230 @@ OutputsaveLoc = 0 ; #0 Default will save outputs in image folder
 "Read Ref Doc"
 
 HIP, erad, edec, vref, bvindex, vrindex, refstarsfin = ref_star_folder_read(refstars_doc)
-reference_stars, ref_star_positions = astro.read_ref_stars(refstars_csv)
-f = pinpoint_init()
+reference_stars, ref_star_positions = astro.read_ref_stars(refstars_csv) # Reading the Reference Star Doc
+f = pinpoint_init() #Start Pinpoint 
 
 "Set Variables"
-streak_array= [];         
-sigma_clip = 3.5;           
-edge_protect = 10;          
-min_obj_pixels = 5;
-SNRLimit = 0;
-ground_based = False
-pinpoint = False
+streak_array= [] #Streak Detection for Track Rate Mode
+sigma_clip = 3.5; #Clipping Factor
+edge_protect = 10; #Img Edge Clipping
+min_obj_pixels = 5 #Min Pixels to qualify as a Point Source
+SNRLimit = 0; #Signal-To-Noise Ratio
+ground_based = False # TODO Add Ground Based Selection Input
+pinpoint = False #TODO Add Pinpoint Solve or Not to GUI
 
 "Opening Image Folder and Determing the number of files"
-filepathall = getFileList(inbox);
-large_table_columns= init_large_table_columns()
-gb_transform_table_columns = astro.init_gb_transform_table_columns()
-large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
+filepathall = getFileList(inbox); #Get List of Images
+large_table_columns= init_large_table_columns() #Create Table Template for Space-Based Detected Star Transform storage
+gb_transform_table_columns = astro.init_gb_transform_table_columns() #Create Table Template for Detected Star Transform storage
+large_stars_table = create_large_stars_table(large_table_columns, ground_based=False) #Create Table Template for Space-Based Detected Star Transform storage
 
 
 
 for i in range(1,len(filepathall)):
-    #f = win32com.client.Dispatch("Pinpoint.plate")
-    print("Processing Image: " + filepathall[i])
-    #try:
+    if filepathall[i].endswith(".fits"):
+        #f = win32com.client.Dispatch("Pinpoint.plate")
+        print("Processing Image: " + filepathall[i])
         
-    "Import Data from FITS Image"
-    imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
-
-
-    """
-    1. Space Based - Airmass not a factor in determining transforms
-    2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
-
-    """
+        "Import Data from FITS Image"
+        imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
     
-    
-    
-    """Running Functions"""
-    bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0) #Background Estimation
-    backg, bkg_std = calculate_img_bkg(fitsdata) # Find Median Bkg and bkg_std
-    iraf_Sources= detecting_stars(fitsdata, backg, bkg_std) # Solve Image using IRAF Starfinder
-    
-    skypositions= convert_pixel_to_ra_dec(iraf_Sources,wcs)
-    altazpositions = None
-    
-    if ground_based:
-        try:
-            altazpositions = convert_ra_dec_to_alt_az(skypositions, header, lat_key='OBSGEO-B', 
-                                                            lon_key='OBSGEO-L', elev_key='OBSGEO-H')
+        """Pinpoint Solve"""
+        if pinpoint:
+            try:
+                f.AttachFITS(filepathall[i])
+                f.Declination = f.targetDeclination;
+                f.RightAscension = f.targetRightAscension; 
+                x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+                # yBin = 4.33562092816E-004*3600;
+                # xBin =  4.33131246330E-004*3600; 
+                f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
+                f.ArcsecperPixelVert =  y_arcsecperpixel;
+                
+                
+                "Pinpoint Solve Inputs"
+                #TODO Add Inputs for pinpoint solving to GUI
+                f.Catalog = 5;
+                f.CatalogPath = catloc;
+                f.CatalogMaximumMagnitude = 13;
+                f.CatalogExpansion = 0.8;
+                f.SigmaAboveMean = 2.5; 
+                f.FindImageStars; 
+                f.FindCatalogStars; 
+                f.MaxSolveTime = 60; 
+                f.MaxMatchResidual = 1.5; 
+        
+                
+                "Pinpoint Solving"
+                f.FindCatalogStars()
+                f.Solve()
+                f.MatchedStars.count
+                f.FindImageStars()
+                #print(f.ImageStars)
+                
+                "Searching for Ref Stars"
+                #TODO Fix ref star search
+                #ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
+                f.DetachFITS()
+                f=None
             
-            avg_Airmass= get_avg_airmass(altazpositions) 
-            # altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, hdr)
-        except AttributeError as e:
-            print(e)
-            continue
+            except:
+                    continue
+
+            
+        "Import Data from FITS Image"
         
-    fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources) #Calculate Full-Width Half-Max
-    photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, backg)
-    calculate_magnitudes(photometry_result, exposure_Time)
-    calculate_magnitudes_sigma(photometry_result, exposure_Time)
     
+        """
+        1. Space Based - Airmass not a factor in determining transforms
+        2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
     
-    fluxes = np.array(photometry_result['flux_fit'])
-    instr_mags = calculate_magnitudes(photometry_result, exposure_Time)
-    instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exposure_Time)
-    matched_stars = astro.find_ref_stars(reference_stars, 
-                                             ref_star_positions,
-                                             skypositions,
-                                             instr_mags,
-                                             instr_mags_sigma,
-                                             fluxes,
-                                             ground_based=ground_based,
-                                             altazpositions=False)
-    
-    ref_star = reference_stars[matched_stars.ref_star_index]
-    print (matched_stars)
-    
-    if not matched_stars:
-            continue
-    
-    instr_filter = astro.get_instr_filter_name(header)
-    colour_indices = astro.get_all_colour_indices(instr_filter)
-    large_table_columns= update_large_table_columns(large_table_columns, matched_stars, header, exposure_Time, ref_star,  ground_based=False, name_key='Name')
+        """
+        
+        """Running Functions"""
+        bkg = BackgroundEstimationMulti(fitsdata, 2.5, 1, 0) #Background Estimation
+        backg, bkg_std = calculate_img_bkg(fitsdata) # Find Median Bkg and bkg_std
+        iraf_Sources= detecting_stars(fitsdata, backg, bkg_std) # Solve Image using IRAF Starfinder
+        if not iraf_Sources:
+                continue
+            
+        fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources) #Calculate Full-Width Half-Max
+        photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, backg) #Determine Photometry
+        calculate_magnitudes(photometry_result, exposure_Time) #Determine Magnitudes
+        calculate_magnitudes_sigma(photometry_result, exposure_Time) 
+        fluxes = np.array(photometry_result['flux_fit']) #
+        
+        skypositions= convert_pixel_to_ra_dec(iraf_Sources,wcs) #Calculate Sky Position in RA and DEC
+        altazpositions = None
+        
+        if ground_based:
+                try:
+                    altazpositions = astro.convert_ra_dec_to_alt_az(skypositions, header, lat_key='OBSGEO-B', 
+                                                                    lon_key='OBSGEO-L', elev_key='OBSGEO-H')
+                   
+                except AttributeError as e:
+                    print(e)
+                    continue
+            
+        
+        instr_mags = calculate_magnitudes(photometry_result, exposure_Time)
+        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exposure_Time)
+        matched_stars = astro.find_ref_stars(reference_stars, 
+                                                 ref_star_positions,
+                                                 skypositions,
+                                                 instr_mags,
+                                                 instr_mags_sigma,
+                                                 fluxes,
+                                                 ground_based=ground_based,
+                                                 altazpositions=False)
+        
+        ref_star = reference_stars[matched_stars.ref_star_index]
+        vref=ref_star['V']
+        
+        #print (matched_stars)
+        
+        if not matched_stars:
+                continue
+        
+        instr_filter = astro.get_instr_filter_name(header)
+        colour_indices = astro.get_all_colour_indices(instr_filter)
+        
+        
+        if ground_based:
+            for colour_index in colour_indices:
+                    # _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+                    field = astro.get_field_name(matched_stars, name_key='Name')
+                    if np.isnan(matched_stars.ref_star[colour_index]).any():
+                        no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                        matched_stars = matched_stars._replace(
+                            ref_star_index = matched_stars.ref_star_index[no_nan_indices],
+                            img_star_index = matched_stars.img_star_index[no_nan_indices],
+                            ref_star = matched_stars.ref_star[no_nan_indices],
+                            ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
+                            img_star_loc = matched_stars.img_star_loc[no_nan_indices],
+                            ang_separation = matched_stars.ang_separation[no_nan_indices],
+                            img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
+                            img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
+                            flux = matched_stars.flux[no_nan_indices],
+                            img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
+                            img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
+                            )
+                    try:
+                        len(matched_stars.img_instr_mag)
+                        # print(len(matched_stars.img_instr_mag))
+                    except TypeError:
+                        print("Only 1 reference star detected in the image.")
+                        continue
+                    avg_airmass = astro.get_avg_airmass(altazpositions)
+                            # if avg_airmass > 2.0:
+                            #     continue
+                    c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = astro.ground_based_first_order_transforms(matched_stars, 
+                                                                                                                      instr_filter, 
+                                                                                                                      colour_index, 
+                                                                                                                      plot_results=True,
+                                                                                                                      save_plots=True,
+                                                                                                                      save_loc=save_loc,
+                                                                                                                      unique_id=filepathall[i])
+                    gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                                  field,
+                                                                                                  c_fci,
+                                                                                                  c_fci_sigma,
+                                                                                                  zprime_f,
+                                                                                                  zprime_f_sigma,
+                                                                                                  instr_filter,
+                                                                                                  colour_index,
+                                                                                                  altazpositions)
+        else:   
+             large_table_columns= update_large_table_columns(large_table_columns, matched_stars, header, exposure_Time, ref_star,  ground_based=False, name_key='Name')
+                #large_table_columns = astro.update_large_table_columns(large_table_columns, 
+                                                                              # matched_stars, 
+                                                                              # header, 
+                                                                              # exposure_Time, 
+                                                                              # ground_based=ground_based, 
+                                                                              # name_key='Name')
+
+if ground_based:
+    gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
+    gb_transform_table.pprint_all()
+    gb_transform_table = astro.remove_large_airmass(gb_transform_table)
+    gb_transform_table.pprint_all()
+    formats = {
+        'C_fCI': '%0.3f',
+        'C_fCI_sigma': '%0.3f',
+        'Zprime_f': '%0.3f',
+        'Zprime_f_sigma': '%0.3f',
+        'X': '%0.3f'
+        }
+    astro.write_table_to_latex(gb_transform_table, f"{os.path.join(save_loc, 'gb_transform_table')}.txt", formats=formats)
+    gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, 
+                                                                      plot_results=True, save_plots=True, save_loc=save_loc)
+    gb_final_transforms.pprint_all()
+    formats = {
+        'k\'\'_fCI': '%0.3f',
+        'k\'\'_fCI_sigma': '%0.3f',
+        'T_fCI': '%0.3f',
+        'T_fCI_sigma': '%0.3f',
+        'k\'_f': '%0.3f',
+        'k\'_f_sigma': '%0.3f',
+        'Z_f': '%0.3f',
+        'Z_f_sigma': '%0.3f'
+        }
+    astro.write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
+            
+            
+        
+else:
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
-    stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
-    print(stars_table)
+    stars_table= group_each_star(large_stars_table, vref, ground_based=False, keys='Name')
+    #print(stars_table)
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+    
     for index in transform_index_list:
         filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-    
-    "Ground Based"
-    
-    
-    """Setting Pinpoint Solution Parameters"""
-    
-    if pinpoint:
-        try:
-            f.AttachFITS(filepathall[i])
-            f.Declination = f.targetDeclination;
-            f.RightAscension = f.targetRightAscension; 
-            x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
-            # yBin = 4.33562092816E-004*3600;
-            # xBin =  4.33131246330E-004*3600; 
-            f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
-            f.ArcsecperPixelVert =  y_arcsecperpixel;
-            f.Catalog = 5;
-            f.CatalogPath = catloc;
-            f.CatalogMaximumMagnitude = 13;
-            f.CatalogExpansion = 0.8;
-            f.SigmaAboveMean = 2.5; 
-            f.FindImageStars; 
-            f.FindCatalogStars; 
-            f.MaxSolveTime = 60; 
-            f.MaxMatchResidual = 1.5; 
-    
             
-            "Pinpoint Solving"
-            f.FindCatalogStars()
-            f.Solve()
-            f.MatchedStars.count
-            f.FindImageStars()
-            #print(f.ImageStars)
-            
-            "Searching for Ref Stars"
-            #TODO Fix ref star search
-            #ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
-            f.DetachFITS()
-            f=None
-        except:
-                continue
+
     
-#except:
-    #print(stars_table)
-    #continue
-        
-
-# transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
-# for index in transform_index_list:
-#     filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
-#     print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-
-
-
 
 #TODO Add Moffat and Gaussian Fit, SimpleSquid data collection
 
