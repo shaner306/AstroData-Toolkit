@@ -19,13 +19,15 @@ import os
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_new.txt'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Solved Stars'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved'
-# ground_based = True
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved'
+ground_based = True
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2009_Landolt_Standard_Stars.txt'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\NEOSSat-SA32\Solved'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars'
-ground_based = False
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Landolt Stars\2020-04-30'
+# ground_based = False
+
+save_loc = os.path.join(directory, 'Outputs')
 
 reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
 large_table_columns = astro.init_large_table_columns()
@@ -33,13 +35,13 @@ gb_transform_table_columns = astro.init_gb_transform_table_columns()
 
 for dirpath, dirnames, filenames in os.walk(directory):
     for filename in filenames:
-        # if filename.endswith(".fit"):
-        if filename.endswith("_clean.fits"):
+        if filename.endswith(".fit"):
+        # if filename.endswith("_clean.fits"):
             filepath = os.path.join(dirpath, filename)
             print(filepath)
             hdr, imgdata = astro.read_fits_file(filepath)
-            # exptime = hdr['EXPTIME']
-            exptime = hdr['AEXPTIME']
+            exptime = hdr['EXPTIME']
+            # exptime = hdr['AEXPTIME']
             bkg, bkg_std = astro.calculate_img_bkg(imgdata)
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
             # print(len(irafsources))
@@ -75,53 +77,85 @@ for dirpath, dirnames, filenames in os.walk(directory):
             
             instr_filter = astro.get_instr_filter_name(hdr)
             colour_indices = astro.get_all_colour_indices(instr_filter)
-            # for colour_index in colour_indices:
-            #     # _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
-            #     field = astro.get_field_name(matched_stars, name_key='Name')
-            #     if np.isnan(matched_stars.ref_star[colour_index]).any():
-            #         no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
-            #         matched_stars = matched_stars._replace(
-            #             ref_star_index = matched_stars.ref_star_index[no_nan_indices],
-            #             img_star_index = matched_stars.img_star_index[no_nan_indices],
-            #             ref_star = matched_stars.ref_star[no_nan_indices],
-            #             ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
-            #             img_star_loc = matched_stars.img_star_loc[no_nan_indices],
-            #             ang_separation = matched_stars.ang_separation[no_nan_indices],
-            #             img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
-            #             img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
-            #             flux = matched_stars.flux[no_nan_indices],
-            #             img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
-            #             img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
-            #             )
-                # try:
-                #     len(matched_stars.img_instr_mag)
-                #     # print(len(matched_stars.img_instr_mag))
-                # except TypeError:
-                #     print("Only 1 reference star detected in the image.")
-                #     continue
+            for colour_index in colour_indices:
+                # _, _, _, colour_index = astro.get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+                field = astro.get_field_name(matched_stars, name_key='Name')
+                if np.isnan(matched_stars.ref_star[colour_index]).any():
+                    no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                    matched_stars = matched_stars._replace(
+                        ref_star_index = matched_stars.ref_star_index[no_nan_indices],
+                        img_star_index = matched_stars.img_star_index[no_nan_indices],
+                        ref_star = matched_stars.ref_star[no_nan_indices],
+                        ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
+                        img_star_loc = matched_stars.img_star_loc[no_nan_indices],
+                        ang_separation = matched_stars.ang_separation[no_nan_indices],
+                        img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
+                        img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
+                        flux = matched_stars.flux[no_nan_indices],
+                        img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
+                        img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
+                        )
+                try:
+                    len(matched_stars.img_instr_mag)
+                    # print(len(matched_stars.img_instr_mag))
+                except TypeError:
+                    print("Only 1 reference star detected in the image.")
+                    continue
                 # print(field)
-                # c_fci, zprime_f = astro.ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, plot_results=False)
-                # gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
-                #                                                                      field,
-                #                                                                      c_fci,
-                #                                                                      zprime_f,
-                #                                                                      instr_filter,
-                #                                                                      colour_index,
-                #                                                                      altazpositions)
+                avg_airmass = astro.get_avg_airmass(altazpositions)
+                # if avg_airmass > 2.0:
+                #     continue
+                c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = astro.ground_based_first_order_transforms(matched_stars, 
+                                                                                                         instr_filter, 
+                                                                                                         colour_index, 
+                                                                                                         plot_results=True,
+                                                                                                         save_plots=True,
+                                                                                                         save_loc=save_loc,
+                                                                                                         unique_id=filename)
+                gb_transform_table_columns = astro.update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                                      field,
+                                                                                      c_fci,
+                                                                                      c_fci_sigma,
+                                                                                      zprime_f,
+                                                                                      zprime_f_sigma,
+                                                                                      instr_filter,
+                                                                                      colour_index,
+                                                                                      altazpositions)
             
-            large_table_columns = astro.update_large_table_columns(large_table_columns, 
-                                                                    matched_stars, 
-                                                                    hdr, 
-                                                                    exptime, 
-                                                                    ground_based=ground_based, 
-                                                                    name_key='Name')
+            # large_table_columns = astro.update_large_table_columns(large_table_columns, 
+            #                                                         matched_stars, 
+            #                                                         hdr, 
+            #                                                         exptime, 
+            #                                                         ground_based=ground_based, 
+            #                                                         name_key='Name')
 
 
-# gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
-# gb_transform_table.pprint_all()
-# gb_transform_table = astro.remove_large_airmass(gb_transform_table)
-# gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, plot_results=True)
-# gb_final_transforms.pprint_all()
+gb_transform_table = astro.create_gb_transform_table(gb_transform_table_columns)
+gb_transform_table.pprint_all()
+gb_transform_table = astro.remove_large_airmass(gb_transform_table)
+gb_transform_table.pprint_all()
+formats = {
+    'C_fCI': '%0.3f',
+    'C_fCI_sigma': '%0.3f',
+    'Zprime_f': '%0.3f',
+    'Zprime_f_sigma': '%0.3f',
+    'X': '%0.3f'
+    }
+astro.write_table_to_latex(gb_transform_table, f"{os.path.join(save_loc, 'gb_transform_table')}.txt", formats=formats)
+gb_final_transforms = astro.ground_based_second_order_transforms(gb_transform_table, 
+                                                                 plot_results=True, save_plots=True, save_loc=save_loc)
+gb_final_transforms.pprint_all()
+formats = {
+    'k\'\'_fCI': '%0.3f',
+    'k\'\'_fCI_sigma': '%0.3f',
+    'T_fCI': '%0.3f',
+    'T_fCI_sigma': '%0.3f',
+    'k\'_f': '%0.3f',
+    'k\'_f_sigma': '%0.3f',
+    'Z_f': '%0.3f',
+    'Z_f_sigma': '%0.3f'
+    }
+astro.write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
 
 # Test the transforms
 
@@ -277,7 +311,7 @@ for dirpath, dirnames, filenames in os.walk(directory):
 #     plt.show()
 #     plt.close()
 
-large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
+# large_stars_table = astro.create_large_stars_table(large_table_columns, ground_based=ground_based)
 # large_stars_table.pprint_all()
 # unique_fields = unique(large_stars_table, keys='Field')
 # for unique_field in unique_fields['Field']:
@@ -306,8 +340,10 @@ large_stars_table = astro.create_large_stars_table(large_table_columns, ground_b
 #             # plt.legend()
 #             plt.show()
 #             plt.close()
-stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
-stars_table.pprint_all()
+# stars_table = astro.group_each_star(large_stars_table, ground_based=ground_based)
+# stars_table.pprint_all()
+# astro.write_table_to_latex(stars_table, f"{os.path.join(directory, 'stars_table')}.txt", formats={'c': '%0.3f',
+#                                                                                                   'c_sigma': '%0.3f'})
 # transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
 # unique_fields = unique(stars_table, keys='Field')
 # for field in unique_fields['Field']:
@@ -327,7 +363,8 @@ stars_table.pprint_all()
 #     filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, instr_filter='g')
 #     print(f"(V-clear) = {filter_fci:.3f} * (B-V) + {zprime_fci:.3f}")
 # else:
-transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
-for index in transform_index_list:
-    filter_fci, zprime_fci = astro.space_based_transform(stars_table, plot_results=True, index=index)
-    print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
+# transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+# for index in transform_index_list:
+#     filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = astro.space_based_transform(stars_table, plot_results=True, index=index)
+#     print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+#            f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
