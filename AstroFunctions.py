@@ -1815,8 +1815,12 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     c_fci = fitted_line.slope.value
     zprime_f = fitted_line.intercept.value
     cov = fit.fit_info['param_cov']
-    c_fci_sigma = sqrt(cov[0][0])
-    zprime_f_sigma = sqrt(cov[1][1])
+    if cov is None:
+        c_fci_sigma = 0.0
+        zprime_f_sigma = 0.0
+    else:
+        c_fci_sigma = sqrt(cov[0][0])
+        zprime_f_sigma = sqrt(cov[1][1])
     if plot_results:
         index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]), 
                                stop=max(matched_stars.ref_star[colour_index])+0.01, 
@@ -1946,7 +1950,14 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         current_filter = gb_transform_table[mask]
         x = current_filter['X']
         y = current_filter['C_fCI']
-        sigma = current_filter['C_fCI_sigma']
+        
+        max_c_fci_sigma = max(current_filter['C_fCI_sigma'])
+        sigma = np.nan_to_num(current_filter['C_fCI_sigma'], nan=max_c_fci_sigma)
+        sigma = np.array(sigma)
+        sigma[sigma == 0] = max(sigma)
+        
+        
+        # sigma = current_filter['C_fCI_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
         filtered_data_c = np.ma.masked_array(y, mask=mask)
@@ -1959,11 +1970,22 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         #                            sigma=current_filter['C_fCI_sigma'])
         # kprimeprime_fci = a_fit_c[0]
         # t_fci = a_fit_c[1]
-        kprimeprime_fci_sigma = sqrt(cov_c[0][0])
-        t_fci_sigma = sqrt(cov_c[1][1])
+        if cov_c is None:
+            kprimeprime_fci_sigma = np.nan
+            t_fci_sigma = np.nan
+        else:
+            kprimeprime_fci_sigma = sqrt(cov_c[0][0])
+            t_fci_sigma = sqrt(cov_c[1][1])
         # kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
         y = current_filter['Zprime_f']
-        sigma = current_filter['Zprime_f_sigma']
+        
+        max_zprime_f_sigma = max(current_filter['Zprime_f_sigma'])
+        sigma = np.nan_to_num(current_filter['Zprime_f_sigma'], nan=max_zprime_f_sigma)
+        sigma = np.array(sigma)
+        sigma[sigma == 0] = max(sigma)
+        
+        
+        # sigma = current_filter['Zprime_f_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
         filtered_data_z = np.ma.masked_array(y, mask=mask)
@@ -1974,8 +1996,12 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         #                            sigma=current_filter['Zprime_f_sigma'])
         # kprime_f = a_fit_z[0]
         # zprime_f = a_fit_z[1]
-        kprime_f_sigma = sqrt(cov_z[0][0])
-        zprime_f_sigma = sqrt(cov_z[1][1])
+        if cov_z is None:
+            kprime_f_sigma = np.nan
+            zprime_f_sigma = np.nan
+        else:
+            kprime_f_sigma = sqrt(cov_z[0][0])
+            zprime_f_sigma = sqrt(cov_z[1][1])
         # kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
         gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
         gb_final_transforms['k\'\'_fCI_sigma'][unique_filter_index] = kprimeprime_fci_sigma
@@ -2762,21 +2788,21 @@ def _main_gb_transform_calc(directory,
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots,
                                                                    save_loc=save_loc)
+        formats = {
+        'k\'\'_fCI': '%0.3f',
+        'k\'\'_fCI_sigma': '%0.3f',
+        'T_fCI': '%0.3f',
+        'T_fCI_sigma': '%0.3f',
+        'k\'_f': '%0.3f',
+        'k\'_f_sigma': '%0.3f',
+        'Z_f': '%0.3f',
+        'Z_f_sigma': '%0.3f'
+        }
+        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     else:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots)
-    formats = {
-    'k\'\'_fCI': '%0.3f',
-    'k\'\'_fCI_sigma': '%0.3f',
-    'T_fCI': '%0.3f',
-    'T_fCI_sigma': '%0.3f',
-    'k\'_f': '%0.3f',
-    'k\'_f_sigma': '%0.3f',
-    'Z_f': '%0.3f',
-    'Z_f_sigma': '%0.3f'
-    }
-    write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     # Test the Transforms.
     # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
     # large_table_columns = init_large_table_columns()
