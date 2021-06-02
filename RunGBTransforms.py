@@ -9,11 +9,11 @@ Created on Mon May 31 11:51:04 2021
 import AstroFunctions as astro
 import os
 
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 28 2021\LANDOLT SAs\Solved'
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = True
+save_plots = False
 remove_large_airmass = False
 file_suffix=".fit"
 exposure_key='EXPTIME'
