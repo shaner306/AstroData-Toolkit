@@ -14,14 +14,15 @@ subfolder_list = [
     '2021-05-17',
     '2021-05-19',
     '2021-05-21',
-    '2021-05-23'
+    '2021-05-23',
+    '2021-06-02'
     ]
 
 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = False
+save_plots = True
 file_suffix = "_clean.fits"
 exposure_key = 'AEXPTIME'
 name_key = 'Name'
