@@ -21,7 +21,7 @@ subfolder_list = [
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = True
+save_plots = False
 file_suffix = "_clean.fits"
 exposure_key = 'AEXPTIME'
 name_key = 'Name'
