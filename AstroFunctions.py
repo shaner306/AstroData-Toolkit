@@ -2350,7 +2350,7 @@ def remove_temp_dir(temp_dir='tmp'):
     rmtree(temp_dir)
 
 
-def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
+def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
     def set_sat_position(event, x, y, flags, params):
@@ -2363,15 +2363,16 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
         global content
         content = entry.get()
         root.destroy()
-    global set_sat_positions
-    while set_sat_positions:
+    # global set_sat_positions_bool
+    while set_sat_positions_bool:
+        global sat_locs
         sat_locs = []
         mbox('Information',
              'Please select the positions of the satellites on the following image. Press any key when finished.',
              0)
         cv.namedWindow('TestImage')
         cv.setMouseCallback('TestImage', set_sat_position)
-        logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+        logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
         cv.imshow('TestImage', logdata)
         cv.waitKey(0)
         cv.destroyAllWindows()
@@ -2458,7 +2459,7 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
         # Have a way for the user to confirm the satellite locations. If it is wrong, then decide whether to change
         # set_sat_positions to True/False or change_sat_positions
         if yes_no.get() == 1:
-            set_sat_positions = False
+            set_sat_positions_bool = False
         else:
             continue
         # elif yes_no.get() == 2:
@@ -2483,13 +2484,13 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
                                   'num_sats',
                                   'num_nans',
                                   'sat_names'])
-    return sat_information(sats_table, 
-                           uncertainty_table, 
-                           sat_fwhm_table, 
-                           sat_locs, 
-                           num_sats, 
-                           num_nans, 
-                           sat_names)
+    return set_sat_positions_bool, sat_information(sats_table, 
+                                                   uncertainty_table, 
+                                                   sat_fwhm_table, 
+                                                   sat_locs, 
+                                                   num_sats, 
+                                                   num_nans, 
+                                                   sat_names)
     # return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
 
 
@@ -2524,7 +2525,7 @@ def check_if_sat(sat_information, index, irafsources, instr_mags, instr_mags_sig
     for obj_index, obj in enumerate(irafsources):
         obj_x = obj['xcentroid']
         obj_y = obj['ycentroid']
-        for sat_num, sat in enumerate(sat_locs, start=2):
+        for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
             sat_x = sat[0]
             sat_y = sat[1]
             if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
@@ -2537,7 +2538,7 @@ def check_if_sat(sat_information, index, irafsources, instr_mags, instr_mags_sig
     return sat_information
 
 
-def determine_if_change_sat_positions(sat_information, filenum, change_sat_positions, max_num_nan=5):
+def determine_if_change_sat_positions(sat_information, filenum, change_sat_positions_bool, max_num_nan=5):
     sat_mags = np.array(list(sat_information.sats_table[filenum]))
     mask = np.isnan(sat_mags[2:].astype(float))
     sat_information.num_nans[mask] += 1
@@ -2546,14 +2547,15 @@ def determine_if_change_sat_positions(sat_information, filenum, change_sat_posit
     num_nan = max(sat_information.num_nans)
     # print(num_nan)
     if num_nan >= max_num_nan:
-        change_sat_positions = True
-    return change_sat_positions
+        change_sat_positions_bool = True
+    return change_sat_positions_bool, num_nan
 
 
 def change_sat_positions(filenames, 
                          filenum, 
                          num_nan, 
                          sat_information,
+                         change_sat_positions_bool,
                          max_distance_from_sat=20, 
                          size=25, 
                          temp_dir='tmp', 
@@ -2568,7 +2570,6 @@ def change_sat_positions(filenames,
         if event == cv.EVENT_LBUTTONDOWN:
             sat_locs[params[0]] = [x, y]
             cv.destroyAllWindows()
-    global change_sat_positions
     print(filenames[filenum - num_nan])
     # sat_checked = np.zeros(num_sats, dtype=IntVar())
     with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}") as image:
@@ -2630,7 +2631,7 @@ def change_sat_positions(filenames,
                  0)
             cv.namedWindow('TestImage')
             cv.setMouseCallback('TestImage', change_sat_position, index)
-            logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+            logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
             cv.imshow('TestImage', logdata)
             cv.waitKey(0)
         print(sat_locs)
@@ -2777,10 +2778,10 @@ def change_sat_positions(filenames,
             #             sat_information.uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
             #             # TODO: array FWHMs
             #             # sat_information.sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
-            # print(sat_information.sats_table[filenum - reversing_index])
+            print(sat_information.sats_table[filenum - reversing_index])
         sat_information.num_nans[sat_checked_mask] = 0
-    change_sat_positions = False
-    return sat_information
+    change_sat_positions_bool = False
+    return change_sat_positions_bool, sat_information
 
 
 def add_new_time_and_filter(hdr, sat_information, filenum):
@@ -3140,7 +3141,7 @@ def _main_sb_transform_calc(directory,
     return sb_final_transform_table
 
 def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, size=25, max_num_nan=5, plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
+    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir, debugging=True)
     set_sat_positions_bool = True
     change_sat_positions_bool = False
     num_nan = 0
@@ -3148,18 +3149,19 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
         filepath = f"{temp_dir}/{file}"
         hdr, imgdata = read_fits_file(filepath)
         if set_sat_positions_bool:
-            sat_information = set_sat_positions(imgdata, filecount)
+            set_sat_positions_bool, sat_information = set_sat_positions(imgdata, filecount, set_sat_positions_bool)
         sat_information = add_new_time_and_filter(hdr, sat_information, filenum)
         if change_sat_positions_bool:
-            sat_information = change_sat_positions(filenames, 
-                                                   filenum, 
-                                                   num_nan, 
-                                                   sat_information,
-                                                   max_distance_from_sat=max_distance_from_sat, 
-                                                   size=size, 
-                                                   temp_dir=temp_dir, 
-                                                   cmap_set='Set1', 
-                                                   plot_results=plot_results)
+            change_sat_positions_bool, sat_information = change_sat_positions(filenames, 
+                                                                              filenum, 
+                                                                              num_nan, 
+                                                                              sat_information,
+                                                                              change_sat_positions_bool,
+                                                                              max_distance_from_sat=max_distance_from_sat, 
+                                                                              size=size, 
+                                                                              temp_dir=temp_dir, 
+                                                                              cmap_set='Set1', 
+                                                                              plot_results=plot_results)
         exptime = hdr['EXPTIME'] * u.s
         bkg, bkg_std = calculate_img_bkg(imgdata)
         irafsources = detecting_stars(imgdata, bkg, bkg_std)
@@ -3185,8 +3187,11 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
                      instr_mags_sigma, 
                      fwhms_arcsec,
                      max_distance_from_sat=max_distance_from_sat)
-        determine_if_change_sat_positions(sat_information, filenum, change_sat_positions_bool, max_num_nan=max_num_nan)
-    rmtree(temp_dir)
+        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
+                                                                               filenum, 
+                                                                               change_sat_positions_bool, 
+                                                                               max_num_nan=max_num_nan)
+    remove_temp_dir(temp_dir=temp_dir)
     sats_table = sat_information.sats_table
     uncertainty_table = sat_information.uncertainty_table
     sat_fwhm_table = sat_information.sat_fwhm_table
