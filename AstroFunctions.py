@@ -15,6 +15,7 @@ from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter, FittingWi
 from astropy.modeling.models import Linear1D
 from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
+from astropy.time import Time
 import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -270,6 +271,7 @@ def calculate_fwhm(irafsources):
 
     Returns
     -------
+    TODO
     fwhm : float
         Mean FWHM of all sources in the image.
     fwhm_std : float
@@ -279,7 +281,25 @@ def calculate_fwhm(irafsources):
     fwhms = np.array(irafsources['fwhm'])
     fwhm = fwhms.mean()
     fwhm_std = fwhms.std()
-    return fwhm, fwhm_std
+    return fwhms, fwhm, fwhm_std
+
+
+def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std, 
+                           focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
+    try:
+        focal_length = hdr[focal_length_key] * u.mm
+        xpixsz = hdr[xpixsz_key]
+        ypixsz = hdr[ypixsz_key]
+        if xpixsz == ypixsz:
+            pixsz = xpixsz * u.um
+            rad_per_pix = atan(pixsz / focal_length) * u.rad
+            arcsec_per_pix = rad_per_pix.to(u.arcsec)
+            fwhm_arcsec = fwhm * arcsec_per_pix.value
+            fwhm_std_arcsec = fwhm_std * arcsec_per_pix.value
+            fwhms_arcsec = fwhms * arcsec_per_pix.value
+    except KeyError:
+        fwhms_arcsec = fwhms
+    return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
@@ -2455,18 +2475,85 @@ def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm
         sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
         sats_table.pprint_all()
     # TODO: Figure out what needs to be returned from this function and return it (maybe as a nametuple?).
-    return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
+    sat_information = namedtuple('sat_information', 
+                                 ['sats_table',
+                                  'uncertainty_table',
+                                  'sat_fwhm_table',
+                                  'sat_locs',
+                                  'num_sats',
+                                  'num_nans',
+                                  'sat_names'])
+    return sat_information(sats_table, 
+                           uncertainty_table, 
+                           sat_fwhm_table, 
+                           sat_locs, 
+                           num_sats, 
+                           num_nans, 
+                           sat_names)
+    # return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
+
+
+def plot_detected_sats(filename,
+                       plot_results, 
+                       imgdata, 
+                       irafsources, 
+                       sat_information, 
+                       max_distance_from_sat=20, 
+                       norm=LogNorm()):
+    if plot_results != 0:
+        fig, ax = plt.subplots()
+        ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
+        ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
+                    s=100, edgecolor='red', facecolor='none')
+        for i in range(0, sat_information.num_sats):
+            rect = patches.Rectangle((sat_information.sat_locs[i,0] - max_distance_from_sat, 
+                                      sat_information.sat_locs[i,1] - max_distance_from_sat),
+                                     width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
+                                     edgecolor='green', facecolor='none')
+            ax.add_patch(rect)
+        plt.title(filename)
+        if plot_results == 1:
+            plt.show(block=False)
+            plt.pause(2)
+        elif plot_results == 2:
+            plt.show()
+        plt.close()
+
+
+def check_if_sat(sat_information, index, irafsources, instr_mags, instr_mags_sigma, fwhms_arcsec, max_distance_from_sat=20):
+    for obj_index, obj in enumerate(irafsources):
+        obj_x = obj['xcentroid']
+        obj_y = obj['ycentroid']
+        for sat_num, sat in enumerate(sat_locs, start=2):
+            sat_x = sat[0]
+            sat_y = sat[1]
+            if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
+                sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
+                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index]
+                sat_information.sat_fwhm_table[index][sat_num] = fwhms_arcsec[obj_index]
+                sat[0] = obj_x
+                sat[1] = obj_y
+    print(sat_information.sats_table[index])
+    return sat_information
+
+
+def determine_if_change_sat_positions(sat_information, filenum, change_sat_positions, max_num_nan=5):
+    sat_mags = np.array(list(sat_information.sats_table[filenum]))
+    mask = np.isnan(sat_mags[2:].astype(float))
+    sat_information.num_nans[mask] += 1
+    sat_information.num_nans[~mask] = 0
+    print(sat_information.num_nans)
+    num_nan = max(sat_information.num_nans)
+    # print(num_nan)
+    if num_nan >= max_num_nan:
+        change_sat_positions = True
+    return change_sat_positions
 
 
 def change_sat_positions(filenames, 
                          filenum, 
-                         sats_table, 
-                         uncertainty_table, 
-                         sat_fwhm_table, 
                          num_nan, 
-                         num_nans, 
-                         sat_names, 
-                         num_sats, 
+                         sat_information,
                          max_distance_from_sat=20, 
                          size=25, 
                          temp_dir='tmp', 
@@ -2496,27 +2583,27 @@ def change_sat_positions(filenames,
     label = tk.Label(input_frame, text='Select the satellite(s) whose position you would like to change.')
     label.grid(row=0)
     sat_checked = []
-    for sat_num, sat in enumerate(sat_names):
+    for sat_num, sat in enumerate(sat_information.sat_names):
         sat_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
         checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
     none_select = tk.IntVar()
     checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
-    checkbutton.grid(row=num_sats+2, sticky=tk.W, padx=5)
+    checkbutton.grid(row=sat_information.num_sats+2, sticky=tk.W, padx=5)
     closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
-    closebutton.grid(row=num_sats+3)
+    closebutton.grid(row=sat_information.num_sats+3)
     legend_elements = []
     fig = Figure()
     ax = fig.add_subplot()
     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
     cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
-    colours = [cmap(i) for i in range(0, num_sats)]
-    for i in range(0, num_sats):
+    colours = [cmap(i) for i in range(0, sat_information.num_sats)]
+    for i in range(0, sat_information.num_sats):
         sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
                                            h=max_distance_from_sat * 2)
         sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
         legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
-                                      label=sat_names[i]))
+                                      label=sat_information.sat_names[i]))
     fig.legend(handles=legend_elements, framealpha=1)
     canvas = FigureCanvasTkAgg(fig, master=img_frame)
     canvas.draw()
@@ -2535,9 +2622,9 @@ def change_sat_positions(filenames,
         print(sat_checked_int)
         sat_checked_mask = sat_checked_int == 1
         print(sat_checked_mask)
-        for sat in sat_names[sat_checked_mask]:
+        for sat in sat_information.sat_names[sat_checked_mask]:
             print(sat)
-            index = np.where(sat_names == sat)
+            index = np.where(sat_information.sat_names == sat)
             mbox('Information',
                  f'Please select the new position of {sat} on the following image.',
                  0)
@@ -2553,16 +2640,17 @@ def change_sat_positions(filenames,
             filepath = f"{temp_dir}/{filenames[filenum - reversing_index]}"
             hdr, imgdata = read_fits_file(filepath)
             print(filenames[filenum - reversing_index])
+            filename = filenames[filenum - reversing_index]
             # Do the photometry on the images. Should change this to a bunch of function calls, rather than copy
             # and pasting the code.
-            exptime = hdr['EXPTIME']# * u.s  # Store the exposure time with unit seconds.
+            exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
             bkg, bkg_std = calculate_img_bkg(imgdata)
             # mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
             irafsources = detecting_stars(imgdata, bkg, bkg_std)
             # iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
             # irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
             if not irafsources:
-                num_nans[:] = 0
+                sat_information.num_nans[:] = 0
                 continue
             # try:
             #     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
@@ -2572,26 +2660,34 @@ def change_sat_positions(filenames,
             #     continue
             # irafpositions = np.transpose((irafsources['xcentroid'],
             #                               irafsources['ycentroid']))  # Store source positions as a numpy array.
-            if plot_results != 0:
-                fig, ax = plt.subplots()
-                ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
-                ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
-                           s=100, edgecolor='red', facecolor='none')
-                for i in range(0, num_sats):
-                    rect = patches.Rectangle(
-                        (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
-                        width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
-                        edgecolor='green', facecolor='none')
-                    ax.add_patch(rect)
-                plt.title(filenames[filenum - reversing_index])
-                if plot_results == 1:
-                    plt.show(block=False)
-                    plt.pause(2)
-                elif plot_results == 2:
-                    plt.show()
-                plt.close()
+            plot_detected_sats(filename,
+                               plot_results, 
+                               imgdata, 
+                               irafsources, 
+                               sat_information, 
+                               max_distance_from_sat=max_distance_from_sat, 
+                               norm=LogNorm())
+            # if plot_results != 0:
+            #     fig, ax = plt.subplots()
+            #     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+            #     ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
+            #                s=100, edgecolor='red', facecolor='none')
+            #     for i in range(0, sat_information.num_sats):
+            #         rect = patches.Rectangle(
+            #             (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
+            #             width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
+            #             edgecolor='green', facecolor='none')
+            #         ax.add_patch(rect)
+            #     plt.title(filenames[filenum - reversing_index])
+            #     if plot_results == 1:
+            #         plt.show(block=False)
+            #         plt.pause(2)
+            #     elif plot_results == 2:
+            #         plt.show()
+            #     plt.close()
             # TODO: Calculate array of FWHM to be used later.
-            fwhm, fwhm_std = calculate_fwhm(irafsources)
+            fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+            fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
             # iraf_fwhms = irafsources['fwhm']  # Save FWHM in a list.
             # iraf_fwhms = np.array(iraf_fwhms)  # Convert FWHM list to numpy array.
             # # Print information about the file                                                                              #####
@@ -2662,21 +2758,49 @@ def change_sat_positions(filenames,
             #     iraf_FWHMs_arcsec = iraf_fwhms
             # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
             # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
-            for obj_index, obj in enumerate(irafsources):
-                obj_x = obj['xcentroid']
-                obj_y = obj['ycentroid']
-                for sat_num, sat in enumerate(sat_locs, start=2):
-                    sat_x = sat[0]
-                    sat_y = sat[1]
-                    if abs(sat_x - obj_x) < max_distance_from_sat and abs(
-                            sat_y - obj_y) < max_distance_from_sat:
-                        sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
-                        uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
-                        # TODO: array FWHMs
-                        # sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
-            print(sats_table[filenum - reversing_index])
-        num_nans[sat_checked_mask] = 0
+            sat_information = check_if_sat(sat_information, 
+                                           filenum - reversing_index, 
+                                           irafsources, 
+                                           instr_mags, 
+                                           instr_mags_sigma,
+                                           fwhms_arcsec,
+                                           max_distance_from_sat=max_distance_from_sat)
+            # for obj_index, obj in enumerate(irafsources):
+            #     obj_x = obj['xcentroid']
+            #     obj_y = obj['ycentroid']
+            #     for sat_num, sat in enumerate(sat_locs, start=2):
+            #         sat_x = sat[0]
+            #         sat_y = sat[1]
+            #         if abs(sat_x - obj_x) < max_distance_from_sat and abs(
+            #                 sat_y - obj_y) < max_distance_from_sat:
+            #             sat_information.sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
+            #             sat_information.uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
+            #             # TODO: array FWHMs
+            #             # sat_information.sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
+            # print(sat_information.sats_table[filenum - reversing_index])
+        sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions = False
+    return sat_information
+
+
+def add_new_time_and_filter(hdr, sat_information, filenum):
+    t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+    sat_information.sats_table['Time (JD)'][filenum] = t.jd
+    try:
+        sat_information.sats_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        sat_information.sats_table['Filter'][filenum] = 'C'
+    sat_information.uncertainty_table['Time (JD)'][filenum] = t.jd
+    try:
+        sat_information.uncertainty_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        sat_information.uncertainty_table['Filter'][filenum] = 'C'
+    sat_information.sat_fwhm_table['Time (JD)'][filenum] = t.jd
+    try:
+        sat_information.sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
+    except KeyError:
+        sat_information.sat_fwhm_table['Filter'][filenum] = 'C'
+    return sat_information
 
 
 def _main_gb_transform_calc(directory, 
@@ -2708,7 +2832,7 @@ def _main_gb_transform_calc(directory,
                 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
                 if not irafsources:
                     continue
-                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
                 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -2816,7 +2940,7 @@ def _main_gb_transform_calc(directory,
     #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
     #             if not irafsources:
     #                 continue
-    #             fwhm, fwhm_std = calculate_fwhm(irafsources)
+    #             _, fwhm, fwhm_std = calculate_fwhm(irafsources)
     #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
     #             fluxes = np.array(photometry_result['flux_fit'])
     #             instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -2943,7 +3067,7 @@ def _main_sb_transform_calc(directory,
                 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
                 if not irafsources:
                     continue
-                fwhm, fwhm_std = calculate_fwhm(irafsources)
+                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
                 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -3015,15 +3139,58 @@ def _main_sb_transform_calc(directory,
                              formats=formats)
     return sb_final_transform_table
 
-def _main_sc_lightcurve(directory, temp_dir='tmp'):
+def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, size=25, max_num_nan=5, plot_results=0):
     filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
-    set_sat_positions = True
-    change_sat_positions = False
+    set_sat_positions_bool = True
+    change_sat_positions_bool = False
+    num_nan = 0
     for filenum, file in enumerate(filenames):
         filepath = f"{temp_dir}/{file}"
         hdr, imgdata = read_fits_file(filepath)
-        if set_sat_positions:
-            set_sat_positions(imgdata, filecount)
+        if set_sat_positions_bool:
+            sat_information = set_sat_positions(imgdata, filecount)
+        sat_information = add_new_time_and_filter(hdr, sat_information, filenum)
+        if change_sat_positions_bool:
+            sat_information = change_sat_positions(filenames, 
+                                                   filenum, 
+                                                   num_nan, 
+                                                   sat_information,
+                                                   max_distance_from_sat=max_distance_from_sat, 
+                                                   size=size, 
+                                                   temp_dir=temp_dir, 
+                                                   cmap_set='Set1', 
+                                                   plot_results=plot_results)
+        exptime = hdr['EXPTIME'] * u.s
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        irafsources = detecting_stars(imgdata, bkg, bkg_std)
+        if not irafsources:
+            sat_information.num_nans[:] = 0
+            continue
+        plot_detected_sats(filenames[filenum],
+                           plot_results, 
+                           imgdata, 
+                           irafsources, 
+                           sat_information, 
+                           max_distance_from_sat=max_distance_from_sat, 
+                           norm=LogNorm())
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        check_if_sat(sat_information, 
+                     filenum, 
+                     irafsources, 
+                     instr_mags, 
+                     instr_mags_sigma, 
+                     fwhms_arcsec,
+                     max_distance_from_sat=max_distance_from_sat)
+        determine_if_change_sat_positions(sat_information, filenum, change_sat_positions_bool, max_num_nan=max_num_nan)
+    rmtree(temp_dir)
+    sats_table = sat_information.sats_table
+    uncertainty_table = sat_information.uncertainty_table
+    sat_fwhm_table = sat_information.sat_fwhm_table
+    return sats_table, uncertainty_table, sat_fwhm_table
         
 
 def __debugging__(gb_final_transforms, save_loc):
