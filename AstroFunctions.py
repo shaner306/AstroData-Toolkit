@@ -11,13 +11,12 @@ Created on Thu Apr 15 10:14:43 2021
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
-from astropy.modeling.fitting import LevMarLSQFitter, LinearLSQFitter, FittingWithOutlierRemoval
+from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval
 from astropy.modeling.models import Linear1D
 from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
 from astropy.time import Time
 import astropy.units as u
-from astropy.time import Time
 from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
@@ -46,6 +45,26 @@ def linear_func(x, m, b):
 
 
 def init_linear_fitting(niter=3, sigma=3.0):
+    """
+    Initilize the parameters needed to make a linear fit.
+
+    Parameters
+    ----------
+    niter : int, optional
+        Maximum number of iterations. The default is 3.
+    sigma : float, optional
+        The number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
+
+    Returns
+    -------
+    fit : An Astropy fitter
+        An instance of any Astropy LevMarLSQFitter.
+    or_fit : TYPE
+        DESCRIPTION.
+    line_init : TYPE
+        DESCRIPTION.
+
+    """
     fit = LevMarLSQFitter(calc_uncertainties=True)
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
     line_init = Linear1D()
