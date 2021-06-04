@@ -15,8 +15,8 @@ from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval
 from astropy.modeling.models import Linear1D
 from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
-from astropy.time import Time
 import astropy.units as u
+from astropy.time import Time
 from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
@@ -36,35 +36,15 @@ import tkinter as tk
 import re
 import os
 from shutil import copy2, rmtree
-# from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit
 
 
-# def linear_func(x, m, b):
-#     y = (m * x) + b
-#     return y
+def linear_func(x, m, b):
+    y = (m * x) + b
+    return y
 
 
 def init_linear_fitting(niter=3, sigma=3.0):
-    """
-    Initilize the parameters needed to make a linear fit.
-
-    Parameters
-    ----------
-    niter : int, optional
-        Maximum number of iterations. The default is 3.
-    sigma : float, optional
-        The number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
-
-    Returns
-    -------
-    fit : An Astropy fitter
-        An instance of an Astropy LevMarLSQFitter.
-    or_fit : astropy.modeling.fitting.FittingWithOutlierRemoval
-        An instance of an FittingWithOutlierRemoval using sigma_clip as the outlier remover.
-    line_init : astropy.modeling.Fittable1DModel
-        An instance of an Astropy Linear1D.
-
-    """
     fit = LevMarLSQFitter(calc_uncertainties=True)
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
     line_init = Linear1D()
@@ -290,8 +270,6 @@ def calculate_fwhm(irafsources):
 
     Returns
     -------
-    fwhms : numpy array
-        Array containing the FWHM of all sources in the image (in pixels).
     fwhm : float
         Mean FWHM of all sources in the image.
     fwhm_std : float
@@ -301,55 +279,7 @@ def calculate_fwhm(irafsources):
     fwhms = np.array(irafsources['fwhm'])
     fwhm = fwhms.mean()
     fwhm_std = fwhms.std()
-    return fwhms, fwhm, fwhm_std
-
-
-def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std, 
-                           focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
-    """
-    Convert the FWHM from pixels to arcsec.
-
-    Parameters
-    ----------
-    hdr : astropy.io.fits.header.Header
-        Header from the fits file.
-    fwhms : numpy array
-        Array containing the FWHM of all sources in the image (in pixels).
-    fwhm : float
-        Mean FWHM of all sources in the image.
-    fwhm_std : float
-        Standard deviation of the FWHM of all sources in the image.
-    focal_length_key : string, optional
-        Key in the FITS header that contains the focal length. The default is 'FOCALLEN'.
-    xpixsz_key : string, optional
-        Key in the FITS header that contains the x pixel size. The default is 'XPIXSZ'.
-    ypixsz_key : string, optional
-        Key in the FITS header that contains the y pixel size. The default is 'YPIXSZ'.
-
-    Returns
-    -------
-    fwhms_arcsec : numpy array
-        Array containing the FWHM of all sources in the image in arcsec.
-    fwhm_arcsec : float
-        Mean FWHM of all sources in the image in arcsec.
-    fwhm_std_arcsec : float
-        Standard deviation of the FWHM of all sources in the image in arcsec.
-
-    """
-    try:
-        focal_length = hdr[focal_length_key] * u.mm
-        xpixsz = hdr[xpixsz_key]
-        ypixsz = hdr[ypixsz_key]
-        if xpixsz == ypixsz:
-            pixsz = xpixsz * u.um
-            rad_per_pix = atan(pixsz / focal_length) * u.rad
-            arcsec_per_pix = rad_per_pix.to(u.arcsec)
-            fwhm_arcsec = fwhm * arcsec_per_pix.value
-            fwhm_std_arcsec = fwhm_std * arcsec_per_pix.value
-            fwhms_arcsec = fwhms * arcsec_per_pix.value
-    except KeyError:
-        fwhms_arcsec = fwhms
-    return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
+    return fwhm, fwhm_std
 
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
@@ -1377,23 +1307,6 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
 
 
 def write_table_to_latex(table, output_file, formats=None):
-    """
-    Write an Astropy table formatted to be inserted into a LaTeX document.
-
-    Parameters
-    ----------
-    table : astropy.table.Table
-        Table for which to write to LaTeX.
-    output_file : string
-        File location to write the table to.
-    formats : dict, optional
-        Dictionary of format specifiers or formatting functions. The default is None.
-
-    Returns
-    -------
-    None.
-
-    """
     if not formats:
         ascii.write(table, output=output_file, format='latex')
     else:
@@ -1468,42 +1381,25 @@ def space_based_transform(stars_table,
         np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    
-    
-    x = stars_table[index]
-    y = stars_table[f'{app_filter}_ref'] - stars_table[instr_filter]
-    fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-    fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
-    filtered_data = np.ma.masked_array(y, mask=mask)
-    filter_fci = fitted_line.slope.value
-    zprime_fci = fitted_line.intercept.value
-    cov = fit.fit_info['param_cov']
-    
-    # a_fit, cov = curve_fit(linear_func, stars_table[index], 
-    #                          stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
-    #                          sigma=err_sum)
-    # filter_fci = a_fit[0]
+    a_fit, cov = curve_fit(linear_func, stars_table[index], 
+                             stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
+                             sigma=err_sum)
+    filter_fci = a_fit[0]
     filter_fci_sigma = sqrt(cov[0][0])
-    # zprime_fci = a_fit[1]
+    zprime_fci = a_fit[1]
     zprime_fci_sigma = sqrt(cov[1][1])
     if plot_results:
-        index_plot = np.arange(start=min(stars_table[index]), stop=max(stars_table[index])+0.01, step=0.01)
-        plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
-        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
+        index_plot = np.arange(start=min(stars_table[index])-0.2, stop=max(stars_table[index])+0.2, step=0.1)
+        plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
+                     yerr=err_sum, fmt='o', capsize=2)
+        plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
                  label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-        
-        # plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
-        #              yerr=err_sum, fmt='o', capsize=2)
-        # plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
-        #          label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{index}")
         plt.legend()
         plt.title(f"Space Based Transform Calculation for {index}")
         if save_plots:
-            unique_id = kwargs.get('unique_id')
-            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'{unique_id}_TZfci_{index}')}.png"
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'TZfci_{index}')}.png"
             plt.savefig(save_loc)
         # if not field:
         #     plt.title(f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
@@ -1513,155 +1409,6 @@ def space_based_transform(stars_table,
         plt.close()
     return filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma
 
-
-def init_sb_final_transform_columns():
-    """
-    Initialize the columns that will create the table used for the space-based transforms.
-
-    Returns
-    -------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : empty list
-                Name of the colour index used to calculate filter_fci and zprime_fci.
-            filter_fci : empty list
-                T coefficient for index.
-            filter_fci_sigma : empty list
-                Standard deviation of the T coefficient for index.
-            zprime_fci : empty list
-                Zero point for index.
-            zprime_fci_sigma : empty list
-                Standard deviation of the zero point for index.
-    """
-    index = []
-    filter_fci = []
-    filter_fci_sigma = []
-    zprime_fci = [] 
-    zprime_fci_sigma = []
-    sb_final_transform_columns = namedtuple('sb_final_transform_columns', 
-                                            ['index',
-                                             'filter_fci',
-                                             'filter_fci_sigma',
-                                             'zprime_fci',
-                                             'zprime_fci_sigma'])
-    return sb_final_transform_columns(index, 
-                                      filter_fci, 
-                                      filter_fci_sigma, 
-                                      zprime_fci, 
-                                      zprime_fci_sigma)
-
-
-def update_sb_final_transform_columns(sb_final_transform_columns,
-                                      index,
-                                      filter_fci, 
-                                      filter_fci_sigma, 
-                                      zprime_fci, 
-                                      zprime_fci_sigma):
-    """
-    Update columns to be used for the transform table based on information from the current image.
-
-    Parameters
-    ----------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-    index : string
-        Name of the colour index used to calculate filter_fci and zprime_fci.
-    filter_fci : float
-        T coefficient for index.
-    filter_fci_sigma : float
-        Standard deviation of the T coefficient for index.
-    zprime_fci : float
-        Zero point for index.
-    zprime_fci_sigma : float
-        Standard deviation of the zero point for index.
-
-    Returns
-    -------
-    updated_sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-
-    """
-    updated_sb_final_transform_columns = sb_final_transform_columns
-    updated_sb_final_transform_columns.index.append(index)
-    updated_sb_final_transform_columns.filter_fci.append(filter_fci)
-    updated_sb_final_transform_columns.filter_fci_sigma.append(filter_fci_sigma)
-    updated_sb_final_transform_columns.zprime_fci.append(zprime_fci)
-    updated_sb_final_transform_columns.zprime_fci_sigma.append(zprime_fci_sigma)
-    return updated_sb_final_transform_columns
-
-
-def create_sb_final_transform_table(sb_final_transform_columns):
-    """
-    Convert the columns of the space-based transform table into an AstroPy table.
-
-    Parameters
-    ----------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-
-    Returns
-    -------
-    sb_final_transform_table : astropy.table.Table
-        Table containing results of the final space-based transforms. Has columns:
-            CI : string
-                Name of the colour index used to calculate the corresponding T_fCI and Z_fCI.
-            T_fCI : float
-                T coefficient for the corresponding CI.
-            T_fCI_sigma : float
-                Standard deviation of the T coefficient for the corresponding CI.
-            Z_fCI : float
-                Zero point for the corresponding CI.
-            Z_fCI_sigma : float
-                Standard deviation of the Zero point for the corresponding CI.
-
-    """
-    sb_final_transform_table = Table(
-        names=[
-            'CI',
-            'T_fCI',
-            'T_fCI_sigma',
-            'Z_fCI',
-            'Z_fCI_sigma'
-            ],
-        data=[
-            sb_final_transform_columns.index,
-            sb_final_transform_columns.filter_fci,
-            sb_final_transform_columns.filter_fci_sigma,
-            sb_final_transform_columns.zprime_fci,
-            sb_final_transform_columns.zprime_fci_sigma
-            ]
-        )
-    return sb_final_transform_table
 
 def get_avg_airmass(altazpositions):
     """
@@ -1695,12 +1442,9 @@ def init_gb_transform_table_columns():
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : empty list
                 C coefficient for filter f with colour index ci.
-            c_fci_sigma : empty list
-                Standard deviation of the C coefficient for filter f with colour index ci.
+                TODO
             zprime_f : empty list
                 Z' coefficient for filter f.
-            zprime_f_sigma : empty list
-                Standard deviation of the Z' coefficient for filter f.
             instr_filter : empty list
                 Instrumental filter band to calculate the transform for.
             colour_index : empty list
@@ -1711,6 +1455,7 @@ def init_gb_transform_table_columns():
     """
     field = []
     c_fci = []
+    # TODO: Calculate c_fci_simga and zprime_f_sigma.
     c_fci_simga = []
     zprime_f = []
     zprime_f_sigma = []
@@ -1756,12 +1501,9 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
-            c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
+                TODO
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
-            zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
             instr_filter : string list
                 Instrumental filter band to calculate the transform for.
             colour_index : string list
@@ -1773,12 +1515,9 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
         Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
     c_fci : float
         C coefficient for filter f with colour index ci.
-    c_fci_sigma : float
-        Standard deviation of the C coefficient for filter f with colour index ci.
     zprime_f : float
         Z' coefficient for filter f.
-    zprime_f_sigma : float
-        Standard deviation of the Z' coefficient for filter f.
+        TODO
     instr_filter : string
         Instrumental filter band to calculate the transform for.
     colour_index : string
@@ -1794,12 +1533,8 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
-            c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
-            zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
             instr_filter : string list
                 Instrumental filter band to calculate the transform for.
             colour_index : string list
@@ -1833,12 +1568,9 @@ def create_gb_transform_table(gb_transform_table_columns):
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
-            c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
+                TODO
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
-            zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
             instr_filter : string list
                 Instrumental filter band to calculate the transform for.
             colour_index : string list
@@ -1854,12 +1586,9 @@ def create_gb_transform_table(gb_transform_table_columns):
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             C_fCI : np.float64
                 C coefficient for filter f with colour index ci.
-            C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
+                TODO
             Zprime_f : numpy.float64
                 Z' coefficient for filter f.
-            Zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
             filter : string list
                 Instrumental filter band to calculate the transform for.
             CI : string list
@@ -2012,20 +1741,16 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     y = app_mag - matched_stars.img_instr_mag
     fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
     fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
-    filtered_data = np.ma.masked_array(y, mask=mask)
+    filtered_data = np.ma.masked_array(app_mag - matched_stars.img_instr_mag, mask=mask)
     c_fci = fitted_line.slope.value
     zprime_f = fitted_line.intercept.value
     cov = fit.fit_info['param_cov']
-    if cov is None:
-        c_fci_sigma = 0.0
-        zprime_f_sigma = 0.0
-    else:
-        c_fci_sigma = sqrt(cov[0][0])
-        zprime_f_sigma = sqrt(cov[1][1])
+    c_fci_sigma = cov[0][0]
+    zprime_f_sigma = cov[1][1]
     if plot_results:
-        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]), 
-                               stop=max(matched_stars.ref_star[colour_index])+0.01, 
-                               step=0.01)
+        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index])-0.1, 
+                               stop=max(matched_stars.ref_star[colour_index])+0.1, 
+                               step=0.1)
         plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
         plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
@@ -2050,20 +1775,6 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
 
 
 def get_all_colour_indices(instr_filter):
-    """
-    Get all of the colour indices to calculate the transforms with the instrumental mag filter.
-
-    Parameters
-    ----------
-    instr_filter : string
-        Instrumental filter band to calculate the transform for.
-
-    Returns
-    -------
-    colour_indices : string list
-        List of all of the colour indices to use when calculating the transforms.
-
-    """
     if instr_filter == 'b':
         colour_indices = ['B-V']
     elif instr_filter == 'v' or instr_filter == 'g':
@@ -2078,38 +1789,6 @@ def get_all_colour_indices(instr_filter):
 
 
 def remove_large_airmass(gb_transform_table, max_airmass=2.0):
-    """
-    Remove all observations with airmass above a set point.
-
-    Parameters
-    ----------
-    gb_transform_table : TYPE
-        DESCRIPTION.
-    max_airmass : float, optional
-        Airmass value for which to remove all observations greater than. The default is 2.0.
-
-    Returns
-    -------
-    gb_transform_table : astropy.table.Table
-        Table containing the results from the intermediary step in calculating the transforms. Has columns:
-            field : string list
-                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
-            C_fCI : np.float64
-                C coefficient for filter f with colour index ci.
-            C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
-            Zprime_f : numpy.float64
-                Z' coefficient for filter f.
-            Zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
-            filter : string list
-                Instrumental filter band to calculate the transform for.
-            CI : string list
-                Name of the colour index used to calculate c_fci and zprime_f.
-            X : numpy.float64
-                The mean airmass for all sources in the image.
-
-    """
     gb_transform_table = gb_transform_table[gb_transform_table['X'] <= 2.0]
     return gb_transform_table
 
@@ -2126,12 +1805,9 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             C_fCI : np.float64
                 C coefficient for filter f with colour index ci.
-            C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with colour index ci.
+                TODO
             Zprime_f : numpy.float64
                 Z' coefficient for filter f.
-            Zprime_f_sigma : numpy.float64
-                Standard deviation of the Z' coefficient for filter f.
             filter : string list
                 Instrumental filter band to calculate the transform for.
             CI : string list
@@ -2151,21 +1827,13 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
                 The second order atmospheric extinction coefficient for filter f using the colour index CI.
-            k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
-                colour index CI.
+                TODO
             T_fCI : float
                 The instrumental transform coefficient for filter f using the colour index CI.
-            T_fCI_sigma : float
-                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
                 The first order atmospheric extinction coefficient for filter f.
-            k'_f_sigma : float
-                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
-            Z_f_sigma : float
-                The standard deviation of the zero point magnitude for filter f.
 
     """
     gb_final_transforms = Table()
@@ -2206,60 +1874,19 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         gb_final_transforms['CI'][unique_filter_index] = current_index
         mask = ((gb_transform_table['filter'] == unique_filter) & (gb_transform_table['CI'] == current_index))
         current_filter = gb_transform_table[mask]
-        x = current_filter['X']
-        y = current_filter['C_fCI']
-        
-        max_c_fci_sigma = max(current_filter['C_fCI_sigma'])
-        sigma = np.nan_to_num(current_filter['C_fCI_sigma'], nan=max_c_fci_sigma)
-        sigma = np.array(sigma)
-        sigma[sigma == 0] = max(sigma)
-        
-        
-        # sigma = current_filter['C_fCI_sigma']
-        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-        fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
-        filtered_data_c = np.ma.masked_array(y, mask=mask)
-        kprimeprime_fci = fitted_line_c.slope.value
-        t_fci = fitted_line_c.intercept.value
-        cov_c = fit.fit_info['param_cov']
-        # c_fci_sigma = cov[0][0]
-        # zprime_f_sigma = cov[1][1]
-        # a_fit_c, cov_c = curve_fit(linear_func, current_filter['X'], current_filter['C_fCI'], 
-        #                            sigma=current_filter['C_fCI_sigma'])
-        # kprimeprime_fci = a_fit_c[0]
-        # t_fci = a_fit_c[1]
-        if cov_c is None:
-            kprimeprime_fci_sigma = np.nan
-            t_fci_sigma = np.nan
-        else:
-            kprimeprime_fci_sigma = sqrt(cov_c[0][0])
-            t_fci_sigma = sqrt(cov_c[1][1])
+        a_fit_c, cov_c = curve_fit(linear_func, current_filter['X'], current_filter['C_fCI'], 
+                                   sigma=current_filter['C_fCI_sigma'])
+        kprimeprime_fci = a_fit_c[0]
+        t_fci = a_fit_c[1]
+        kprimeprime_fci_sigma = cov_c[0][0]
+        t_fci_sigma = cov_c[1][1]
         # kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
-        y = current_filter['Zprime_f']
-        
-        max_zprime_f_sigma = max(current_filter['Zprime_f_sigma'])
-        sigma = np.nan_to_num(current_filter['Zprime_f_sigma'], nan=max_zprime_f_sigma)
-        sigma = np.array(sigma)
-        sigma[sigma == 0] = max(sigma)
-        
-        
-        # sigma = current_filter['Zprime_f_sigma']
-        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-        fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
-        filtered_data_z = np.ma.masked_array(y, mask=mask)
-        kprime_f = fitted_line_z.slope.value
-        zprime_f = fitted_line_z.intercept.value
-        cov_z = fit.fit_info['param_cov']
-        # a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'], current_filter['Zprime_f'], 
-        #                            sigma=current_filter['Zprime_f_sigma'])
-        # kprime_f = a_fit_z[0]
-        # zprime_f = a_fit_z[1]
-        if cov_z is None:
-            kprime_f_sigma = np.nan
-            zprime_f_sigma = np.nan
-        else:
-            kprime_f_sigma = sqrt(cov_z[0][0])
-            zprime_f_sigma = sqrt(cov_z[1][1])
+        a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'], current_filter['Zprime_f'], 
+                                   sigma=current_filter['Zprime_f_sigma'])
+        kprime_f = a_fit_z[0]
+        zprime_f = a_fit_z[1]
+        kprime_f_sigma = cov_z[0][0]
+        zprime_f_sigma = cov_z[1][1]
         # kprime_f, zprime_f = np.polyfit(current_filter['X'], current_filter['Zprime_f'], 1)
         gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
         gb_final_transforms['k\'\'_fCI_sigma'][unique_filter_index] = kprimeprime_fci_sigma
@@ -2270,13 +1897,12 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
         gb_final_transforms['Z_f_sigma'][unique_filter_index] = zprime_f_sigma
         if plot_results:
-            X_plot = np.arange(start=min(current_filter['X']), stop=max(current_filter['X'])+0.01, step=0.01)
+            X_plot = np.arange(start=min(current_filter['X'])-0.2, stop=max(current_filter['X'])+0.2, step=0.1)
             ci_plot = re.sub('[^a-zA-Z]+', '', current_index)
             ci_plot = ci_plot.lower()
-            plt.errorbar(x, current_filter['C_fCI'], yerr=current_filter['C_fCI_sigma'], 
-                         color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
-            plt.plot(x, filtered_data_c, 'o', color='#1f77b4', label="Fitted Data")
-            plt.plot(X_plot, fitted_line_c(X_plot), '-', color='#ff7f0e',
+            plt.errorbar(current_filter['X'], current_filter['C_fCI'], 
+                         yerr=current_filter['C_fCI_sigma'], fmt='o', capsize=2)
+            plt.plot(X_plot, kprimeprime_fci*X_plot+t_fci, 
                      label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.legend()
             plt.title(f"k''_{unique_filter}{ci_plot} and T_{unique_filter}{ci_plot} Coefficient calculations")
@@ -2288,10 +1914,9 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
-            plt.errorbar(x, current_filter['Zprime_f'], yerr=current_filter['Zprime_f_sigma'], 
-                         color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
-            plt.plot(x, filtered_data_z, 'o', color='#1f77b4', label="Fitted Data")
-            plt.plot(X_plot, fitted_line_z(X_plot), '-', color='#ff7f0e',
+            plt.errorbar(current_filter['X'], current_filter['Zprime_f'], 
+                         yerr=current_filter['Zprime_f_sigma'], fmt='o', capsize=2)
+            plt.plot(X_plot, kprime_f*X_plot+zprime_f, 
                      label=f'Z\'_{unique_filter} = {kprime_f:.3f} * X + {zprime_f:.3f}')
             plt.legend()
             plt.title(f"Z_{unique_filter} and k'_{unique_filter} Coefficient Calculations")
@@ -2307,21 +1932,28 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
     return gb_final_transforms
 
 
+# TODO
+# This will be harder than I thought. Namely, keeping track of which star was which when it's not known (unless maybe 
+# I do assume to know it because it is just a check? Maybe by using matched_stars or large_stars_table instead of 
+# creating a whole new table?). Either way, I'll start to convert the light curve code first and then come back to this 
+# later.
+
+
 def get_colour_index_lower(instr_filter):
     """
     Get the colour index for the desired instrumental filter band.
 
     Parameters
     ----------
-    instr_filter : string
-        Instrumental filter band used to calculate the transform.
+    instr_filter : TYPE
+        DESCRIPTION.
 
     Returns
     -------
-    colour_index : string
-        Colour index of the form X-Y'.
-    ci : string
-        Colour index of the form 'xy'.
+    colour_index : TYPE
+        DESCRIPTION.
+    ci : TYPE
+        DESCRIPTION.
 
     """
     if instr_filter == 'b':
@@ -2339,80 +1971,59 @@ def get_colour_index_lower(instr_filter):
     return colour_index, ci
 
 
-# def init_unknown_object_table_columns():
-#     """
-#     Initialize the columns that will create the unknown object table.
-
-#     Returns
-#     -------
-#     TYPE
-#         DESCRIPTION.
-
-#     """
-#     instr_filter = []
-#     name = []
-#     instr_mag = []
-    
-#     unknown_object_table_columns = namedtuple('unknown_object_table_columns', 
-#                                               ['instr_filter',
-#                                               'name',
-#                                               'instr_mag'])
-#     return unknown_object_table_columns(instr_filter, 
-#                                         name, 
-#                                         instr_mag)
-
-
-# def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, filter_key='FILTER'):
-#     """
-#     Update the columns tha will create the unknown object table.
-
-#     Parameters
-#     ----------
-#     unknown_object_table_columns : TYPE
-#         DESCRIPTION.
-#     hdr : TYPE
-#         DESCRIPTION.
-#     instr_mag : TYPE
-#         DESCRIPTION.
-#     filter_key : TYPE, optional
-#         DESCRIPTION. The default is 'FILTER'.
-
-#     Returns
-#     -------
-#     updated_unknown_object_table_columns : TYPE
-#         DESCRIPTION.
-
-#     """
-#     updated_unknown_object_table_columns = unknown_object_table_columns
-#     instr_filter = get_instr_filter_name(hdr=hdr, filter_key=filter_key)
-#     name = hdr['OBJECT']
-#     updated_unknown_object_table_columns.instr_filter.append(instr_filter)
-#     updated_unknown_object_table_columns.name.append(name)
-#     updated_unknown_object_table_columns.instr_mag.append(instr_mag)
-#     return updated_unknown_object_table_columns
-
-
-def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
+def init_unknown_object_table_columns():
     """
-    Calculate the C coefficient to use when calculating the C' coefficient when applying the transforms.
-
-    Parameters
-    ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
-    airmass : float
-        DESCRIPTION.
-    colour_index : TYPE
-        DESCRIPTION.
+    Initialize the columns that will create the unknown object table.
 
     Returns
     -------
-    c_fci : float
-        C coefficient to use when calculating C'.
+    TYPE
+        DESCRIPTION.
 
     """
+    instr_filter = []
+    name = []
+    instr_mag = []
+    
+    unknown_object_table_columns = namedtuple('unknown_object_table_columns', 
+                                              ['instr_filter',
+                                              'name',
+                                              'instr_mag'])
+    return unknown_object_table_columns(instr_filter, 
+                                        name, 
+                                        instr_mag)
+
+
+def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, filter_key='FILTER'):
+    """
+    Update the columns tha will create the unknown object table.
+
+    Parameters
+    ----------
+    unknown_object_table_columns : TYPE
+        DESCRIPTION.
+    hdr : TYPE
+        DESCRIPTION.
+    instr_mag : TYPE
+        DESCRIPTION.
+    filter_key : TYPE, optional
+        DESCRIPTION. The default is 'FILTER'.
+
+    Returns
+    -------
+    updated_unknown_object_table_columns : TYPE
+        DESCRIPTION.
+
+    """
+    updated_unknown_object_table_columns = unknown_object_table_columns
+    instr_filter = get_instr_filter_name(hdr=hdr, filter_key=filter_key)
+    name = hdr['OBJECT']
+    updated_unknown_object_table_columns.instr_filter.append(instr_filter)
+    updated_unknown_object_table_columns.name.append(name)
+    updated_unknown_object_table_columns.instr_mag.append(instr_mag)
+    return updated_unknown_object_table_columns
+
+def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
     row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'v':
@@ -2450,26 +2061,6 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
 
 
 def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
-    airmass : TYPE
-        DESCRIPTION.
-    colour_index : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    z_prime_f : TYPE
-        DESCRIPTION.
-
-    """
     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
     row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'v':
@@ -2481,26 +2072,6 @@ def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index
 
 
 def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    c_prime_fci : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
-    airmass : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    lower_z_f : TYPE
-        DESCRIPTION.
-
-    """
     colour_index, ci = get_colour_index_lower(instr_filter)
     c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
     z_prime_positive = calculate_z_prime_f(gb_final_transforms, ci[0], airmass, colour_index)
@@ -2612,32 +2183,6 @@ def copy_and_rename(directory,
                     filter_key='FILTER', 
                     temp_dir='tmp', 
                     debugging=False):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    directory : TYPE
-        DESCRIPTION.
-    file_suffix : TYPE, optional
-        DESCRIPTION. The default is ".fits".
-    time_key : TYPE, optional
-        DESCRIPTION. The default is 'DATE-OBS'.
-    filter_key : TYPE, optional
-        DESCRIPTION. The default is 'FILTER'.
-    temp_dir : TYPE, optional
-        DESCRIPTION. The default is 'tmp'.
-    debugging : TYPE, optional
-        DESCRIPTION. The default is False.
-
-    Returns
-    -------
-    filecount : TYPE
-        DESCRIPTION.
-    filenames : TYPE
-        DESCRIPTION.
-
-    """
     if not debugging:
         try:
             os.mkdir(temp_dir)
@@ -2665,47 +2210,10 @@ def copy_and_rename(directory,
 
 
 def remove_temp_dir(temp_dir='tmp'):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    temp_dir : TYPE, optional
-        DESCRIPTION. The default is 'tmp'.
-
-    Returns
-    -------
-    None.
-
-    """
     rmtree(temp_dir)
 
 
-def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    imgdata : TYPE
-        DESCRIPTION.
-    filecount : TYPE
-        DESCRIPTION.
-    set_sat_positions_bool : TYPE
-        DESCRIPTION.
-    max_distance_from_sat : TYPE, optional
-        DESCRIPTION. The default is 25.
-    norm : TYPE, optional
-        DESCRIPTION. The default is LogNorm().
-    cmap_set : TYPE, optional
-        DESCRIPTION. The default is 'Set1'.
-
-    Returns
-    -------
-    TYPE
-        DESCRIPTION.
-
-    """
+def set_sat_positions(imgdata, filecount, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
     def set_sat_position(event, x, y, flags, params):
@@ -2718,16 +2226,15 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         global content
         content = entry.get()
         root.destroy()
-    # global set_sat_positions_bool
-    while set_sat_positions_bool:
-        global sat_locs
+    global set_sat_positions
+    while set_sat_positions:
         sat_locs = []
         mbox('Information',
              'Please select the positions of the satellites on the following image. Press any key when finished.',
              0)
         cv.namedWindow('TestImage')
         cv.setMouseCallback('TestImage', set_sat_position)
-        logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+        logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
         cv.imshow('TestImage', logdata)
         cv.waitKey(0)
         cv.destroyAllWindows()
@@ -2814,7 +2321,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         # Have a way for the user to confirm the satellite locations. If it is wrong, then decide whether to change
         # set_sat_positions to True/False or change_sat_positions
         if yes_no.get() == 1:
-            set_sat_positions_bool = False
+            set_sat_positions = False
         else:
             continue
         # elif yes_no.get() == 2:
@@ -2830,111 +2337,19 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
         sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
         sats_table.pprint_all()
-    sat_information = namedtuple('sat_information', 
-                                 ['sats_table',
-                                  'uncertainty_table',
-                                  'sat_fwhm_table',
-                                  'sat_locs',
-                                  'num_sats',
-                                  'num_nans',
-                                  'sat_names'])
-    return set_sat_positions_bool, sat_information(sats_table, 
-                                                   uncertainty_table, 
-                                                   sat_fwhm_table, 
-                                                   sat_locs, 
-                                                   num_sats, 
-                                                   num_nans, 
-                                                   sat_names)
-    # return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
-
-
-def plot_detected_sats(filename,
-                       plot_results, 
-                       imgdata, 
-                       irafsources, 
-                       sat_information, 
-                       max_distance_from_sat=20, 
-                       norm=LogNorm()):
-    """
-    TODO.
-
-    Parameters
-    ----------
-    filename : TYPE
-        DESCRIPTION.
-    plot_results : TYPE
-        DESCRIPTION.
-    imgdata : TYPE
-        DESCRIPTION.
-    irafsources : TYPE
-        DESCRIPTION.
-    sat_information : TYPE
-        DESCRIPTION.
-    max_distance_from_sat : TYPE, optional
-        DESCRIPTION. The default is 20.
-    norm : TYPE, optional
-        DESCRIPTION. The default is LogNorm().
-
-    Returns
-    -------
-    None.
-
-    """
-    if plot_results != 0:
-        fig, ax = plt.subplots()
-        ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
-        ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
-                    s=100, edgecolor='red', facecolor='none')
-        for i in range(0, sat_information.num_sats):
-            rect = patches.Rectangle((sat_information.sat_locs[i,0] - max_distance_from_sat, 
-                                      sat_information.sat_locs[i,1] - max_distance_from_sat),
-                                     width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
-                                     edgecolor='green', facecolor='none')
-            ax.add_patch(rect)
-        plt.title(filename)
-        if plot_results == 1:
-            plt.show(block=False)
-            plt.pause(2)
-        elif plot_results == 2:
-            plt.show()
-        plt.close()
-
-
-def check_if_sat(sat_information, index, irafsources, instr_mags, instr_mags_sigma, fwhms_arcsec, max_distance_from_sat=20):
-    for obj_index, obj in enumerate(irafsources):
-        obj_x = obj['xcentroid']
-        obj_y = obj['ycentroid']
-        for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
-            sat_x = sat[0]
-            sat_y = sat[1]
-            if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
-                sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
-                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index]
-                sat_information.sat_fwhm_table[index][sat_num] = fwhms_arcsec[obj_index]
-                sat[0] = obj_x
-                sat[1] = obj_y
-    print(sat_information.sats_table[index])
-    return sat_information
-
-
-def determine_if_change_sat_positions(sat_information, filenum, change_sat_positions_bool, max_num_nan=5):
-    sat_mags = np.array(list(sat_information.sats_table[filenum]))
-    mask = np.isnan(sat_mags[2:].astype(float))
-    sat_information.num_nans[mask] += 1
-    sat_information.num_nans[~mask] = 0
-    print(sat_information.num_nans)
-    num_nan = max(sat_information.num_nans)
-    # print(num_nan)
-    if num_nan >= max_num_nan:
-        change_sat_positions_bool = True
-    return change_sat_positions_bool, num_nan
+    # TODO: Figure out what needs to be returned from this function and return it (maybe as a nametuple?).
+    return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
 
 
 def change_sat_positions(filenames, 
                          filenum, 
+                         sats_table, 
+                         uncertainty_table, 
+                         sat_fwhm_table, 
                          num_nan, 
-                         sat_information,
-                         change_sat_positions_bool,
+                         num_nans, 
+                         sat_names, 
+                         num_sats, 
                          max_distance_from_sat=20, 
                          size=25, 
                          temp_dir='tmp', 
@@ -2949,6 +2364,7 @@ def change_sat_positions(filenames,
         if event == cv.EVENT_LBUTTONDOWN:
             sat_locs[params[0]] = [x, y]
             cv.destroyAllWindows()
+    global change_sat_positions
     print(filenames[filenum - num_nan])
     # sat_checked = np.zeros(num_sats, dtype=IntVar())
     with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}") as image:
@@ -2963,27 +2379,27 @@ def change_sat_positions(filenames,
     label = tk.Label(input_frame, text='Select the satellite(s) whose position you would like to change.')
     label.grid(row=0)
     sat_checked = []
-    for sat_num, sat in enumerate(sat_information.sat_names):
+    for sat_num, sat in enumerate(sat_names):
         sat_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
         checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
     none_select = tk.IntVar()
     checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
-    checkbutton.grid(row=sat_information.num_sats+2, sticky=tk.W, padx=5)
+    checkbutton.grid(row=num_sats+2, sticky=tk.W, padx=5)
     closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
-    closebutton.grid(row=sat_information.num_sats+3)
+    closebutton.grid(row=num_sats+3)
     legend_elements = []
     fig = Figure()
     ax = fig.add_subplot()
     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
     cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
-    colours = [cmap(i) for i in range(0, sat_information.num_sats)]
-    for i in range(0, sat_information.num_sats):
+    colours = [cmap(i) for i in range(0, num_sats)]
+    for i in range(0, num_sats):
         sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
                                            h=max_distance_from_sat * 2)
         sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
         legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
-                                      label=sat_information.sat_names[i]))
+                                      label=sat_names[i]))
     fig.legend(handles=legend_elements, framealpha=1)
     canvas = FigureCanvasTkAgg(fig, master=img_frame)
     canvas.draw()
@@ -3002,15 +2418,15 @@ def change_sat_positions(filenames,
         print(sat_checked_int)
         sat_checked_mask = sat_checked_int == 1
         print(sat_checked_mask)
-        for sat in sat_information.sat_names[sat_checked_mask]:
+        for sat in sat_names[sat_checked_mask]:
             print(sat)
-            index = np.where(sat_information.sat_names == sat)
+            index = np.where(sat_names == sat)
             mbox('Information',
                  f'Please select the new position of {sat} on the following image.',
                  0)
             cv.namedWindow('TestImage')
             cv.setMouseCallback('TestImage', change_sat_position, index)
-            logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+            logdata = cv.normalize(imgdata, None, alpha=0, beta=1, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
             cv.imshow('TestImage', logdata)
             cv.waitKey(0)
         print(sat_locs)
@@ -3020,17 +2436,16 @@ def change_sat_positions(filenames,
             filepath = f"{temp_dir}/{filenames[filenum - reversing_index]}"
             hdr, imgdata = read_fits_file(filepath)
             print(filenames[filenum - reversing_index])
-            filename = filenames[filenum - reversing_index]
             # Do the photometry on the images. Should change this to a bunch of function calls, rather than copy
             # and pasting the code.
-            exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
+            exptime = hdr['EXPTIME']# * u.s  # Store the exposure time with unit seconds.
             bkg, bkg_std = calculate_img_bkg(imgdata)
             # mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
             irafsources = detecting_stars(imgdata, bkg, bkg_std)
             # iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
             # irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
             if not irafsources:
-                sat_information.num_nans[:] = 0
+                num_nans[:] = 0
                 continue
             # try:
             #     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
@@ -3040,34 +2455,26 @@ def change_sat_positions(filenames,
             #     continue
             # irafpositions = np.transpose((irafsources['xcentroid'],
             #                               irafsources['ycentroid']))  # Store source positions as a numpy array.
-            plot_detected_sats(filename,
-                               plot_results, 
-                               imgdata, 
-                               irafsources, 
-                               sat_information, 
-                               max_distance_from_sat=max_distance_from_sat, 
-                               norm=LogNorm())
-            # if plot_results != 0:
-            #     fig, ax = plt.subplots()
-            #     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
-            #     ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
-            #                s=100, edgecolor='red', facecolor='none')
-            #     for i in range(0, sat_information.num_sats):
-            #         rect = patches.Rectangle(
-            #             (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
-            #             width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
-            #             edgecolor='green', facecolor='none')
-            #         ax.add_patch(rect)
-            #     plt.title(filenames[filenum - reversing_index])
-            #     if plot_results == 1:
-            #         plt.show(block=False)
-            #         plt.pause(2)
-            #     elif plot_results == 2:
-            #         plt.show()
-            #     plt.close()
+            if plot_results != 0:
+                fig, ax = plt.subplots()
+                ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+                ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
+                           s=100, edgecolor='red', facecolor='none')
+                for i in range(0, num_sats):
+                    rect = patches.Rectangle(
+                        (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
+                        width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
+                        edgecolor='green', facecolor='none')
+                    ax.add_patch(rect)
+                plt.title(filenames[filenum - reversing_index])
+                if plot_results == 1:
+                    plt.show(block=False)
+                    plt.pause(2)
+                elif plot_results == 2:
+                    plt.show()
+                plt.close()
             # TODO: Calculate array of FWHM to be used later.
-            fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-            fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+            fwhm, fwhm_std = calculate_fwhm(irafsources)
             # iraf_fwhms = irafsources['fwhm']  # Save FWHM in a list.
             # iraf_fwhms = np.array(iraf_fwhms)  # Convert FWHM list to numpy array.
             # # Print information about the file                                                                              #####
@@ -3138,56 +2545,28 @@ def change_sat_positions(filenames,
             #     iraf_FWHMs_arcsec = iraf_fwhms
             # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
             # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
-            sat_information = check_if_sat(sat_information, 
-                                           filenum - reversing_index, 
-                                           irafsources, 
-                                           instr_mags, 
-                                           instr_mags_sigma,
-                                           fwhms_arcsec,
-                                           max_distance_from_sat=max_distance_from_sat)
-            # for obj_index, obj in enumerate(irafsources):
-            #     obj_x = obj['xcentroid']
-            #     obj_y = obj['ycentroid']
-            #     for sat_num, sat in enumerate(sat_locs, start=2):
-            #         sat_x = sat[0]
-            #         sat_y = sat[1]
-            #         if abs(sat_x - obj_x) < max_distance_from_sat and abs(
-            #                 sat_y - obj_y) < max_distance_from_sat:
-            #             sat_information.sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
-            #             sat_information.uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
-            #             # TODO: array FWHMs
-            #             # sat_information.sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
-            print(sat_information.sats_table[filenum - reversing_index])
-        sat_information.num_nans[sat_checked_mask] = 0
-    change_sat_positions_bool = False
-    return change_sat_positions_bool, sat_information
-
-
-def add_new_time_and_filter(hdr, sat_information, filenum):
-    t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
-    sat_information.sats_table['Time (JD)'][filenum] = t.jd
-    try:
-        sat_information.sats_table['Filter'][filenum] = hdr['FILTER']
-    except KeyError:
-        sat_information.sats_table['Filter'][filenum] = 'C'
-    sat_information.uncertainty_table['Time (JD)'][filenum] = t.jd
-    try:
-        sat_information.uncertainty_table['Filter'][filenum] = hdr['FILTER']
-    except KeyError:
-        sat_information.uncertainty_table['Filter'][filenum] = 'C'
-    sat_information.sat_fwhm_table['Time (JD)'][filenum] = t.jd
-    try:
-        sat_information.sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
-    except KeyError:
-        sat_information.sat_fwhm_table['Filter'][filenum] = 'C'
-    return sat_information
+            for obj_index, obj in enumerate(irafsources):
+                obj_x = obj['xcentroid']
+                obj_y = obj['ycentroid']
+                for sat_num, sat in enumerate(sat_locs, start=2):
+                    sat_x = sat[0]
+                    sat_y = sat[1]
+                    if abs(sat_x - obj_x) < max_distance_from_sat and abs(
+                            sat_y - obj_y) < max_distance_from_sat:
+                        sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
+                        uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
+                        # TODO: array FWHMs
+                        # sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
+            print(sats_table[filenum - reversing_index])
+        num_nans[sat_checked_mask] = 0
+    change_sat_positions = False
 
 
 def _main_gb_transform_calc(directory, 
                             ref_stars_file, 
                             plot_results=False, 
                             save_plots=False, 
-                            remove_large_airmass_bool=True, 
+                            remove_large_airmass=True, 
                             file_suffix=".fits", 
                             exposure_key='EXPTIME', 
                             lat_key='SITELAT', 
@@ -3212,7 +2591,7 @@ def _main_gb_transform_calc(directory,
                 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
                 if not irafsources:
                     continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
                 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -3285,138 +2664,17 @@ def _main_gb_transform_calc(directory,
                                                                                    colour_index,
                                                                                    altazpositions)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
-    if remove_large_airmass_bool:
+    if remove_large_airmass:
         gb_transform_table = remove_large_airmass(gb_transform_table)
     if save_plots:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots,
                                                                    save_loc=save_loc)
-        formats = {
-        'k\'\'_fCI': '%0.3f',
-        'k\'\'_fCI_sigma': '%0.3f',
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'k\'_f': '%0.3f',
-        'k\'_f_sigma': '%0.3f',
-        'Z_f': '%0.3f',
-        'Z_f_sigma': '%0.3f'
-        }
-        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     else:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots)
-    # Test the Transforms.
-    # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
-    # large_table_columns = init_large_table_columns()
-    # for dirpath, dirnames, filenames in os.walk(directory):
-    #     for filename in filenames:
-    #         if filename.endswith(".fit"):
-    #             filepath = os.path.join(dirpath, filename)
-    #             hdr, imgdata = read_fits_file(filepath)
-    #             exptime = hdr['EXPTIME']
-    #             bkg, bkg_std = calculate_img_bkg(imgdata)
-    #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-    #             if not irafsources:
-    #                 continue
-    #             _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-    #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-    #             fluxes = np.array(photometry_result['flux_fit'])
-    #             instr_mags = calculate_magnitudes(photometry_result, exptime)
-    #             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-    #             wcs = WCS(hdr)
-    #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-    #             altazpositions = None
-    #             try:
-    #                 altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
-    #                                                                 lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
-    #             except AttributeError as e:
-    #                 print(e)
-    #                 continue
-    #             matched_stars = find_ref_stars(reference_stars, 
-    #                                                   ref_star_positions,
-    #                                                   skypositions,
-    #                                                   instr_mags,
-    #                                                   instr_mags_sigma,
-    #                                                   fluxes,
-    #                                                   ground_based=True,
-    #                                                   altazpositions=altazpositions)
-    #             if not matched_stars:
-    #                 continue
-    #             large_table_columns = update_large_table_columns(large_table_columns, 
-    #                                                                     matched_stars, 
-    #                                                                     hdr, 
-    #                                                                     exptime, 
-    #                                                                     ground_based=True, 
-    #                                                                     name_key='Name')
-    
-    # large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    # large_stars_table.pprint_all()
-    # # large_stars_table = remove_large_airmass(large_stars_table)
-    # stars_table = group_each_star(large_stars_table, ground_based=True)
-    # stars_table.pprint_all()
-    
-    # instr_filters = ['b', 'v', 'r', 'i']
-    # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
-    # for instr_filter in instr_filters:
-    #     app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
-    #     app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
-    
-    # app_mag_table.pprint_all()
-    
-    # import matplotlib.pyplot as plt
-    # # import matplotlib
-    # # matplotlib.use('TkAgg')
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('B (calculated)')
-    # plt.xlabel('B (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-    
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
-    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('V (calculated)')
-    # plt.xlabel('V (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-    
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
-    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('R (calculated)')
-    # plt.xlabel('R (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-    
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
-    #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], 
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-I)'])+b, 
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['V_ref'] - app_mag_table['(V-I)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('I (calculated)')
-    # plt.xlabel('I (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
     return gb_final_transforms
 
 
@@ -3435,7 +2693,6 @@ def _main_sb_transform_calc(directory,
     
     if save_plots:
         save_loc = kwargs.get('save_loc')
-        unique_id = kwargs.get('unique_id')
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
@@ -3447,7 +2704,7 @@ def _main_sb_transform_calc(directory,
                 irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
                 if not irafsources:
                     continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+                fwhm, fwhm_std = calculate_fwhm(irafsources)
                 photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -3473,108 +2730,37 @@ def _main_sb_transform_calc(directory,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
     stars_table = group_each_star(large_stars_table, ground_based=False)
-    sb_final_transform_columns = init_sb_final_transform_columns()
     if save_plots:
-        write_table_to_latex(stars_table, f"{os.path.join(save_loc, f'{unique_id}_stars_table')}.txt", 
-                             formats={'c': '%0.3f',
-                                      'c_sigma': '%0.3f'})
+        save_loc = kwargs.get('save_loc')
+        write_table_to_latex(stars_table, f"{os.path.join(save_loc, 'stars_table')}.txt", formats={'c': '%0.3f',
+                                                                                                   'c_sigma': '%0.3f'})
         for index in transform_index_list:
             filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
                                                                                                plot_results=plot_results, 
                                                                                                index=index,
                                                                                                save_plots=save_plots, 
-                                                                                               save_loc=save_loc,
-                                                                                               unique_id=unique_id)
-            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
-                                                                           index, 
-                                                                           filter_fci, 
-                                                                           filter_fci_sigma, 
-                                                                           zprime_fci, 
-                                                                           zprime_fci_sigma)
-            # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
-            #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
+                                                                                               save_loc=save_loc)
+            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
     else:
         for index in transform_index_list:
             filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
                                                                                                plot_results=plot_results, 
                                                                                                index=index,
                                                                                                save_plots=save_plots)
-            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
-                                                                           index, 
-                                                                           filter_fci, 
-                                                                           filter_fci_sigma, 
-                                                                           zprime_fci, 
-                                                                           zprime_fci_sigma)
-            # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
-            #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
-    sb_final_transform_table = create_sb_final_transform_table(sb_final_transform_columns)
-    if save_plots:
-        formats = {
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'Z_fCI': '%0.3f',
-        'Z_fCI_sigma': '%0.3f'
-        }
-        write_table_to_latex(sb_final_transform_table, f"{os.path.join(save_loc, f'{unique_id}_transform_table')}.txt",
-                             formats=formats)
-    return sb_final_transform_table
+            print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
+                  f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
 
-def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, size=25, max_num_nan=5, plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir, debugging=True)
-    set_sat_positions_bool = True
-    change_sat_positions_bool = False
-    num_nan = 0
+
+def _main_sc_lightcurve(directory, temp_dir='tmp'):
+    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir)
+    set_sat_positions = True
+    change_sat_positions = False
     for filenum, file in enumerate(filenames):
         filepath = f"{temp_dir}/{file}"
         hdr, imgdata = read_fits_file(filepath)
-        if set_sat_positions_bool:
-            set_sat_positions_bool, sat_information = set_sat_positions(imgdata, filecount, set_sat_positions_bool)
-        sat_information = add_new_time_and_filter(hdr, sat_information, filenum)
-        if change_sat_positions_bool:
-            change_sat_positions_bool, sat_information = change_sat_positions(filenames, 
-                                                                              filenum, 
-                                                                              num_nan, 
-                                                                              sat_information,
-                                                                              change_sat_positions_bool,
-                                                                              max_distance_from_sat=max_distance_from_sat, 
-                                                                              size=size, 
-                                                                              temp_dir=temp_dir, 
-                                                                              cmap_set='Set1', 
-                                                                              plot_results=plot_results)
-        exptime = hdr['EXPTIME'] * u.s
-        bkg, bkg_std = calculate_img_bkg(imgdata)
-        irafsources = detecting_stars(imgdata, bkg, bkg_std)
-        if not irafsources:
-            sat_information.num_nans[:] = 0
-            continue
-        plot_detected_sats(filenames[filenum],
-                           plot_results, 
-                           imgdata, 
-                           irafsources, 
-                           sat_information, 
-                           max_distance_from_sat=max_distance_from_sat, 
-                           norm=LogNorm())
-        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
-        photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-        check_if_sat(sat_information, 
-                     filenum, 
-                     irafsources, 
-                     instr_mags, 
-                     instr_mags_sigma, 
-                     fwhms_arcsec,
-                     max_distance_from_sat=max_distance_from_sat)
-        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
-                                                                               filenum, 
-                                                                               change_sat_positions_bool, 
-                                                                               max_num_nan=max_num_nan)
-    remove_temp_dir(temp_dir=temp_dir)
-    sats_table = sat_information.sats_table
-    uncertainty_table = sat_information.uncertainty_table
-    sat_fwhm_table = sat_information.sat_fwhm_table
-    return sats_table, uncertainty_table, sat_fwhm_table
+        if set_sat_positions:
+            set_sat_positions(imgdata, filecount)
         
 
 def __debugging__(gb_final_transforms, save_loc):
