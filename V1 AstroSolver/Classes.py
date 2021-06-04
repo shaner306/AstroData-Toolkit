@@ -1562,8 +1562,8 @@ def space_based_transform(stars_table,
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     a_fit, cov = curve_fit(linear_func, stars_table[index], 
-                             stars_table[f'{app_filter}'] - stars_table[instr_filter], 
-                             sigma=0)
+                             stars_table[f'{app_filter}'] - stars_table[instr_filter], p0=None,
+                             sigma=err_sum)
     filter_fci = a_fit[0]
     filter_fci_sigma = sqrt(cov[0][0])
     zprime_fci = a_fit[1]
@@ -1889,8 +1889,8 @@ for i in range(1,len(filepathall)):
                 "Pinpoint Solving"
                 f.FindCatalogStars()
                 f.Solve()
-                f.MatchedStars.count
-                f.FindImageStars()
+                #f.MatchedStars.count
+                #f.FindImageStars()
                 #print(f.ImageStars)
                 
                 "Searching for Ref Stars"
@@ -1898,7 +1898,7 @@ for i in range(1,len(filepathall)):
                 #ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin)
                 f.DetachFITS()
                 f=None
-            
+                print ("Pinpoint Solved")
             except:
                     continue
 
@@ -2049,6 +2049,7 @@ else:
     stars_table= group_each_star(large_stars_table, vref, ground_based=False, keys='Name')
     #print(stars_table)
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+    astro.write_table_to_latex(gb_transform_table, f"{os.path.join(save_loc, 'gb_transform_table')}.txt", formats=formats)
     
     for index in transform_index_list:
         filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
