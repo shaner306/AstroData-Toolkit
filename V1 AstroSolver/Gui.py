@@ -127,9 +127,9 @@ def Gui ():
        
 
         # path joining version for other paths
-    DIR = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B\\'
-    path, dirs, files = next(os.walk(DIR))
-    file_count = len(files)
+    #DIR = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B\\'
+    #path, dirs, files = next(os.walk(DIR))
+    #file_count = len(files)
     
     # layout = [[sg.T(" ")], 
     #           [sg.Text("Image Folder: "), 

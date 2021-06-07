@@ -1,8 +1,8 @@
 import pandas as pd
-import win32com.client as win32
-import win32com
+#import win32com.client as win32
+#import win32com
 import os
-import pywin32_system32
+#import pywin32_system32
 import math
 import numpy as np
 from numpy import mean
@@ -12,14 +12,12 @@ import scipy
 from scipy import ndimage
 import skimage
 from skimage import measure, filters
-import matplotlib
-import matplotlib.pyplot as plt
+
 import datetime
 import astropy
 from astropy.stats import SigmaClip
 from astropy.io import fits
-import PIL
-import cv2
+
 from astropy.stats import SigmaClip
 from photutils.background import SExtractorBackground
 from photutils.background import MeanBackground
@@ -59,7 +57,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
-import cv2 as cv
+
 from math import sqrt, atan
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -524,8 +522,7 @@ def normalize_flux_by_time(fluxes_tab, exptime):
     Returns
     -------
     fluxes : numpy array
-        Array containing the time normalized fluxes with units counts / second.
-
+        Array containing the time normalized fluxes with units counts / secon
     """
     fluxes_units = np.array(fluxes_tab) * u.ct
     exptime_units = exptime * u.s
@@ -1757,7 +1754,7 @@ def ref_star_folder_read(refstars_doc):
     return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
 
 def pinpoint_init():
-    f = win32com.client.Dispatch("Pinpoint.plate")
+    #f = win32com.client.Dispatch("Pinpoint.plate")
     return f
 
 def getFileList(inbox):
@@ -1843,6 +1840,8 @@ min_obj_pixels = 5 #Min Pixels to qualify as a Point Source
 SNRLimit = 0; #Signal-To-Noise Ratio
 ground_based = False # TODO Add Ground Based Selection Input
 pinpoint = False #TODO Add Pinpoint Solve or Not to GUI
+plot_results = True
+save_plots = True
 
 "Opening Image Folder and Determing the number of files"
 filepathall = getFileList(inbox); #Get List of Images
@@ -1850,7 +1849,35 @@ large_table_columns= init_large_table_columns() #Create Table Template for Space
 gb_transform_table_columns = astro.init_gb_transform_table_columns() #Create Table Template for Detected Star Transform storage
 large_stars_table = create_large_stars_table(large_table_columns, ground_based=False) #Create Table Template for Space-Based Detected Star Transform storage
 
+# -*- coding: utf-8 -*-
+"""
+Run the Space-based transform calculation.
+Created on Mon May 31 12:35:34 2021
 
+@author: jmwawrow
+"""
+
+
+
+file_suffix = "_clean_cord.fits"
+sb_exposure_key = 'AEXPTIME'
+name_key = 'Name'
+transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
+
+directory = inbox
+save_loc = os.path.join(directory, 'Outputs')
+
+sb_final_transform_table = astro._main_sb_transform_calc(directory,
+                                                         refstars_csv,
+                                                         plot_results=plot_results,
+                                                         save_plots=save_plots,
+                                                         file_suffix=file_suffix,
+                                                         exposure_key=sb_exposure_key,
+                                                         name_key=name_key,
+                                                         transform_index_list=transform_index_list,
+                                                         save_loc=save_loc
+                                                        )
+sb_final_transform_table.pprint_all()
 
 for i in range(1,len(filepathall)):
     if filepathall[i].endswith(".fits"):
@@ -2049,16 +2076,16 @@ else:
     stars_table= group_each_star(large_stars_table, vref, ground_based=False, keys='Name')
     #print(stars_table)
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
-    astro.write_table_to_latex(gb_transform_table, f"{os.path.join(save_loc, 'gb_transform_table')}.txt", formats=formats)
-    
+
     for index in transform_index_list:
         filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=True, index=index)
         print(f"(V-clear) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-            
+    astro.write_table_to_latex(stars_table, f"{os.path.join(save_loc, 'sb_transform_table')}.txt", formats = formats)
 
-    
 
-#TODO Add Moffat and Gaussian Fit, SimpleSquid data collection
+
+
+    #TODO Add Moffat and Gaussian Fit, SimpleSquid data collection
 
 
 #         im_rms=np.std(fitsdata)
@@ -2238,14 +2265,6 @@ else:
     #         fprintf(statslog, [num2str(DOY) ',' num2str(avg_pix_frac) ',' num2str(moffat_avg) ',' num2str(gauss_avg) ',' num2str(FWHM) ',' p.ExposureStartTime ',' num2str(p.ExposureInterval) ',' num2str(p.FullWidthHalfMax) ',' fpath1(i).name '\r\n']);
     #     end
     #        %if flag = 0
-        
-        
-        
-        
-        
-        
-        
-        
 
 # large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
 # stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
