@@ -9,22 +9,22 @@ Created on Mon May 31 11:51:04 2021
 import AstroFunctions as astro
 import os
 
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Uncalibrated Stars'
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = False
+save_plots = True
 remove_large_airmass = False
-file_suffix=".fit"
-exposure_key='EXPTIME'
-lat_key='OBSGEO-B'
-lon_key='OBSGEO-L'
-elev_key='OBSGEO-H'
-# file_suffix=".fits"
+# file_suffix=".fit"
 # exposure_key='EXPTIME'
-# lat_key='SITELAT'
-# lon_key='SITELONG'
-# elev_key='SITEELEV'
+# lat_key='OBSGEO-B'
+# lon_key='OBSGEO-L'
+# elev_key='OBSGEO-H'
+file_suffix=".fits"
+exposure_key='EXPTIME'
+lat_key='SITELAT'
+lon_key='SITELONG'
+elev_key='SITEELEV'
 name_key='Name'
 
 save_loc = os.path.join(directory, 'Outputs')
