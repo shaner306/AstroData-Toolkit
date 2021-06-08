@@ -20,7 +20,7 @@ import astropy.units as u
 from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
-import cv2 as cv
+#import cv2 as cv
 from math import sqrt, atan
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -36,6 +36,15 @@ import tkinter as tk
 import re
 import os
 from shutil import copy2, rmtree
+import math
+import win32com
+from astropy.stats import SigmaClip
+from photutils.background import SExtractorBackground
+from photutils.background import MeanBackground
+from photutils.background import Background2D
+from photutils.background import ModeEstimatorBackground
+from photutils.background import MedianBackground
+import pandas as pd
 # from scipy.optimize import curve_fit
 
 
@@ -3184,7 +3193,7 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
 
 
 def _main_gb_transform_calc(directory, 
-                            ref_stars_file, 
+                            ref_stars_file,
                             plot_results=False, 
                             save_plots=False, 
                             remove_large_airmass_bool=True, 
@@ -3239,8 +3248,12 @@ def _main_gb_transform_calc(directory,
                 
                 instr_filter = get_instr_filter_name(hdr)
                 colour_indices = get_all_colour_indices(instr_filter)
+                print("match")
                 for colour_index in colour_indices:
+                    
                     field = get_field_name(matched_stars, name_key=name_key)
+                    
+                    
                     if np.isnan(matched_stars.ref_star[colour_index]).any():
                         no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
                         matched_stars = matched_stars._replace(
@@ -3599,6 +3612,209 @@ def __debugging__(gb_final_transforms, save_loc):
     }
     write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     return
+
+def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
+   
+    sigma_clip = SigmaClip(sigma=2.5)
+    bkg = SExtractorBackground(sigma_clip)
+    #bkg_value1 = bkg.calc_background(fitsdata)
+    
+    #print(bkg_value)
+    bkg = MeanBackground(sigma_clip)
+    bkg_value2 = bkg.calc_background(fitsdata)
+    
+    bkg = MedianBackground(sigma_clip)
+    bkg_value3 = bkg.calc_background(fitsdata)
+    
+    #bkg = ModeEstimatorBackground(sigma_clip)
+   #bkg_value4 = bkg.calc_background(fitsdata)
+    
+    
+    bkg_estimator2 = SExtractorBackground()
+    #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    bg_rem = fitsdata - bkg.background
+
+    if printval == 1:
+        print("Background Solutions")
+        print("Sigma Clip: " + str(sigma_clip))
+        print("Using: "+ bkgmethod)
+        print("---------------------------")
+        print("SExtractor Background: " + str(np.mean(bkg.background)))
+        print("SExtractor Background(Filtered): " + str(np.mean(bkg.background))+"\n "+ "     " + "Box Size: " +"50x50" +"\n "+ "     " + "Filter Size: " +"3x3")
+        print("Mean Background: " + str(bkg_value2))
+        print("Median Background: " + str(bkg_value3))
+        #print("Mode Estimator Background: " + str(bkg_value4))
+        print("Remaining Background (subtracted): " + str(bg_rem))
+        print("Polyfit Background: Not Implemented Yet")
+        
+    else:
+        return bkg
+    
+def ref_star_folder_read(refstars_doc):
+    
+    refstars = pd.read_excel(refstars_doc)
+    refstars.head()
+    HIP= refstars["HIP"]
+    erad = refstars["erad"]
+    edec= refstars["edec"]
+    vref= refstars["V"]
+    bvindex=refstars["(B-V)"]
+    vrindex=refstars["(V-R)"]
+    refstarsfin= np.column_stack((HIP, erad,edec,vref))
+    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+
+
+
+def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
+    refx=[]
+    refy=[]
+    vref2=[]
+    HIP2=[]
+    vrindexdet=[]
+    bvindexdet=[]
+    
+    
+    for s in range(89):
+        
+        try:
+            f.SkyToXy(erad[s],edec[s]);
+            refSTAR_X  = f.ScratchX   #the x result of skytoxy
+            refSTAR_Y = f.ScratchY
+            if refSTAR_X>0 and refSTAR_X<1900:
+                
+                refx.append(refSTAR_X)
+                refy.append(refSTAR_Y)
+                vref2.append(vref[s])
+                HIP2.append(HIP[s])
+                vrindexdet.append(vrindex[s])
+                bvindexdet.append(bvindex[s])
+            # else:
+            #   print("Star Found outside bounds of image")
+            #s=s+1
+        except:
+            if s > 89:
+                print("Stop")
+            # else:
+            #     print('Pinpoint can''t process coords')
+                                                      
+    nmstars = f.MatchedStars.Count
+    mstars = f.MatchedStars;
+    print("Matched Stars:"+ str(nmstars))
+    print("Reference Stars Located:")
+    print("")
+    for i in range(1,nmstars):
+            #print(i)
+            mstar = mstars.Item(i)
+            X_min = mstar.X - 0.5*mstar.Width
+            X_max = mstar.X + 0.5*mstar.Width
+            Y_min = mstar.Y - 0.5*mstar.Height
+            Y_max = mstar.Y + 0.5*mstar.Height
+            #print(i)
+            length = len(refx)
+            
+            exptime = f.ExposureInterval  
+            rawflux = mstar.RawFlux;            
+            Zp = f.MagZeroPoint;
+            
+            vmag= Zp - 2.5*(math.log10(rawflux/exptime))
+            #starx = mstar.X
+            #stary = mstar.Y
+            #print(vmag)
+
+            for j in range(length):
+                #print("ref" +str(refx[j]))
+                #print(X_max)
+                if (refx[j] > X_min) and (refx[j] < X_max):
+                    if (refy[j] > Y_min) and (refy[j] < Y_max):
+                          if abs(vmag - vref2[j]) < 0.5:
+                                  
+                                  print("HIP: " +str(HIP2[j]))
+                                  print("Located at: X: " +str(mstar.X) + " Y: " + str(mstar.Y))
+                                  #print("matched X:" + str(X_max))
+                                  #print(str(vref2[j]))
+                                  #print(mstar.ColorMagnitude)
+                                  print("Reference Mag: "+str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
+                                  print("")
+                                  Bvtransform=(vref2[j]-vmag)/bvindexdet[j]
+                                  print("B-V Transform: " + str(Bvtransform))
+                                  Vrtransform=(vref2[j]-vmag)/vrindexdet[j]
+                                  print("V-R Transform: " + str(Vrtransform))
+    
+    
+    
+def ref_read(refstars_doc):
+    
+    refstars = pd.read_excel(refstars_doc)
+    refstars.head()
+    HIP= refstars["HIP"]
+    erad = refstars["erad"]
+    edec= refstars["edec"]
+    vref= refstars["V"]
+    bvindex=refstars["(B-V)"]
+    vrindex=refstars["(V-R)"]
+    refstarsfin= np.column_stack((HIP, erad,edec,vref))
+    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+
+def pinpoint_init():
+    f = win32com.client.Dispatch("Pinpoint.plate")
+    return f
+
+def getFileList(inbox):
+    filepathall = []
+    #directory = os.path.dirname(inbox)
+    list1 = os.listdir(inbox) #List of Files
+    listSize = len(list1) #Number of Files
+    print(listSize)
+    c=list1
+    print(c)
+    #o=0;
+    for i in range(1,listSize):
+        print(c[i])
+        filepath2 = inbox+"\\"+c[i]
+        filepathall.append(filepath2)
+        #o=o+1;
+    return filepathall
+    #o=0;
+def fits_header_import(filepath, filter_key='FILTER'):
+        imagehdularray = fits.open(filepath)
+        header = imagehdularray[0].header
+        date=imagehdularray[0].header['DATE-OBS']
+        exposuretime=imagehdularray[0].header['EXPTIME']
+        imagesizeX=imagehdularray[0].header['NAXIS1']
+        imagesizeY=imagehdularray[0].header['NAXIS2']
+        fitsdata =  imagehdularray[0].data
+       # focal_Length=imagehdularray[0].header['FOCALLEN']
+        XPIXSZ=imagehdularray[0].header['XPIXSZ']
+        YPIXSZ=imagehdularray[0].header['YPIXSZ']
+        filt=imagehdularray[0].header['FILTER']
+        wcs = WCS(header)
+        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ, wcs
+
+def calc_ArcsecPerPixel(header):
+   focal_Length= header['FOCALLEN']
+   xpix_size=header['XPIXSZ']
+   ypix_size=header['XPIXSZ']
+   xbin=header['XPIXSZ']
+   ybin=header['XPIXSZ']
+   x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
+   y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
+   
+   return x_arcsecperpixel, y_arcsecperpixel
+
+def edge_Protect (bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
+                    
+    bg_rem[1:edge_protect,1:edge_protect] = 0;
+    bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
+    bg_rem[:, 1:edge_protect] = 0
+    bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
+    im_mean = np.mean(bg_rem)
+    im_rms=np.std(fitsdata)
+    
+    return im_mean, bg_rem, im_rms
+
+
+
 
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
