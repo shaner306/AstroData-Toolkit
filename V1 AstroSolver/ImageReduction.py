@@ -19,53 +19,53 @@ import time
 
 
 
-#-------------------------------------------------------------------------------
-#
-#   Initialization variables
-#
-#-------------------------------------------------------------------------------
+# #-------------------------------------------------------------------------------
+# #
+# #   Initialization variables
+# #
+# #-------------------------------------------------------------------------------
 
-#  The following variables are used as switches to run the main functions.
-#
-#  0 = Don't run function
-#  1 = Run function
-#
-create_master_dir = 1
-run_master_bias = 0
-run_master_dark = 1
-run_master_flat = 1
-correct_light_frames = 1
+# #  The following variables are used as switches to run the main functions.
+# #
+# #  0 = Don't run function
+# #  1 = Run function
+# #
+# create_master_dir = 1
+# run_master_bias = 0
+# run_master_dark = 1
+# run_master_flat = 1
+# correct_light_frames = 1
 
-# The highest directoy of the .fits files to process
-# topdir = 'C:\\Astro_Data\\'
+# # The highest directoy of the .fits files to process
+# # topdir = 'C:\\Astro_Data\\'
 
-topdir = 'D:\Image Reduction Test Images'
+# topdir = 'D:\Image Reduction Test Images'
 
-if os.path.isdir(topdir) == False:
-    raise RuntimeError('WARNING -- Directory of .fits files does not exist')
+# if os.path.isdir(topdir) == False:
+#     raise RuntimeError('WARNING -- Directory of .fits files does not exist')
 
-# Create output directory for master files
-if create_master_dir == True:
-    master_frame_dir = Path(topdir, 'master_frame_data')
-    master_frame_dir.mkdir(exist_ok = True)
+# # Create output directory for master files
+# if create_master_dir == True:
+#     master_frame_dir = Path(topdir, 'master_frame_data')
+#     master_frame_dir.mkdir(exist_ok = True)
 
-#  Select directory for master frames
-master_frame_directory = topdir + '\master_frame_data'
+# #  Select directory for master frames
+# master_frame_directory = topdir + '\master_frame_data'
 
-#  If a directory already exists containing the master files, uncomment the
-#  following line and place the path as a string with double backslashes.
+# #  If a directory already exists containing the master files, uncomment the
+# #  following line and place the path as a string with double backslashes.
 
-#master_frame_directory = 'C:\\pineapple\\is_a_fruit'
+# #master_frame_directory = 'C:\\pineapple\\is_a_fruit'
 
-if os.path.isdir(master_frame_directory) == False:
-    raise RuntimeError('WARNING -- Directory of Master .fits files does not exist')
+# if os.path.isdir(master_frame_directory) == False:
+#     raise RuntimeError('WARNING -- Directory of Master .fits files does not exist')
 
 
-# The extension to search for
-exten = '.fits'
+# # The extension to search for
+# exten = '.fits'
 
-# The list of *.fits files created by the directory walk
-results = []
+# # The list of *.fits files created by the directory walk
+# results = []
 
 
 
@@ -396,85 +396,85 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
 
 
 
-def main():
-    pass
+# def main():
+#     pass
 
 
 
-#-------------------------------------------------------------------------------
-#
-#   Main Program
-#
-#-------------------------------------------------------------------------------
+# #-------------------------------------------------------------------------------
+# #
+# #   Main Program
+# #
+# #-------------------------------------------------------------------------------
 
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
 
-#  Start timer
+# #  Start timer
 
-start_time = time.time()
+# start_time = time.time()
 
-# The first step is to recursively search a directory and subdirs to find all .fits files
+# # The first step is to recursively search a directory and subdirs to find all .fits files
 
-for dirpath, dirnames, files in os.walk(topdir):
-    for name in files:
-        if name.lower().endswith(exten):
-            results.append('%s' % os.path.join(dirpath, name))
-print('Have list of all .fits files')
-
-
-# %%
-
-# Using ImageFileCollection, gather all fits files
-
-all_fits = ImageFileCollection(filenames = results)
-print('Files sorted into ImageFileCollection object')
+# for dirpath, dirnames, files in os.walk(topdir):
+#     for name in files:
+#         if name.lower().endswith(exten):
+#             results.append('%s' % os.path.join(dirpath, name))
+# print('Have list of all .fits files')
 
 
-# %%
-if run_master_bias == True:
-    print('\n')
-    print('Calling run_master_bias')
-    create_master_bias(all_fits, master_frame_directory)
+# # %%
+
+# # Using ImageFileCollection, gather all fits files
+
+# all_fits = ImageFileCollection(filenames = results)
+# print('Files sorted into ImageFileCollection object')
 
 
-
-if run_master_dark == True:
-    print('\n')
-    print('Calling run_master_dark')
-    create_master_dark(all_fits, master_frame_directory)
+# # %%
+# if run_master_bias == True:
+#     print('\n')
+#     print('Calling run_master_bias')
+#     create_master_bias(all_fits, master_frame_directory)
 
 
 
-if run_master_flat == True:
-    print('\n')
-    print('Calling run_master_flat')
-    create_master_flat(all_fits, master_frame_directory)
+# if run_master_dark == True:
+#     print('\n')
+#     print('Calling run_master_dark')
+#     create_master_dark(all_fits, master_frame_directory)
 
 
 
-if correct_light_frames == True:
-    print('\n')
-    print('Creating output directory:', topdir + '\corrected_lights')
-    print('Calling correct_light_frames')
-
-    # Make output directory
-    correct_light_dir = Path(topdir, 'corrected_lights')
-    correct_light_dir.mkdir(exist_ok = True)
-    correct_light_directory = topdir + '\corrected_lights'
-
-    #  If a specific directory is desired for the corrected light frames, uncomment the
-    #  following line and place the path as a string with double backslashes.
-
-    #correct_light_directory = 'C:\\apple\\is_also_a_fruit'
-
-    #  Call function
-    correct_lights(all_fits, master_frame_directory, correct_light_directory)
+# if run_master_flat == True:
+#     print('\n')
+#     print('Calling run_master_flat')
+#     create_master_flat(all_fits, master_frame_directory)
 
 
-stop_time = time.time()
-elapsed_time = stop_time - start_time
 
-print('Elapsed time:', elapsed_time, 'seconds.')
+# if correct_light_frames == True:
+#     print('\n')
+#     print('Creating output directory:', topdir + '\corrected_lights')
+#     print('Calling correct_light_frames')
+
+#     # Make output directory
+#     correct_light_dir = Path(topdir, 'corrected_lights')
+#     correct_light_dir.mkdir(exist_ok = True)
+#     correct_light_directory = topdir + '\corrected_lights'
+
+#     #  If a specific directory is desired for the corrected light frames, uncomment the
+#     #  following line and place the path as a string with double backslashes.
+
+#     #correct_light_directory = 'C:\\apple\\is_also_a_fruit'
+
+#     #  Call function
+#     correct_lights(all_fits, master_frame_directory, correct_light_directory)
+
+
+# stop_time = time.time()
+# elapsed_time = stop_time - start_time
+
+# print('Elapsed time:', elapsed_time, 'seconds.')

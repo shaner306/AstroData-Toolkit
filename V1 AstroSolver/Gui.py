@@ -22,9 +22,15 @@ Find:
 
 import PySimpleGUI as sg
 import os, os.path
+import Main
+imagefolder=0
+catalogfolder=0
+refdoc = 0
+
+
 
 def Gui ():
-
+    windowopen=False
     sg.theme("Default1")
    
     column2 = [[sg.Text('Pinpoint Solve Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
@@ -73,17 +79,20 @@ def Gui ():
     [sg.Text("Image Folder:    "), 
                sg.Input(key="-IN200-" ,change_submits=True), 
                sg.FolderBrowse(key="-IN120-"), sg.Text('')],
-              [sg.Text("Bias Images:    "), 
-               sg.Input(key="-IN20-" ,change_submits=True), 
-               sg.FolderBrowse(key="-IN12-"), sg.Text('')],
-              [sg.Text("Dark Images:    "), 
-               sg.Input(key="-IN30-" ,change_submits=True), 
-               sg.FolderBrowse(key="-IN40-")],
-              [sg.Text("Flat Images:     "), 
-               sg.Input(key="-IN50-" ,change_submits=True), 
-               sg.FileBrowse(key="-IN60-")],
-              [sg.T("   ")],
-              [sg.T("Clean Images Folder:   ")],
+              # [sg.Text("Bias Images:    "), 
+              #  sg.Input(key="-IN20-" ,change_submits=True), 
+              #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+              # [sg.Text("Dark Images:    "), 
+              #  sg.Input(key="-IN30-" ,change_submits=True), 
+              #  sg.FolderBrowse(key="-IN40-")],
+              # [sg.Text("Flat Images:     "), 
+              #  sg.Input(key="-IN50-" ,change_submits=True), 
+              #  sg.FileBrowse(key="-IN60-")],
+              
+              [sg.T(""), sg.Checkbox('Use Flats', default=True, key="-IN71-"),
+              sg.T(""), sg.Checkbox('Use Darks', default=True, key="-IN1010-"),
+              sg.T(""), sg.Checkbox('Use Bias', default=True, key="-IN1011-")],
+              [sg.T(""), sg.Checkbox('Space Based', default=True, key="-IN1012-")],
               [sg.T("   ")],
               [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
     
@@ -149,7 +158,9 @@ def Gui ():
     #           [sg.Button("Submit")]]
     
     ###Building Window
-    window = sg.Window('AstroSolver', layout)
+    if windowopen==False:
+        window = sg.Window('AstroSolver', layout)
+        windowopen==True
         
     while True:
         event, values = window.read()
@@ -158,16 +169,31 @@ def Gui ():
             window.close()
             break
         
-        elif event == "Submit":
+        elif event == "Reduce":
             
-            imagefolder =values["-IN2-"]
-            catalogfolder = values["-IN3-"]
-            refdoc = values["-IN5-"]
-            #print(values["-IN2-"])
+            reduce_dir =values["-IN200-"]
+            create_master_flat = values["-IN71-"]
+            create_master_dark = values["-IN1010-"]
+            create_master_bias = values["-IN1011-"]
+            
+            print (create_master_bias)
+            
             window.close()
-            return imagefolder, catalogfolder, refdoc
+            
+            if values["-IN1012-"]:
+                Main.DarkSub("SA-111", reduce_dir, 'D:\\NEOSSat-SA-111\\clean2')
+                
+            else:
+                Main.Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_master_bias)
+                
+          
+            
+            
+            
+            
     window.close()           
             
-Gui()
+GUI = Gui()
+print (imagefolder, catalogfolder, refdoc)
 #imagefolder, catalogfolder, refdoc = Gui()
 #print(imagefolder, catalogfolder, refdoc)

@@ -691,7 +691,7 @@ def lightprocess_save(filename, savedir, darkavg, xsc, ysc, xov, yov, snrcut, fm
     return info
 
 
-def main(target, obspath, savedir, **kwargs):
+def Darksub(target, obspath, savedir, **kwargs):
     """Process all observations of a specific target in a specific directory."""
 
     # Make sure output directory exists.
@@ -781,6 +781,6 @@ def main(target, obspath, savedir, **kwargs):
 
     return
 
-if __name__ == '__main__':
-    main('SA-111', 'D:\\NEOSSat-SA-111','D:\\NEOSSat-SA-111\\clean')
+# if __name__ == '__Darksub__':
+#     Darksub('SA-111', 'D:\\NEOSSat-SA-111','D:\\NEOSSat-SA-111\\clean')
 

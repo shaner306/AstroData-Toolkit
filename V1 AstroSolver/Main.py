@@ -1,36 +1,18 @@
 import pandas as pd
-#import win32com.client as win32
-#import win32com
+import win32com.client as win32
+import win32com
 import os
 #import pywin32_system32
 import math
 import numpy as np
 from numpy import mean
-from pandas import DataFrame
-import scipy
-from scipy import ndimage
-import skimage
-from skimage import measure, filters
-
-import datetime
-import astropy
 from astropy.stats import SigmaClip
-
-
-
 from photutils.background import SExtractorBackground
 from photutils.background import MeanBackground
 from photutils.background import Background2D
 from photutils.background import ModeEstimatorBackground
 from photutils.background import MedianBackground
-import astropy.units as u
-
-from matplotlib import pyplot as plt
-from photutils.detection import IRAFStarFinder
-from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
-
-import re
 import AstroFunctions as astro
 import ImageReduction as IR
 #from .AstroFunctions import *
@@ -41,7 +23,21 @@ from pathlib import Path
 from astropy.io import fits
 from ccdproc import ImageFileCollection
 import time
+import utils
+import Visualize
+import SBDarkSub
+import multiprocessing as mp
 
+import tqdm
+import numpy as np
+from scipy import optimize
+from scipy import fftpack
+import sys
+
+from astropy.io import fits
+from astropy.stats import sigma_clipped_stats
+from astropy.visualization import ZScaleInterval
+from photutils import DAOStarFinder, CircularAperture, aperture_photometry
 """
 Classes:
 ---------------------
@@ -202,7 +198,7 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     bkg_value4 = bkg.calc_background(fitsdata)
     
     
-    bkg_estimator1 = SExtractorBackground()
+
     bkg_estimator2 = SExtractorBackground()
     #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
     bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
@@ -292,8 +288,8 @@ def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
             Zp = f.MagZeroPoint;
             
             vmag= Zp - 2.5*(math.log10(rawflux/exptime))
-            starx= mstar.X
-            stary=mstar.Y
+            #starx= mstar.X
+            #stary=mstar.Y
             #print(vmag)
 
             for j in range(length):
@@ -320,7 +316,7 @@ def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
 
 def pinpoint_init():
     #f = win32com.client.Dispatch("Pinpoint.plate")
-    return f
+    return
 
 def getFileList(inbox):
     filepathall = []
@@ -387,7 +383,7 @@ save_loc = os.path.join(inbox, 'Outputs') # Output Folder for Files
 
 "#TODO Initialize these once astroreduction is included"
 create_master_dir = 1
-run_master_bias = 0
+run_master_bias = 1
 run_master_dark = 1
 run_master_flat = 1
 correct_light_frames = 1
@@ -411,7 +407,8 @@ streak_array= [] #Streak Detection for Track Rate Mode
 edge_protect = 10; #Img Edge Clipping
 min_obj_pixels = 5 #Min Pixels to qualify as a Point Source
 SNRLimit = 0; #Signal-To-Noise Ratio
-ground_based = False # TODO Add Ground Based Selection Input
+ground_based = False
+space_based = False # TODO Add Ground Based Selection Input
 pinpoint = False #TODO Add Pinpoint Solve or Not to GUI
 plot_results = True
 TRM = False
@@ -429,67 +426,67 @@ Created on Mon May 31 12:35:34 2021
 @author: jmwawrow
 """
 
-if pinpoint:
-        for i in range(1,len(filepathall)):
-            if filepathall[i].endswith(".fits"):
-                #f = win32com.client.Dispatch("Pinpoint.plate")
-                print("Processing Image: " + filepathall[i])
+# if pinpoint:
+#         for i in range(1,len(filepathall)):
+#             if filepathall[i].endswith(".fits"):
+#                 f = win32com.client.Dispatch("Pinpoint.plate")
+#                 print("Processing Image: " + filepathall[i])
                 
-                "Import Data from FITS Image"
-                imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
+#                 "Import Data from FITS Image"
+#                 imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
             
-                """Pinpoint Solve"""
-                if pinpoint:
-                    try:
-                        f.AttachFITS(filepathall[i])
-                        f.Declination = f.targetDeclination;
-                        f.RightAscension = f.targetRightAscension; 
-                        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
-                        # yBin = 4.33562092816E-004*3600;
-                        # xBin =  4.33131246330E-004*3600; 
-                        f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
-                        f.ArcsecperPixelVert =  y_arcsecperpixel;
+#                 """Pinpoint Solve"""
+#                 if pinpoint:
+#                     try:
+#                         f.AttachFITS(filepathall[i])
+#                         f.Declination = f.targetDeclination;
+#                         f.RightAscension = f.targetRightAscension; 
+#                         x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+#                         # yBin = 4.33562092816E-004*3600;
+#                         # xBin =  4.33131246330E-004*3600; 
+#                         f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
+#                         f.ArcsecperPixelVert =  y_arcsecperpixel;
                         
                         
-                        "Pinpoint Solve Inputs"
-                        #TODO Add Inputs for pinpoint solving to GUI
-                        f.Catalog = 5;
-                        f.CatalogPath = catloc;
-                        f.CatalogMaximumMagnitude = 13;
-                        f.CatalogExpansion = 0.8;
-                        f.SigmaAboveMean = 2.5; 
-                        f.FindImageStars; 
-                        f.FindCatalogStars; 
-                        f.MaxSolveTime = 60; 
-                        f.MaxMatchResidual = 1.5; 
+#                         "Pinpoint Solve Inputs"
+#                         #TODO Add Inputs for pinpoint solving to GUI
+#                         f.Catalog = 5;
+#                         f.CatalogPath = catloc;
+#                         f.CatalogMaximumMagnitude = 13;
+#                         f.CatalogExpansion = 0.8;
+#                         f.SigmaAboveMean = 2.5; 
+#                         f.FindImageStars; 
+#                         f.FindCatalogStars; 
+#                         f.MaxSolveTime = 60; 
+#                         f.MaxMatchResidual = 1.5; 
                 
                         
-                        "Pinpoint Solving"
-                        f.FindCatalogStars()
-                        f.Solve()
-                        #f.MatchedStars.count
-                        #f.FindImageStars()
-                        #print(f.ImageStars)
+#                         "Pinpoint Solving"
+#                         f.FindCatalogStars()
+#                         f.Solve()
+#                         #f.MatchedStars.count
+#                         #f.FindImageStars()
+#                         #print(f.ImageStars)
                         
-                        "Searching for Ref Stars"
+#                         "Searching for Ref Stars"
                         
-                        f.DetachFITS()
-                        f=None
-                        print ("Pinpoint Solved")
-                    except:
-                            continue
+#                         f.DetachFITS()
+#                         f=None
+#                         print ("Pinpoint Solved")
+#                     except:
+#                             continue
 
             
-        "Import Data from FITS Image"
-        
-    
-        """
-        1. Space Based - Airmass not a factor in determining transforms
-        2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
-    
-        """
-        
-        """Running Functions"""
+"Import Data from FITS Image"
+
+
+"""
+1. Space Based - Airmass not a factor in determining transforms
+2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+
+"""
+
+"""Running Functions"""
        
 directory = r'D:\Solved Stars\Tycho 3023_1724'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
@@ -527,7 +524,7 @@ if ground_based:
     
     gb_final_transforms.pprint_all()
     
-else:
+elif space_based:
     plot_results = True
     save_plots = True
     file_suffix = "_clean_cord.fits"
@@ -552,6 +549,7 @@ else:
                                                              unique_id=unique_id)
     sb_final_transform_table.pprint_all()
     
+    
 
 if TRM:
     directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\LIGHT'
@@ -574,27 +572,7 @@ if TRM:
 
 
 
-if image_reduce:
-    
-    
-    
-    
-    
-#-------------------------------------------------------------------------------
-#
-#   Initialization variables
-#
-#-------------------------------------------------------------------------------
-
-#  The following variables are used as switches to run the main functions.
-#
-#  0 = Don't run function
-#  1 = Run function
-#
-
-# The highest directoy of the .fits files to process
-# topdir = 'C:\\Astro_Data\\'
-
+def Image_reduce(reduce_dir, create_master_dark, create_master_flat,create_master_bias, create_master_dir=True):
 
 
     if os.path.isdir(reduce_dir) == False:
@@ -640,7 +618,7 @@ if image_reduce:
     print('Have list of all .fits files')
     
     
-    # %%
+    # %% 
     
     # Using ImageFileCollection, gather all fits files
     
@@ -648,7 +626,7 @@ if image_reduce:
     print('Files sorted into ImageFileCollection object')
     
     
-    # %%
+    # %% Image Reduction 
     if run_master_bias == True:
         print('\n')
         print('Calling run_master_bias')
@@ -694,8 +672,106 @@ if image_reduce:
     
     print('Elapsed time:', elapsed_time, 'seconds.')
 
+    #%% NEOSSAT Dark Subtraction
+    
+def DarkSub(target, obspath, savedir, **kwargs):
+    """Process all observations of a specific target in a specific directory."""
 
+    # Make sure output directory exists.
+    utils.ensure_dir(savedir)
 
+    # Unpack parameters.
+    T = kwargs.pop('T', 8)
+    bpix = kwargs.pop('bpix', -1.0e10)
+    snrcut = kwargs.pop('snrcut', 10.0)
+    fmax = kwargs.pop('fmax', 2)
+    xoff = kwargs.pop('xoff', 0)
+    yoff = kwargs.pop('yoff', 0)
+    nproc = kwargs.pop('nproc', 4)
+
+    print('Processing observations in directory {}'.format(obspath))
+
+    # Create a table of all fits files in the specified diretcory.
+    obs_table = utils.observation_table(obspath)
+
+    # Parse the observation to select the desired target and appropriate darks.
+    light_table, dark_table = utils.parse_observation_table(obs_table, target)
+    nlight, ndark = len(light_table), len(dark_table)
+
+    # Process the dark images.
+    print('Processing {} dark images to create the masterdark.'.format(ndark))
+
+    # Use multiprocessing to process all dark images.
+    results = []
+    pbar = tqdm.tqdm(total=ndark)
+    with mp.Pool(nproc) as p:
+
+        for i in range(ndark):
+
+            darkfile = dark_table['FILENAME'][i]
+            xsc, ysc = dark_table['xsc'][i], dark_table['ysc'][i]
+            xov, yov = dark_table['xov'][i], dark_table['yov'][i]
+
+            args = (obspath, darkfile, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
+
+            results.append(p.apply_async(SBDarkSub.darkprocess, args=args, callback=lambda x: pbar.update()))
+
+        p.close()
+        p.join()
+
+        alldarkdata = [result.get() for result in results]
+
+    pbar.close()
+
+    # Combine the processed darks to obtain a master dark.
+    masterdark = SBDarkSub.combinedarks(alldarkdata)
+
+    # Display the master dark.
+#    imstat = utils.imagestat(masterdark, bpix)
+#    visualize.plot_image(masterdark, imstat, 0.3, 10.0)
+
+    # Save the masterdark.
+    head, tail = os.path.split(obspath)
+    darkname = 'masterdark_{}_{}.fits'.format(tail, target)
+    darkname = os.path.join(savedir, darkname)
+    hdu = fits.PrimaryHDU(masterdark)
+    hdu.writeto(darkname, overwrite=True)
+
+    # Clear memory.
+    del alldarkdata
+
+    # Process the light images.
+    print('Processing {} light images.'.format(nlight))
+
+    # Use multiproessing to process all light images.
+    pbar = tqdm.tqdm(total=nlight)
+    with mp.Pool(nproc) as p:
+
+        for i in range(nlight):
+
+            filename = os.path.join(obspath, light_table['FILENAME'][i])
+            xsc, ysc = light_table['xsc'][i], light_table['ysc'][i]
+            xov, yov = light_table['xov'][i], light_table['yov'][i]
+
+            args = (filename, savedir, masterdark, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
+
+            p.apply_async(SBDarkSub.lightprocess_save, args=args, callback=lambda x: pbar.update())
+
+        p.close()
+        p.join()
+
+    pbar.close()
+
+    return
+    
+    
+    
+    
+    
+    
+    
+   #%% 
+    #Track Rate Mode Astrometry
 
 
 
