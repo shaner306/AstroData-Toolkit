@@ -3490,7 +3490,7 @@ def _main_gb_transform_calc(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    return gb_final_transforms
+    return gb_final_transforms, auxiliary_data_table
 
 
 def _main_sb_transform_calc(directory, 
