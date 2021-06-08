@@ -3201,6 +3201,8 @@ def _main_gb_transform_calc(directory,
     
     if save_plots:
         save_loc = kwargs.get('save_loc')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
