@@ -9,11 +9,11 @@ Created on Mon May 31 11:51:04 2021
 import AstroFunctions as astro
 import os
 
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Uncalibrated Stars'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-25 - Calibrated - Stars'
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = False
+save_plots = True
 remove_large_airmass = False
 # file_suffix=".fit"
 # exposure_key='EXPTIME'
