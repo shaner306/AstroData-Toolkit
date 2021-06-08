@@ -13,7 +13,7 @@ directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Uncalibrated 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
 
 plot_results = True
-save_plots = True
+save_plots = False
 remove_large_airmass = False
 # file_suffix=".fit"
 # exposure_key='EXPTIME'
@@ -28,17 +28,18 @@ elev_key='SITEELEV'
 name_key='Name'
 
 save_loc = os.path.join(directory, 'Outputs')
-gb_final_transforms = astro._main_gb_transform_calc(directory, 
-                                                    ref_stars_file, 
-                                                    plot_results=plot_results, 
-                                                    save_plots=save_plots, 
-                                                    remove_large_airmass_bool=remove_large_airmass, 
-                                                    file_suffix=file_suffix, 
-                                                    exposure_key=exposure_key, 
-                                                    lat_key=lat_key, 
-                                                    lon_key=lon_key, 
-                                                    elev_key=elev_key, 
-                                                    name_key=name_key,
-                                                    save_loc=save_loc)
+gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(directory, 
+                                                                          ref_stars_file, 
+                                                                          plot_results=plot_results, 
+                                                                          save_plots=save_plots, 
+                                                                          remove_large_airmass_bool=remove_large_airmass, 
+                                                                          file_suffix=file_suffix, 
+                                                                          exposure_key=exposure_key, 
+                                                                          lat_key=lat_key, 
+                                                                          lon_key=lon_key, 
+                                                                          elev_key=elev_key, 
+                                                                          name_key=name_key,
+                                                                          save_loc=save_loc)
 
 gb_final_transforms.pprint_all()
+auxiliary_data_table.pprint_all()

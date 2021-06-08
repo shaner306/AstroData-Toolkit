@@ -677,6 +677,61 @@ def get_field_name(matched_stars, name_key='Name'):
         return
 
 
+def init_auxiliary_data_columns():
+    # TODO: docstring
+    filename = []
+    exposure_time = []
+    fwhm = []
+    fwhm_std = []
+    avg_mag_sigma = []
+    std_mag_sigma = []
+    auxiliary_data_columns = namedtuple('auxiliary_data_columns', 
+                                        ['filename',
+                                         'exposure_time',
+                                         'fwhm',
+                                         'fwhm_std',
+                                         'avg_mag_sigma',
+                                         'std_mag_sigma'])
+    return auxiliary_data_columns(filename, exposure_time, fwhm, fwhm_std, avg_mag_sigma, std_mag_sigma)
+
+
+def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwhm, fwhm_std, instr_mags_sigma):
+    # TODO: docstring
+    updated_auxiliary_data_columns = auxiliary_data_columns
+    updated_auxiliary_data_columns.filename.append(filename)
+    updated_auxiliary_data_columns.exposure_time.append(exptime)
+    updated_auxiliary_data_columns.fwhm.append(fwhm)
+    updated_auxiliary_data_columns.fwhm_std.append(fwhm_std)
+    avg_mag_sigma = np.mean(instr_mags_sigma)
+    std_mag_sigma = np.std(instr_mags_sigma)
+    updated_auxiliary_data_columns.avg_mag_sigma.append(avg_mag_sigma)
+    updated_auxiliary_data_columns.std_mag_sigma.append(std_mag_sigma)
+    return updated_auxiliary_data_columns
+
+
+def create_auxiliary_data_table(auxiliary_data_columns):
+    # TODO: docstring
+    auxiliary_data_table = Table(
+        names=[
+            'filename',
+            'exptime',
+            'fwhm',
+            'fwhm_sigma',
+            'avg mag_sigma',
+            'std mag_sigma'
+            ],
+        data=[
+            auxiliary_data_columns.filename,
+            auxiliary_data_columns.exposure_time,
+            auxiliary_data_columns.fwhm,
+            auxiliary_data_columns.fwhm_std,
+            auxiliary_data_columns.avg_mag_sigma,
+            auxiliary_data_columns.std_mag_sigma
+            ]
+        )
+    return auxiliary_data_table
+
+
 def init_large_table_columns():
     """
     Create all of the columns that will be turned into the large stars table.
@@ -3207,9 +3262,12 @@ def _main_gb_transform_calc(directory,
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
+    auxiliary_data_columns = init_auxiliary_data_columns()
     
     if save_plots:
         save_loc = kwargs.get('save_loc')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
     
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
@@ -3245,6 +3303,12 @@ def _main_gb_transform_calc(directory,
                                                altazpositions=altazpositions)
                 if not matched_stars:
                     continue
+                auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns, 
+                                                                       filename, 
+                                                                       exptime, 
+                                                                       fwhm, 
+                                                                       fwhm_std, 
+                                                                       instr_mags_sigma)
                 
                 instr_filter = get_instr_filter_name(hdr)
                 colour_indices = get_all_colour_indices(instr_filter)
@@ -3298,6 +3362,7 @@ def _main_gb_transform_calc(directory,
                                                                                    colour_index,
                                                                                    altazpositions)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
+    auxiliary_data_table = create_auxiliary_data_table(auxiliary_data_columns)
     if remove_large_airmass_bool:
         gb_transform_table = remove_large_airmass(gb_transform_table)
     if save_plots:
@@ -3316,6 +3381,14 @@ def _main_gb_transform_calc(directory,
         'Z_f_sigma': '%0.3f'
         }
         write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
+        formats = {
+        'exptime': '%0.3f',
+        'fwhm': '%0.3f',
+        'fwhm_sigma': '%0.3f',
+        'avg mag_sigma': '%0.3f',
+        'std mag_sigma': '%0.3f'
+        }
+        write_table_to_latex(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.txt", formats=formats)
     else:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
@@ -3430,7 +3503,7 @@ def _main_gb_transform_calc(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    return gb_final_transforms
+    return gb_final_transforms, auxiliary_data_table
 
 
 def _main_sb_transform_calc(directory, 
