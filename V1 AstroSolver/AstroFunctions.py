@@ -686,15 +686,15 @@ def init_auxiliary_data_columns():
     return auxiliary_data_columns(filename, exposure_time, fwhm, fwhm_std, avg_mag_sigma, std_mag_sigma)
 
 
-def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwhm, fwhm_std, instr_mags_sigma):
+def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwhm, fwhm_std, matched_stars):
     # TODO: docstring
     updated_auxiliary_data_columns = auxiliary_data_columns
     updated_auxiliary_data_columns.filename.append(filename)
     updated_auxiliary_data_columns.exposure_time.append(exptime)
     updated_auxiliary_data_columns.fwhm.append(fwhm)
     updated_auxiliary_data_columns.fwhm_std.append(fwhm_std)
-    avg_mag_sigma = np.mean(instr_mags_sigma)
-    std_mag_sigma = np.std(instr_mags_sigma)
+    avg_mag_sigma = np.mean(matched_stars.img_instr_mag_sigma)
+    std_mag_sigma = np.std(matched_stars.img_instr_mag_sigma)
     updated_auxiliary_data_columns.avg_mag_sigma.append(avg_mag_sigma)
     updated_auxiliary_data_columns.std_mag_sigma.append(std_mag_sigma)
     return updated_auxiliary_data_columns
@@ -1413,7 +1413,10 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             mask = ((current_star_table['filter'] == unique_filter))
             current_star_filter_table = current_star_table[mask]
             mags_numpy = np.array(current_star_filter_table['mag_instrumental'])
-            mean_mag = mags_numpy.mean()
+            mags_std_numpy = np.array(current_star_filter_table['mag_instrumental_sigma'])
+            mags_weights = 1 / (mags_std_numpy ** 2)
+            # mean_mag = mags_numpy.mean()
+            mean_mag = np.average(mags_numpy, weights=mags_weights)
             std_mag = mags_numpy.std()
             filter_column = unique_filter.lower()
             sigma_column = f'{filter_column}_sigma'
@@ -3294,12 +3297,8 @@ def _main_gb_transform_calc(directory,
                                                altazpositions=altazpositions)
                 if not matched_stars:
                     continue
-                auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns, 
-                                                                       filename, 
-                                                                       exptime, 
-                                                                       fwhm, 
-                                                                       fwhm_std, 
-                                                                       instr_mags_sigma)
+                
+                
                 
                 instr_filter = get_instr_filter_name(hdr)
                 colour_indices = get_all_colour_indices(instr_filter)
@@ -3325,6 +3324,12 @@ def _main_gb_transform_calc(directory,
                     except TypeError:
                         print("Only 1 reference star detected in the image.")
                         continue
+                    auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns, 
+                                                                       filename, 
+                                                                       exptime, 
+                                                                       fwhm, 
+                                                                       fwhm_std, 
+                                                                       matched_stars)
                     if not save_plots:
                         c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
                                                                                                            instr_filter, 
@@ -3375,7 +3380,7 @@ def _main_gb_transform_calc(directory,
         'avg mag_sigma': '%0.3f',
         'std mag_sigma': '%0.3f'
         }
-        write_table_to_latex(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.txt", formats=formats)
+        ascii.write(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv', formats=formats)
     else:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
