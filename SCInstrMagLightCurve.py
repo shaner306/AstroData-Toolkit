@@ -31,8 +31,9 @@ matplotlib.use('TkAgg')
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Intelsat 10-02'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021 02 07\2021 02 07 - Intelsat 10-02 - G Band'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-111\2016-111'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021 02 07\2021 02 07 - Intelsat 10-02 - G Band'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-25 - Calibrated - Intelsat 10-02'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-111\2016-111'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Zpoint Test'
@@ -120,13 +121,13 @@ date_string = '07 Feb'
 # r_zpoint_std = r_zpoints.std()
 # print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
-b_zpoint = 20
+b_zpoint = 0
 b_zpoint_std = 0
 print(f"B band ZMag = {b_zpoint:.3f} +/- {b_zpoint_std:.3f}")
-g_zpoint = 20
+g_zpoint = 0
 g_zpoint_std = 0
 print(f"G band ZMag = {g_zpoint:.3f} +/- {g_zpoint_std:.3f}")
-r_zpoint = 20
+r_zpoint = 0
 r_zpoint_std = 0
 print(f"R band ZMag = {r_zpoint:.3f} +/- {r_zpoint_std:.3f}")
 
@@ -187,7 +188,7 @@ size = 25                                                                       
 hsize = int((size - 1) / 2)                                                                                             # Half of the size of the cutout.
 fitter = LevMarLSQFitter()                                                                                              # Initialize the fitter that will be used to fit the 1D Gaussian.
 max_distance_from_sat = 20
-max_num_nan = 1
+max_num_nan = 5
 num_nan = 0
 change_sat_positions = False
 none_sats = False
@@ -208,7 +209,7 @@ else:
 filecount = 0
 for dirpth, _, files in os.walk(directory):
     for file in files:
-        if file.endswith(".FIT"):
+        if file.endswith(".fits"):
             with fits.open(os.path.join(dirpth, file)) as image:
                 hdr = image[0].header
             t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
@@ -681,13 +682,13 @@ for filenum, file in enumerate(filenames):
     num_nan = max(num_nans)
     # print(num_nan)
     # if num_nan >= max_num_nan:
-    if num_nan == max_num_nan:
+    if num_nan != 0 and (num_nan % max_num_nan) == 0:
         change_sat_positions = True
 rmtree(temp_dir)
 sats_table.pprint_all()
-plt.plot(sats_table['Time (JD)'], sats_table['NEOSSat'], 'o')
-plt.show(block=True)
-plt.close()
+# plt.plot(sats_table['Time (JD)'], sats_table['NEOSSat'], 'o')
+# plt.show(block=True)
+# plt.close()
 unique_filters = unique(sats_table, keys='Filter')
 for filter_ in unique_filters['Filter']:
     mask = sats_table['Filter'] == filter_
@@ -734,7 +735,7 @@ plt.xlabel('Time (UTC)')
 plt.show(block=True)
 # plt.pause(3)
 plt.close()
-
+date_string = '25 Apr'
 for sat in sat_names:
     b_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table[sat])],
                                b_sats_table[sat][~np.isnan(b_sats_table[sat])])
@@ -756,7 +757,7 @@ for sat in sat_names:
     ax.plot(times_datetime, g_interpolated, 'ko', markersize=3)
     ax.errorbar(times_datetime, g_regular, yerr=g_uncertainty, fmt='ko', markersize=3, capsize=1, label='g')
     ax.set_ylabel('Magnitude')
-    ax.set_ylim([min(g_interpolated)*0.95, max(g_interpolated)*1.2])
+    ax.set_ylim([min(g_interpolated)*1.05, max(g_interpolated)*0.75])
     # ax.set_ylim(-12.2, -3)
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     plt.gca().invert_yaxis()
@@ -765,7 +766,7 @@ for sat in sat_names:
     ax2.plot(times_datetime, b_interpolated - r_interpolated, 'go', label='b-r', markersize=3)
     ax2.plot(times_datetime, g_interpolated - r_interpolated, 'ro', label='g-r', markersize=3)
     ax2.set_ylabel('Colour Index')
-    ax2.set_ylim([-5, 2])
+    ax2.set_ylim([-6.5, 3.75])
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     plt.gca().invert_yaxis()
     ax.set_xlabel("Time (UTC)")
