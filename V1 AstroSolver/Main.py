@@ -426,55 +426,65 @@ Created on Mon May 31 12:35:34 2021
 @author: jmwawrow
 """
 
-# if pinpoint:
-#         for i in range(1,len(filepathall)):
-#             if filepathall[i].endswith(".fits"):
-#                 f = win32com.client.Dispatch("Pinpoint.plate")
-#                 print("Processing Image: " + filepathall[i])
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat):
+        f = pinpoint_init()
+        filepathall = getFileList(inbox)
+        file_suffix=".fits"
+        
+        for dirpath, dirnames, filenames in os.walk(inbox):
+            for filename in filenames:
+                if filename.endswith(file_suffix):
+                    filepath = os.path.join(dirpath, filename)
+                    f = win32com.client.Dispatch("Pinpoint.plate")
+                    print("Processing Image: " + filepath)
+                    
+                    "Import Data from FITS Image"
+                    imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepath)
                 
-#                 "Import Data from FITS Image"
-#                 imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepathall[i])
-            
-#                 """Pinpoint Solve"""
-#                 if pinpoint:
-#                     try:
-#                         f.AttachFITS(filepathall[i])
-#                         f.Declination = f.targetDeclination;
-#                         f.RightAscension = f.targetRightAscension; 
-#                         x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
-#                         # yBin = 4.33562092816E-004*3600;
-#                         # xBin =  4.33131246330E-004*3600; 
-#                         f.ArcsecperPixelHoriz  =  x_arcsecperpixel;
-#                         f.ArcsecperPixelVert =  y_arcsecperpixel;
-                        
-                        
-#                         "Pinpoint Solve Inputs"
-#                         #TODO Add Inputs for pinpoint solving to GUI
-#                         f.Catalog = 5;
-#                         f.CatalogPath = catloc;
-#                         f.CatalogMaximumMagnitude = 13;
-#                         f.CatalogExpansion = 0.8;
-#                         f.SigmaAboveMean = 2.5; 
-#                         f.FindImageStars; 
-#                         f.FindCatalogStars; 
-#                         f.MaxSolveTime = 60; 
-#                         f.MaxMatchResidual = 1.5; 
-                
-                        
-#                         "Pinpoint Solving"
-#                         f.FindCatalogStars()
-#                         f.Solve()
-#                         #f.MatchedStars.count
-#                         #f.FindImageStars()
-#                         #print(f.ImageStars)
-                        
-#                         "Searching for Ref Stars"
-                        
-#                         f.DetachFITS()
-#                         f=None
-#                         print ("Pinpoint Solved")
-#                     except:
-#                             continue
+                    """Pinpoint Solve"""
+                    if pinpoint:
+                        try:
+                            f.AttachFITS(filepath)
+                            f.Declination = f.targetDeclination
+                            f.RightAscension = f.targetRightAscension 
+                            x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+                            # yBin = 4.33562092816E-004*3600;
+                            # xBin =  4.33131246330E-004*3600; 
+                            f.ArcsecperPixelHoriz  =  x_arcsecperpixel
+                            f.ArcsecperPixelVert =  y_arcsecperpixel
+                            
+                            
+                            "Pinpoint Solve Inputs"
+                            #TODO Add Inputs for pinpoint solving to GUI
+                            f.Catalog = 5
+                            f.CatalogPath = catloc
+                            f.CatalogMaximumMagnitude = max_mag
+                            f.CatalogExpansion = catexp
+                            f.SigmaAboveMean = sigma
+                            f.FindImageStars
+                            f.FindCatalogStars
+                            f.MaxSolveTime = max_solve_time 
+                            f.MaxMatchResidual = match_residual
+                    
+                            
+                            "Pinpoint Solving"
+                            f.FindCatalogStars()
+                            print(f.CatalogStars.Count)
+                            f.FindImageStars()
+                            print(f.ImageStars.Count)
+                            f.Solve()
+                            #f.MatchedStars.count
+                            #f.FindImageStars()
+                            #print(f.ImageStars)
+                            
+                            
+                            
+                            f.DetachFITS()
+                            f=None
+                            print ("Pinpoint Solved")
+                        except:
+                            print("Could Not Solve")
+                            continue
 
             
 "Import Data from FITS Image"
@@ -491,7 +501,7 @@ Created on Mon May 31 12:35:34 2021
 directory = r'D:\Solved Stars\Tycho 3023_1724'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
 
-if ground_based:
+def Ground_based_transforms(directory, ref_stars_file):
     plot_results = True
     save_plots = True
     remove_large_airmass = False
@@ -523,8 +533,9 @@ if ground_based:
                                                         save_loc=save_loc)
     
     gb_final_transforms.pprint_all()
+    return
     
-elif space_based:
+def space_based_transform(directory, ref_stars_file):
     plot_results = True
     save_plots = True
     file_suffix = "_clean_cord.fits"
@@ -549,9 +560,9 @@ elif space_based:
                                                              unique_id=unique_id)
     sb_final_transform_table.pprint_all()
     
-    
+    return
 
-if TRM:
+def trm_photometry():
     directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\LIGHT'
     temp_dir = 'tmp'
     max_distance_from_sat = 20
