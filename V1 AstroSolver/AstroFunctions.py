@@ -678,7 +678,27 @@ def get_field_name(matched_stars, name_key='Name'):
 
 
 def init_auxiliary_data_columns():
-    # TODO: docstring
+    """
+    Initialize the columns that will create the auxiliary data table.
+
+    Returns
+    -------
+    auxiliary_data_columns : namedtuple
+        Attributes:
+            filename : empty list
+                Name of the file to calculate the transforms for.
+            exposure_time : empty list
+                Exposure time of the image.
+            fwhm : empty list
+                Mean FWHM of all sources in the image.
+            fwhm_std : empty list
+                Standard deviation of the FWHM of all sources in the image.
+            avg_mag_sigma : empty list
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
+            std_mag_sigma : empty list
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
+
+    """
     filename = []
     exposure_time = []
     fwhm = []
@@ -696,7 +716,30 @@ def init_auxiliary_data_columns():
 
 
 def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwhm, fwhm_std, matched_stars):
-    # TODO: docstring
+    """
+    Update the columns that will create the auxiliary data table.
+
+    Parameters
+    ----------
+    auxiliary_data_columns : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+    exptime : TYPE
+        DESCRIPTION.
+    fwhm : TYPE
+        DESCRIPTION.
+    fwhm_std : TYPE
+        DESCRIPTION.
+    matched_stars : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    updated_auxiliary_data_columns : TYPE
+        DESCRIPTION.
+
+    """
     updated_auxiliary_data_columns = auxiliary_data_columns
     updated_auxiliary_data_columns.filename.append(filename)
     updated_auxiliary_data_columns.exposure_time.append(exptime)

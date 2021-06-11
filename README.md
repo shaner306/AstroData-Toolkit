@@ -1,7 +1,27 @@
 # Astro2
-
-This Git folder is intended to serve as the holder for the DRDC Ottawa Astro/Photometry Open Source Software project. 
 ## Version 1.0 (In Development)
+
+Below is the version 1.0 GUI of the AstroSolver Program. It has two main functions:
+1. Plate Solving and Performing Photometry on Ground-Based or Space-Based Imagery
+2. Image Reduction, using Bias, Dark, and Flat Images
+
+### 1. Photometry Program
+#### Instructions
+1. Select your top-level folder which contains all the images you want to process.
+2. 
+<hr>
+
+![image](https://user-images.githubusercontent.com/75094714/121441888-98a22400-c958-11eb-8cbc-653281fc1729.png)
+
+### 2. Image Reduction Program
+<hr>
+
+![image](https://user-images.githubusercontent.com/75094714/121441947-aeafe480-c958-11eb-98cd-58181c794109.png)
+
+<hr>
+
+
+
 ### AstroSolver (In Progress)
 1. Stage 1 - Data Input 
     - Enter Image Folders (Decide on Parameters, different filtered images)
