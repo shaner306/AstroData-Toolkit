@@ -376,8 +376,8 @@ def edge_Protect (bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
 # print(imagefolder, catalogfolder, refdoc)
 
 inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT' #Image Location of .fits Format
-refstars_doc = 'D:\\Reference_stars.xlsx'
-refstars_csv='D:\\Reference_stars.csv' #Reference Star List
+#refstars_doc = 'D:\\Reference_stars.xlsx'
+#refstars_csv='D:\\Reference_stars.csv' #Reference Star List
 catloc = 'D:\squid\\USNOA20-All'; #Catalog #TODO Change Catalog to UCAC3 
 save_loc = os.path.join(inbox, 'Outputs') # Output Folder for Files
 
@@ -397,8 +397,8 @@ reduce_dir= 'D:\Image Reduction Test Images'
 
 "Read Ref Doc"
 
-HIP, erad, edec, vref, bvindex, vrindex, refstarsfin = ref_star_folder_read(refstars_doc)
-reference_stars, ref_star_positions = astro.read_ref_stars(refstars_csv) # Reading the Reference Star Doc
+#HIP, erad, edec, vref, bvindex, vrindex, refstarsfin = ref_star_folder_read(refstars_doc)
+#reference_stars, ref_star_positions = astro.read_ref_stars(refstars_csv) # Reading the Reference Star Doc
 f = pinpoint_init() #Start Pinpoint 
 
 "Set Variables"
@@ -497,10 +497,9 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
 """
 
 """Running Functions"""
-       
-directory = r'D:\Solved Stars\Tycho 3023_1724'
-ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
 
+#directory = r'D:\Solved Stars\Tycho 3023_1724'
+ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
 def Ground_based_transforms(directory, ref_stars_file):
     plot_results = True
     save_plots = True
@@ -516,37 +515,41 @@ def Ground_based_transforms(directory, ref_stars_file):
     lon_key='SITELONG'
     elev_key='SITEELEV'
     name_key='Name'
-    reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
+    ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
     save_loc = os.path.join(directory, 'Outputs')
-    gb_final_transforms = astro._main_gb_transform_calc(directory, 
-                                                        reference_stars, 
-                                                        ref_star_positions,
-                                                        plot_results=plot_results, 
-                                                        save_plots=save_plots, 
-                                                        remove_large_airmass_bool=remove_large_airmass, 
-                                                        file_suffix=file_suffix, 
-                                                        exposure_key=exposure_key, 
-                                                        lat_key=lat_key, 
-                                                        lon_key=lon_key, 
-                                                        elev_key=elev_key, 
-                                                        name_key=name_key,
-                                                        save_loc=save_loc)
+    if not os.path.exists(save_loc):
+        os.makedirs(save_loc)
+    gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(directory, 
+                                                                              ref_stars_file, 
+                                                                              plot_results=plot_results, 
+                                                                              save_plots=save_plots, 
+                                                                              remove_large_airmass_bool=remove_large_airmass, 
+                                                                              file_suffix=file_suffix, 
+                                                                              exposure_key=exposure_key, 
+                                                                              lat_key=lat_key, 
+                                                                              lon_key=lon_key, 
+                                                                              elev_key=elev_key, 
+                                                                              name_key=name_key,
+                                                                              save_loc=save_loc)
     
     gb_final_transforms.pprint_all()
+    auxiliary_data_table.pprint_all()
     return
-    
+       
 def space_based_transform(directory, ref_stars_file):
     plot_results = True
     save_plots = True
-    file_suffix = "_clean_cord.fits"
+    file_suffix = "_clean.fits"
     exposure_key = 'AEXPTIME'
     name_key = 'Name'
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
     
     #for subfolder in subfolder_list:
     unique_id = ''
-    directory = r'D:\NEOSSat-SA-111\clean'
+    directory = r'D:\NEOSSat-SA-111\test'
     save_loc = os.path.join(directory, 'Outputs')
+    if not os.path.exists(save_loc):
+        os.makedirs(save_loc)
     
     sb_final_transform_table = astro._main_sb_transform_calc(directory, 
                                                              ref_stars_file, 
@@ -581,6 +584,7 @@ def trm_photometry():
     uncertainty_table.pprint_all()
     sats_table.pprint_all()
 
+def trm_streak_detection
 
 
 def Image_reduce(reduce_dir, create_master_dark, create_master_flat,create_master_bias, create_master_dir=True):
@@ -685,12 +689,14 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,create_maste
 
     #%% NEOSSAT Dark Subtraction
     
-def DarkSub(target, obspath, savedir, **kwargs):
+def DarkSub(target, obspath, **kwargs):
     """Process all observations of a specific target in a specific directory."""
 
     # Make sure output directory exists.
-    utils.ensure_dir(savedir)
-
+    
+    save_loc = os.path.join(obspath, 'Outputs')
+    if not os.path.exists(save_loc):
+        os.makedirs(save_loc)
     # Unpack parameters.
     T = kwargs.pop('T', 8)
     bpix = kwargs.pop('bpix', -1.0e10)
@@ -744,7 +750,7 @@ def DarkSub(target, obspath, savedir, **kwargs):
     # Save the masterdark.
     head, tail = os.path.split(obspath)
     darkname = 'masterdark_{}_{}.fits'.format(tail, target)
-    darkname = os.path.join(savedir, darkname)
+    darkname = os.path.join(save_loc, darkname)
     hdu = fits.PrimaryHDU(masterdark)
     hdu.writeto(darkname, overwrite=True)
 
@@ -764,7 +770,7 @@ def DarkSub(target, obspath, savedir, **kwargs):
             xsc, ysc = light_table['xsc'][i], light_table['ysc'][i]
             xov, yov = light_table['xov'][i], light_table['yov'][i]
 
-            args = (filename, savedir, masterdark, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
+            args = (filename, save_loc, masterdark, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
 
             p.apply_async(SBDarkSub.lightprocess_save, args=args, callback=lambda x: pbar.update())
 
