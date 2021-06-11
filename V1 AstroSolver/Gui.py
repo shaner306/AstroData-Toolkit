@@ -48,7 +48,7 @@ def Gui ():
                   
               [sg.Frame('Image Source',[[      
               sg.T(""), sg.Radio('Ground Based', "RADIO1", default=True, key="-IN82-"),
-              sg.T("                "), sg.Radio('Space Based', "RADIO1", default=False, disabled=True, key="-IN83-")]])], 
+              sg.T("                "), sg.Radio('Space Based', "RADIO1", default=False, key="-IN83-")]])], 
               ] 
     #column2.update(disabled=True)
     
@@ -104,45 +104,6 @@ def Gui ():
                    ]])]]
     
     
-    
-        # f.Catalog = 5;
-        #         f.CatalogPath = catloc;
-        #         f.CatalogMaximumMagnitude = 13;
-        #         f.CatalogExpansion = 0.8;
-        #         f.SigmaAboveMean = 2.5; 
-        #         f.FindImageStars; 
-        #         f.FindCatalogStars; 
-        #         f.MaxSolveTime = 60; 
-        #         f.MaxMatchResidual = 1.5; 
-    #window['-OUTPUT-'].update(values['-IN-'])
-        # simple version for working with CWD
-        
-        
-       
-
-        # path joining version for other paths
-    #DIR = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B\\'
-    #path, dirs, files = next(os.walk(DIR))
-    #file_count = len(files)
-    
-    # layout = [[sg.T(" ")], 
-    #           [sg.Text("Image Folder: "), 
-    #            sg.Input(key="-IN2-" ,change_submits=True), 
-    #            sg.FolderBrowse(key="-IN1-")],
-    #           [sg.Text("Catalog Folder: "), 
-    #            sg.Input(key="-IN3-" ,change_submits=True), 
-    #            sg.FolderBrowse(key="-IN4-")],
-    #           [sg.Text("Reference Stars: "), 
-    #            sg.Input(key="-IN5-" ,change_submits=True), 
-    #            sg.FileBrowse(key="-IN6-")],
-    #          [sg.T("                   "), sg.Checkbox('Print On:', default=True, key="-IN7-")],
-    #           [sg.T("         "), sg.Radio('Permission Granted', "RADIO1", default=False, key="-IN8-")],
-    #           [sg.T("         "), sg.Radio('Permission not Granted', "RADIO1", default=True)],
-    #           [sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN9-"),
-    #            sg.Radio('Star Stare Mode', "RADIO3", default=True)],
-    #           [sg.Button("Submit")]]
-    
-    ###Building Window
     if windowopen==False:
         window = sg.Window('AstroSolver', layout)
         windowopen==True
@@ -172,25 +133,39 @@ def Gui ():
             create_master_bias = values["-IN1011-"]
             target = values["-IN1013-"]
             
-            window.close()
+            
             
             if values["-IN1012-"]:
-               Main.DarkSub(target, reduce_dir, 'D:\\NEOSSat-SA-111\\clean2')
-
+                try:
+            
+                    Main.DarkSub(target, reduce_dir, 'D:\\NEOSSat-SA-111\\test')
+                    print ("Reduce Space-Based Images ---- Started")
+                    window.close()
+                except:
+                    print("Input Error")
+                    window.update()
               
             else:
-                Main.Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_master_bias)
+                try:
+            
+                    Main.Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_master_bias)
+                    print ("Reduce Space-Based Images ---- Started")
+                    window.close()
+                except:
+                    print("Input Error")
+                    window.update()
+
           
                 
           
         elif event == "Solve":
-            image_dir =values["-IN200-"]
-            catalog_dir = values["-IN71-"]
-            refstar_dir = values["-IN1010-"]
-            save_data = values["-IN1011-"]
+            image_dir =values["-IN2-"]
+            catalog_dir = values["-IN3-"]
+            refstar_dir = values["-IN5-"]
+            save_data = values["-IN7-"]
             plot_data = values["-IN1013-"]
             
-            Main.Ground_based_transforms(image_dir,refstar_dir)
+            
             
             
             if values["-IN100-"]:
@@ -200,18 +175,42 @@ def Gui ():
                 catalog = values["-IN54-"]
                 catalog_exp = values["-IN55-"]
                 max_solve_time = values["-IN56-"]
-                Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog)
+                
+                try:
+            
+                    Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog)
+                    print ("Reducing Images ---- Started")
+                    window.close()
+                except:
+                    print("Input Error. Please See Instructions")
+                    window.update()
+                
+            
             else:
-                continue
-            if values["-IN82-"]:
-                Main.Ground_based_transforms(image_dir,refstar_dir)
-                
+               continue
+               # Main.Ground_based_transforms(image_dir,refstar_dir)
+            if values["-IN82-"]==True:
+                try:
+            
+                    Main.Ground_based_transforms(image_dir,refstar_dir)
+                    print (image_dir,refstar_dir)
+                    window.close()
+                except:
+                    print("Input Error. Please See Instructions")
+                    #window.update()
             else:
+                try:
+            
+                    Main.space_based_transforms(image_dir,refstar_dir)
+                    print ("Reducing Images ---- Started")
+                    window.close()
+                except:
+                    print("Input Error. Please See Instructions")
+                    #window.update()
                 
-                Main.space_based_transforms(image_dir,refstar_dir)
                 
                 
-            window.close()
+            
             
             
             
