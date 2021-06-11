@@ -20,7 +20,7 @@ import astropy.units as u
 from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
-#import cv2 as cv
+import cv2 as cv
 from math import sqrt, atan
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -721,23 +721,70 @@ def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwh
 
     Parameters
     ----------
-    auxiliary_data_columns : TYPE
-        DESCRIPTION.
-    filename : TYPE
-        DESCRIPTION.
-    exptime : TYPE
-        DESCRIPTION.
-    fwhm : TYPE
-        DESCRIPTION.
-    fwhm_std : TYPE
-        DESCRIPTION.
-    matched_stars : TYPE
-        DESCRIPTION.
+    auxiliary_data_columns : namedtuple
+        Attributes:
+            filename : string list
+                Name of the file to calculate the transforms for.
+            exposure_time : float or int list
+                Exposure time of the image.
+            fwhm : float list
+                Mean FWHM of all sources in the image.
+            fwhm_std : float list
+                Standard deviation of the FWHM of all sources in the image.
+            avg_mag_sigma : float list
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
+            std_mag_sigma : float list
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
+    filename : string
+        Name of the file to calculate the transforms for.
+    exptime : float or int
+        Exposure time of the image.
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    fwhm_std : float
+        Standard deviation of the FWHM of all sources in the image.
+    matched_stars : namedtuple
+        Attributes:
+            ref_star_index : array-like or int
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
+            img_star_index : array-like or int
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
+            ref_star : astropy.table.Table
+                Rows from ref_stars_file that correspond to a matched reference star.
+            ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched reference star(s) from ref_stars_file.
+            img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
+                RA/dec of the matched star(s) detected in the image.
+            ang_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            img_instr_mag : numpy array
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
+            img_instr_mag_sigma : numpy array
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
+                detected in the image.
+            flux : numpy array
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
+            img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
+            img_star_airmass : float
+                sec(z) of img_star_altaz. None if ground_based is False.
 
     Returns
     -------
-    updated_auxiliary_data_columns : TYPE
-        DESCRIPTION.
+    updated_auxiliary_data_columns : namedtuple
+        Attributes:
+            filename : string list
+                Name of the file to calculate the transforms for.
+            exposure_time : float or int list
+                Exposure time of the image.
+            fwhm : float list
+                Mean FWHM of all sources in the image.
+            fwhm_std : float list
+                Standard deviation of the FWHM of all sources in the image.
+            avg_mag_sigma : float list
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
+            std_mag_sigma : float list
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
 
     """
     updated_auxiliary_data_columns = auxiliary_data_columns
@@ -753,7 +800,44 @@ def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwh
 
 
 def create_auxiliary_data_table(auxiliary_data_columns):
-    # TODO: docstring
+    """
+    Create the auxiliary data table from the auxiliary data columns.
+
+    Parameters
+    ----------
+    auxiliary_data_columns : namedtuple
+        Attributes:
+            filename : string list
+                Name of the file to calculate the transforms for.
+            exposure_time : float or int list
+                Exposure time of the image.
+            fwhm : float list
+                Mean FWHM of all sources in the image.
+            fwhm_std : float list
+                Standard deviation of the FWHM of all sources in the image.
+            avg_mag_sigma : float list
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
+            std_mag_sigma : float list
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
+
+    Returns
+    -------
+    auxiliary_data_table : astropy.table.Table
+        Table containing additional information about the images used to create the transforms. Has columns:
+            filename : string
+                Name of the file the transforms were calculated for.
+            exptime : float or int
+                Exposure time of the image.
+            fwhm : float
+                Mean FWHM of all sources in the image.
+            fwhm_sigma : float
+                Standard deviation of the FWHM of all sources in the image.
+            avg mag_sigma : float
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
+            std mag_sigma : float
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
+
+    """
     auxiliary_data_table = Table(
         names=[
             'filename',
@@ -2094,7 +2178,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     instr_filter : string
         Instrumental filter band to calculate the transform for.
     colour_index : string
-        TODO
+        The colour index to calculate the transforms for.
     plot_results : bool, optional
         Controls whether or not to plot the results from the transforms. The default is False.
     field : string, optional
@@ -2502,14 +2586,35 @@ def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
 
     Parameters
     ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            k''_fCI_sigma : float
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
+                colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            T_fCI_sigma : float
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            k'_f_sigma : float
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+            Z_f_sigma : float
+                The standard deviation of the zero point magnitude for filter f.
+    instr_filter : string
+        The instrumental filter to use to calculate C_fCI.
     airmass : float
-        DESCRIPTION.
-    colour_index : TYPE
-        DESCRIPTION.
+        Average airmass of the image.
+    colour_index : string
+        The colour index to use to calculate C_fCI.
 
     Returns
     -------
@@ -2533,16 +2638,36 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
 
     Parameters
     ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            k''_fCI_sigma : float
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
+                colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            T_fCI_sigma : float
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            k'_f_sigma : float
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+            Z_f_sigma : float
+                The standard deviation of the zero point magnitude for filter f.
+    instr_filter : string
+        The instrumental filter used to calculate C'.
 
     Returns
     -------
-    c_prime_fci : TYPE
-        DESCRIPTION.
-        TODO
+    c_prime_fci : float
+        The C' coefficient for filter instr_filter to use when applying the transforms.
 
     """
     colour_index, ci = get_colour_index_lower(instr_filter)
@@ -2555,23 +2680,44 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
 
 def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index):
     """
-    TODO.
+    Calculate the Z' coefficient to use when applying the transforms.
 
     Parameters
     ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
-    airmass : TYPE
-        DESCRIPTION.
-    colour_index : TYPE
-        DESCRIPTION.
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            k''_fCI_sigma : float
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
+                colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            T_fCI_sigma : float
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            k'_f_sigma : float
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+            Z_f_sigma : float
+                The standard deviation of the zero point magnitude for filter f.
+    instr_filter : string
+        The instrumental filter to use to calculate Z'_f.
+    airmass : float
+        Average airmass of the image.
+    colour_index : string
+        The colour index to use to calculate Z'_f.
 
     Returns
     -------
-    z_prime_f : TYPE
-        DESCRIPTION.
+    z_prime_f : float
+        Z' coefficient to use when calculating z.
 
     """
     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
@@ -2586,23 +2732,44 @@ def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index
 
 def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass):
     """
-    TODO.
+    Calculate the z_f coeffient to use when applying the transforms.
 
     Parameters
     ----------
-    gb_final_transforms : TYPE
-        DESCRIPTION.
-    c_prime_fci : TYPE
-        DESCRIPTION.
-    instr_filter : TYPE
-        DESCRIPTION.
-    airmass : TYPE
-        DESCRIPTION.
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            k''_fCI_sigma : float
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
+                colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            T_fCI_sigma : float
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            k'_f_sigma : float
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+            Z_f_sigma : float
+                The standard deviation of the zero point magnitude for filter f.
+    c_prime_fci : float
+        The C' coefficient for filter instr_filter to use when applying the transforms.
+    instr_filter : string
+        The instrumental filter to use to calculate z_f.
+    airmass : float
+        Average airmass of the image.
 
     Returns
     -------
-    lower_z_f : TYPE
-        DESCRIPTION.
+    lower_z_f : float
+        The z coefficient for filter instr_filter to use when applying the transforms.
 
     """
     colour_index, ci = get_colour_index_lower(instr_filter)
@@ -2614,100 +2781,100 @@ def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
     return lower_z_f
 
 
-def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter):
-    """
-    Apply the transforms to a source with an unknown standard magnitude.
+# def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter):
+#     """
+#     Apply the transforms to a source with an unknown standard magnitude.
 
-    Parameters
-    ----------
-    gb_final_transforms : astropy.table.Table
-        Table containing the results for the final transforms. Has columns:
-            filter : string
-                Instrumental filter band used to calculate the transform.
-            CI : string
-                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
-            k''_fCI : float
-                The second order atmospheric extinction coefficient for filter f using the colour index CI.
-            T_fCI : float
-                The instrumental transform coefficient for filter f using the colour index CI.
-            k'_f : float
-                The first order atmospheric extinction coefficient for filter f.
-            Z_f : float
-                The zero point magnitude for filter f.
-    unknown_object_table : astropy.table.Table
-        Table containing the stars to calculate the apparent magnitudes for. Has columns:
-            filter : string
-                Instrumental filter band used to take the image.
-            name : string
-                Unique identifier of the source to apply the transform to.
-            instrumental mag : float
-                Instrumental magnitude of the source.
-                TODO: Change this so that it accepts multiple sources somehow.
+#     Parameters
+#     ----------
+#     gb_final_transforms : astropy.table.Table
+#         Table containing the results for the final transforms. Has columns:
+#             filter : string
+#                 Instrumental filter band used to calculate the transform.
+#             CI : string
+#                 Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+#             k''_fCI : float
+#                 The second order atmospheric extinction coefficient for filter f using the colour index CI.
+#             T_fCI : float
+#                 The instrumental transform coefficient for filter f using the colour index CI.
+#             k'_f : float
+#                 The first order atmospheric extinction coefficient for filter f.
+#             Z_f : float
+#                 The zero point magnitude for filter f.
+#     unknown_object_table : astropy.table.Table
+#         Table containing the stars to calculate the apparent magnitudes for. Has columns:
+#             filter : string
+#                 Instrumental filter band used to take the image.
+#             name : string
+#                 Unique identifier of the source to apply the transform to.
+#             instrumental mag : float
+#                 Instrumental magnitude of the source.
+#                 : Change this so that it accepts multiple sources somehow.
 
-    Returns
-    -------
-    app_mag_table : astropy.table.Table
-        Table containing the apparent magnitudes of the object after applying the transforms. Has columns:
-            time : float
-                Julian date that the image was taken.
-            filter : string
-                Apparent filter that the image was transformed to.
-            apparent mag : float
-                Apparent magnitude of the source after applying the transforms.
+#     Returns
+#     -------
+#     app_mag_table : astropy.table.Table
+#         Table containing the apparent magnitudes of the object after applying the transforms. Has columns:
+#             time : float
+#                 Julian date that the image was taken.
+#             filter : string
+#                 Apparent filter that the image was transformed to.
+#             apparent mag : float
+#                 Apparent magnitude of the source after applying the transforms.
 
-    """
-    # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
-    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
-    colour_index, ci = get_colour_index_lower(instr_filter)
-    instr_mag = stars_table[instr_filter]
-    airmass = stars_table[f'X_{instr_filter}']
-    c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
-    try:
-        positive_instr_mag = stars_table[ci[0]]
-        negative_instr_mag = stars_table[ci[1]]
-    except KeyError:
-        table_ci = ci.replace('v', 'g')
-        positive_instr_mag = stars_table[table_ci[0]]
-        negative_instr_mag = stars_table[table_ci[1]]
-    lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
-    app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
-    app_mag_filter = instr_filter.upper()
-    app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
-    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column])
-    return app_mag_table
+#     """
+#     # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
+#     app_mag_first_columns = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+#     colour_index, ci = get_colour_index_lower(instr_filter)
+#     instr_mag = stars_table[instr_filter]
+#     airmass = stars_table[f'X_{instr_filter}']
+#     c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+#     try:
+#         positive_instr_mag = stars_table[ci[0]]
+#         negative_instr_mag = stars_table[ci[1]]
+#     except KeyError:
+#         table_ci = ci.replace('v', 'g')
+#         positive_instr_mag = stars_table[table_ci[0]]
+#         negative_instr_mag = stars_table[table_ci[1]]
+#     lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+#     app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
+#     app_mag_filter = instr_filter.upper()
+#     app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
+#     app_mag_table = table.hstack([app_mag_first_columns, app_mag_column])
+#     return app_mag_table
 
 
-def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
-    """
-    Apply the transforms to a timeseries of observations.
+# def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
+#     """
+#     Apply the transforms to a timeseries of observations.
 
-    Parameters
-    ----------
-    gb_final_transforms : astropy.table.Table
-        Table containing the results for the final transforms. Has columns:
-            filter : string
-                Instrumental filter band used to calculate the transform.
-            CI : string
-                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
-            k''_fCI : float
-                The second order atmospheric extinction coefficient for filter f using the colour index CI.
-            T_fCI : float
-                The instrumental transform coefficient for filter f using the colour index CI.
-            k'_f : float
-                The first order atmospheric extinction coefficient for filter f.
-            Z_f : float
-                The zero point magnitude for filter f.
-    large_sats_table : astropy.table.Table
-        DESCRIPTION.
+#     Parameters
+#     ----------
+#     gb_final_transforms : astropy.table.Table
+#         Table containing the results for the final transforms. Has columns:
+#             filter : string
+#                 Instrumental filter band used to calculate the transform.
+#             CI : string
+#                 Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+#             k''_fCI : float
+#                 The second order atmospheric extinction coefficient for filter f using the colour index CI.
+#             T_fCI : float
+#                 The instrumental transform coefficient for filter f using the colour index CI.
+#             k'_f : float
+#                 The first order atmospheric extinction coefficient for filter f.
+#             Z_f : float
+#                 The zero point magnitude for filter f.
+#     large_sats_table : astropy.table.Table
+#         DESCRIPTION.
 
-    Returns
-    -------
-    app_large_sats_table : TYPE
-        DESCRIPTION.
+#     Returns
+#     -------
+#     app_large_sats_table : TYPE
+#         DESCRIPTION.
 
-    """
-    app_large_sats_table = large_sats_table
-    return app_large_sats_table
+#     """
+#     app_large_sats_table = large_sats_table
+#     return app_large_sats_table
 
 
 def copy_and_rename(directory, 
@@ -2717,29 +2884,30 @@ def copy_and_rename(directory,
                     temp_dir='tmp', 
                     debugging=False):
     """
-    TODO.
+    Copy and rename all files in a directory to a new location.
 
     Parameters
     ----------
-    directory : TYPE
-        DESCRIPTION.
-    file_suffix : TYPE, optional
-        DESCRIPTION. The default is ".fits".
-    time_key : TYPE, optional
-        DESCRIPTION. The default is 'DATE-OBS'.
-    filter_key : TYPE, optional
-        DESCRIPTION. The default is 'FILTER'.
-    temp_dir : TYPE, optional
-        DESCRIPTION. The default is 'tmp'.
-    debugging : TYPE, optional
-        DESCRIPTION. The default is False.
+    directory : string
+        Location of the files to be copied and modified.
+    file_suffix : string, optional
+        Considers all files that end with this suffix. The default is ".fits".
+    time_key : string, optional
+        Key in the FITS header that contains the time of the observation. The default is 'DATE-OBS'.
+    filter_key : string, optional
+        Key in the FITS header that contains the filter used for the observation. The default is 'FILTER'.
+    temp_dir : string, optional
+        Location to copy the files to. The default is 'tmp'.
+    debugging : bool, optional
+        Keyword specifying if the code is being run in a debugging mode. If True, it removes temp_dir if it exists. If 
+        False, it tries to make temp_dir and uses the current one if it exists. The default is False.
 
     Returns
     -------
-    filecount : TYPE
-        DESCRIPTION.
-    filenames : TYPE
-        DESCRIPTION.
+    filecount : int
+        Number of files that were modified.
+    filenames : string list
+        List of all of the modified files sorted alphabetically.
 
     """
     if not debugging:
@@ -2770,12 +2938,12 @@ def copy_and_rename(directory,
 
 def remove_temp_dir(temp_dir='tmp'):
     """
-    TODO.
+    Remove the temp directory.
 
     Parameters
     ----------
-    temp_dir : TYPE, optional
-        DESCRIPTION. The default is 'tmp'.
+    temp_dir : string, optional
+        Directory to remove. The default is 'tmp'.
 
     Returns
     -------
@@ -2787,27 +2955,29 @@ def remove_temp_dir(temp_dir='tmp'):
 
 def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
     """
-    TODO.
+    Initialize the names and locations of the satellites to create a light curve for.
 
     Parameters
     ----------
-    imgdata : TYPE
-        DESCRIPTION.
-    filecount : TYPE
-        DESCRIPTION.
-    set_sat_positions_bool : TYPE
-        DESCRIPTION.
-    max_distance_from_sat : TYPE, optional
-        DESCRIPTION. The default is 25.
+    imgdata : numpy.ndarray
+        Data from the fits file.
+    filecount : float
+        Number of files that will be used to create the light curve.
+    set_sat_positions_bool : bool
+        Decides whether or not to initialize the satellite positions.
+    max_distance_from_sat : int, optional
+        Maximimum number of pixels that a source can be away from the defined sat position to be considered the sat. 
+        The default is 25.
     norm : TYPE, optional
-        DESCRIPTION. The default is LogNorm().
-    cmap_set : TYPE, optional
-        DESCRIPTION. The default is 'Set1'.
+        DESCRIPTION. The default is LogNorm(). #TODO
+    cmap_set : string, optional
+        CMAP set to use for plotting the satellite positions. The default is 'Set1'.
 
     Returns
     -------
     TYPE
         DESCRIPTION.
+        TODO
 
     """
     def mbox(title, text, style):
@@ -2881,7 +3051,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
             print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
         print(names)
         
-        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        cmap = plt.get_cmap(cmap_set)
         colours = [cmap(i) for i in range(0, num_sats)]
         legend_elements = []
         window = tk.Tk()
