@@ -2318,13 +2318,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         current_filter = gb_transform_table[mask]
         x = current_filter['X']
         y = current_filter['C_fCI']
-        
         max_c_fci_sigma = max(current_filter['C_fCI_sigma'])
         sigma = np.nan_to_num(current_filter['C_fCI_sigma'], nan=max_c_fci_sigma)
         sigma = np.array(sigma)
         sigma[sigma == 0] = max(sigma)
-        
-        
         # sigma = current_filter['C_fCI_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
@@ -2346,13 +2343,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
             t_fci_sigma = sqrt(cov_c[1][1])
         # kprimeprime_fci, t_fci = np.polyfit(current_filter['X'], current_filter['C_fCI'], 1)
         y = current_filter['Zprime_f']
-        
         max_zprime_f_sigma = max(current_filter['Zprime_f_sigma'])
         sigma = np.nan_to_num(current_filter['Zprime_f_sigma'], nan=max_zprime_f_sigma)
         sigma = np.array(sigma)
         sigma[sigma == 0] = max(sigma)
-        
-        
         # sigma = current_filter['Zprime_f_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
@@ -3035,7 +3029,7 @@ def determine_if_change_sat_positions(sat_information, filenum, change_sat_posit
     print(sat_information.num_nans)
     num_nan = max(sat_information.num_nans)
     # print(num_nan)
-    if num_nan >= max_num_nan:
+    if num_nan != 0 and (num_nan % max_num_nan) == 0:
         change_sat_positions_bool = True
     return change_sat_positions_bool, num_nan
 
