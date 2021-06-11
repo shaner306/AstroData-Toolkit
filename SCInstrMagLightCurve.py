@@ -32,7 +32,8 @@ matplotlib.use('TkAgg')
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\2021_J132_46927_DESCENT\May 11 2021'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\46927'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021 02 07\2021 02 07 - Intelsat 10-02 - G Band'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-25 - Calibrated - Intelsat 10-02'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-25 - Calibrated - Intelsat 10-02'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-24 - Calibrated\Intelsat 10-02'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-111\2016-111'
 # stars_directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-03-20 - Calibrated\Zpoint Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021-04-21\Intelsat 10-02 ALL'
@@ -735,7 +736,7 @@ plt.xlabel('Time (UTC)')
 plt.show(block=True)
 # plt.pause(3)
 plt.close()
-date_string = '25 Apr'
+date_string = '24 Apr'
 for sat in sat_names:
     b_interpolated = np.interp(times_list, b_sats_table['Time (JD)'][~np.isnan(b_sats_table[sat])],
                                b_sats_table[sat][~np.isnan(b_sats_table[sat])])
