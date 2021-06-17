@@ -360,8 +360,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
         fwhms_arcsec = fwhms
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
-
-def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=15):
+def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=5):
     """
     Perform PSF photometry on all sources in a selected image.
 
@@ -415,6 +414,7 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -3604,101 +3604,101 @@ def _main_gb_transform_calc(directory,
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots)
     # Test the Transforms.
-    directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
-    large_table_columns = init_large_table_columns()
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith(".fit"):
-                filepath = os.path.join(dirpath, filename)
-                hdr, imgdata = read_fits_file(filepath)
-                exptime = hdr['EXPTIME']
-                bkg, bkg_std = calculate_img_bkg(imgdata)
-                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-                if not irafsources:
-                    continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-                fluxes = np.array(photometry_result['flux_fit'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-                wcs = WCS(hdr)
-                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                altazpositions = None
-                try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
-                                                                    lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
-                except AttributeError as e:
-                    print(e)
-                    continue
-                matched_stars = find_ref_stars(reference_stars, 
-                                                      ref_star_positions,
-                                                      skypositions,
-                                                      instr_mags,
-                                                      instr_mags_sigma,
-                                                      fluxes,
-                                                      ground_based=True,
-                                                      altazpositions=altazpositions)
-                if not matched_stars:
-                    continue
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                        matched_stars, 
-                                                                        hdr, 
-                                                                        exptime, 
-                                                                        ground_based=True, 
-                                                                        name_key='Name')
+    # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
+    # large_table_columns = init_large_table_columns()
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in filenames:
+    #         if filename.endswith(".fit"):
+    #             filepath = os.path.join(dirpath, filename)
+    #             hdr, imgdata = read_fits_file(filepath)
+    #             exptime = hdr['EXPTIME']
+    #             bkg, bkg_std = calculate_img_bkg(imgdata)
+    #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+    #             if not irafsources:
+    #                 continue
+    #             _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+    #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+    #             fluxes = np.array(photometry_result['flux_fit'])
+    #             instr_mags = calculate_magnitudes(photometry_result, exptime)
+    #             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+    #             wcs = WCS(hdr)
+    #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+    #             altazpositions = None
+    #             try:
+    #                 altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
+    #                                                                 lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
+    #             except AttributeError as e:
+    #                 print(e)
+    #                 continue
+    #             matched_stars = find_ref_stars(reference_stars, 
+    #                                                   ref_star_positions,
+    #                                                   skypositions,
+    #                                                   instr_mags,
+    #                                                   instr_mags_sigma,
+    #                                                   fluxes,
+    #                                                   ground_based=True,
+    #                                                   altazpositions=altazpositions)
+    #             if not matched_stars:
+    #                 continue
+    #             large_table_columns = update_large_table_columns(large_table_columns, 
+    #                                                                     matched_stars, 
+    #                                                                     hdr, 
+    #                                                                     exptime, 
+    #                                                                     ground_based=True, 
+    #                                                                     name_key='Name')
     
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    large_stars_table.pprint_all()
-    # large_stars_table = remove_large_airmass(large_stars_table)
-    stars_table = group_each_star(large_stars_table, ground_based=True)
-    stars_table.pprint_all()
+    # large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table.pprint_all()
+    # # large_stars_table = remove_large_airmass(large_stars_table)
+    # stars_table = group_each_star(large_stars_table, ground_based=True)
+    # stars_table.pprint_all()
     
-    instr_filters = ['b', 'g', 'r']
-    app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
-    for instr_filter in instr_filters:
-        app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
-        app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
+    # instr_filters = ['b', 'v', 'r', 'i']
+    # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    # for instr_filter in instr_filters:
+    #     app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+    #     app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
     
-    app_mag_table.pprint_all()
+    # app_mag_table.pprint_all()
     
-    import matplotlib.pyplot as plt
-    # import matplotlib
-    # matplotlib.use('TkAgg')
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('B (calculated)')
-    plt.xlabel('B (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # import matplotlib.pyplot as plt
+    # # import matplotlib
+    # # matplotlib.use('TkAgg')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('B (calculated)')
+    # plt.xlabel('B (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
-    plt.plot(app_mag_table['V_ref'], app_mag_table['G'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['G'])], app_mag_table['G'][~np.isnan(app_mag_table['G'])], 1)
-    plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('V (calculated)')
-    plt.xlabel('V (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
+    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('V (calculated)')
+    # plt.xlabel('V (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
-                      app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
-              m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
-              '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('R (calculated)')
-    plt.xlabel('R (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
+    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('R (calculated)')
+    # plt.xlabel('R (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
