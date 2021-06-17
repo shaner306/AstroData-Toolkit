@@ -361,7 +361,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
-def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=25):
+def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=15):
     """
     Perform PSF photometry on all sources in a selected image.
 
