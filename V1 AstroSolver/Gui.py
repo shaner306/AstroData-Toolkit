@@ -36,7 +36,7 @@ def Gui ():
    
     column2 = [[sg.Text('Pinpoint Solve Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
                
-            [sg.T("Maximum Mag.:"),sg.T("     "), sg.InputText('13', size=(5,5), key="-IN51-"), sg.T("Sigma Above Mean:  "), sg.InputText('2.5', size=(5,5), key="-IN52-")],      
+            [sg.T("Maximum Mag.:"),sg.T("     "), sg.InputText('13', size=(5,5), key="-IN51-"), sg.T("Sigma Above Mean:  "), sg.InputText('3.0', size=(5,5), key="-IN52-")],      
             [sg.T("Max Solve Time (sec):"), sg.InputText('60', size=(5,5),key="-IN56-"), sg.T("Max Match Residual:"), sg.InputText('1.5', size=(5,5), key="-IN53-")],
             [sg.T("Catalog Expansion:"),sg.T(""), sg.InputText('0.8', size=(5,5),key="-IN55-"), sg.T("Catalog:"), sg.T("            "), sg.InputText('UCAC4', size=(7,5), disabled=True,  key="-IN54-")]
             ]   
@@ -59,10 +59,10 @@ def Gui ():
                sg.Input("D:\Solved Stars\Tycho 3023_1724", key="-IN2-" ,change_submits=True), 
                sg.FolderBrowse(key="-IN1-"), sg.Text('')],
               [sg.Text("Catalog Folder:    "), 
-               sg.Input(key="-IN3-" ,change_submits=True), 
+               sg.Input("D:\\squid\\UCAC4", key="-IN3-",change_submits=True), 
                sg.FolderBrowse(key="-IN4-")],
               [sg.Text("Reference Stars:  "), 
-               sg.Input ("D:\Astro2\Reference Star Files\Reference_stars.csv", key="-IN5-" ,change_submits=True), 
+               sg.Input (r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt', key="-IN5-" ,change_submits=True), 
                sg.FileBrowse(key="-IN6-")],
               
               
@@ -167,6 +167,10 @@ def Gui ():
             save_data = values["-IN7-"]
             plot_data = values["-IN1013-"]
             
+            if values["-IN82-"]==True:
+                sb=0
+            else:
+                sb=1
             window.Refresh()
             
             if values["-IN100-"]:
@@ -177,25 +181,25 @@ def Gui ():
                 catalog_exp = values["-IN55-"]
                 max_solve_time = values["-IN56-"]
                 
-                try:
-            
-                    Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog)
-                    print ("Reducing Images ---- Started")
-                    window.close()
-                except:
-                    print("Input Error. Please See Instructions")
-                    window.update()
+                #try:
+                    
+                Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog,sb)
+                #print ("Reducing Images ---- Started")
+                window.close()
+                # except:
+                #     print("Pinpoint Error. Please See Instructions")
+                #     window.refresh()
                 
             
             else:
-               print("yes")
+               #print("yes")
                pass
                #Main.Ground_based_transforms(image_dir,refstar_dir)
                
                
                
                
-            print("yes")
+            #print("yes")
             if values["-IN91-"]==True:
                 if values["-IN82-"]==True:
                     try:
@@ -209,11 +213,11 @@ def Gui ():
                 else:
                     try:
                 
-                        Main.space_based_transforms(image_dir,refstar_dir)
+                        Main.space_based_transform(image_dir,refstar_dir)
                         print ("Reducing Images ---- Started")
                         window.close()
                     except:
-                        print("Input Error. Please See Instructions")
+                        print(" space based Input Error. Please See Instructions")
                         #window.update()
             else:
                 try:
