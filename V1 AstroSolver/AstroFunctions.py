@@ -3273,9 +3273,7 @@ def change_sat_positions(filenames,
         sat_checked_int = np.empty(len(sat_checked), dtype=int)
         for sat_num, sat in enumerate(sat_checked):
             sat_checked_int[sat_num] = sat.get()
-        print(sat_checked_int)
         sat_checked_mask = sat_checked_int == 1
-        print(sat_checked_mask)
         for sat in sat_information.sat_names[sat_checked_mask]:
             print(sat)
             index = np.where(sat_information.sat_names == sat)
@@ -3431,7 +3429,7 @@ def change_sat_positions(filenames,
             #             sat_information.uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
             #             # TODO: array FWHMs
             #             # sat_information.sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
-            print(sat_information.sats_table[filenum - reversing_index])
+            # print(sat_information.sats_table[filenum - reversing_index])
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
     return change_sat_positions_bool, sat_information
