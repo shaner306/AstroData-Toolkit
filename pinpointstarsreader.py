@@ -16,7 +16,7 @@ inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\
 inbox2 = 'D:\\trm-stars-images\\NEOS_SCI_2021099173159frame.fits'
 streak2 = 'D:\\Wawrow\\2. Observational Data\\2021-02-07 - Calibrated\\Intelsat 10-02\\LIGHT\\G\\0013_3x3_-10.00_5.00_G_18-32-45.fits'
 
-streak = 'D:\\squid\\SimpleSQUID-CR\\0210_3x3_-10.00_5.00_G_20-18-43.fits'
+streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT'
 f =win32com.client.Dispatch("Pinpoint.plate")
 catloc = 'D:\squid\\USNOA20-All';
 refstars_doc = 'D:\\Reference_stars.xlsx'

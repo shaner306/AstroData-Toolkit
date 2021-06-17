@@ -44,7 +44,7 @@ def Gui ():
                
             [sg.Frame('Source Capture Mode',[[
               sg.T(""), sg.Radio('Star Stare Mode', "RADIO3", default=True),
-               sg.T("            "), sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN92-",disabled=True)]], size=(200,100))],
+               sg.T("            "), sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN92-")]], size=(200,100))],
                   
               [sg.Frame('Image Source',[[      
               sg.T(""), sg.Radio('Ground Based', "RADIO1", default=True, key="-IN82-"),

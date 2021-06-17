@@ -168,9 +168,9 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     return x_centroid, x_rms, y_centroid, y_rms
 
 streak = 'D:\\Wawrow\\2. Observational Data\\2021-02-07 - Calibrated\\Intelsat 10-02\\LIGHT\\G\\0150_3x3_-10.00_5.00_G_19-43-13.fits'
-streak1 = 'D:\\trm-stars-images\\NEOS_SCI_2021099173159frame.fits'
-
-imagehdularray = fits.open(streak)
+streak1 = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT'
+STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
+imagehdularray = fits.open(streak1)
 
 streak_array = []         
 sigma_clip = 3.5           
@@ -209,25 +209,25 @@ im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
 low_clip = im_mean + 2.5 * im_rms
 high_clip = 161
 
-binary_image = np.zeros((1224,1832))
+binary_image = np.zeros((imagesizeX,imagesizeY))
 
 bg_rem[bg_rem<= low_clip]
 #binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
 th, im_th = cv2.threshold(bg_rem, low_clip, 1, cv2.THRESH_BINARY)
 #print(im_mean)
 connected_image = measure.label(im_th, background=0)
-# plt.subplot(133)
-# plt.imshow(connected_image, cmap='nipy_spectral')
-# plt.axis('off')
-# plt.tight_layout()
-# plt.show()
+plt.subplot(133)
+plt.imshow(connected_image, cmap='nipy_spectral')
+plt.axis('off')
+plt.tight_layout()
+plt.show()
 #im = cv2.imread(bg_rem)
 # th, im_th = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
 
 #num_labels, labels_im = cv2.connectedComponents(im_th)
 #num_sourcepix = cv2.connectedComponentsWithStats(binary_image, np.array(connected_image), np.array(stats), np.array(centroids), 4, np.int(CV_32S))
 num_sourcepix =numpy.zeros(shape=(100000,1))
-[size_x, size_y] = 1224,1832
+[size_x, size_y] = imagesizeX,imagesizeY
             
 for x in range(size_x):
     for y in range(size_y):
@@ -320,9 +320,16 @@ for k in range(streaksize):
             if streak_array== []:
                 streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
                 streak_array.append(streak_arrayelement)
-                #print(STARS, '%5.4f %5.4f 10 10 100 %5.0f 0 0.00\n',cen_y, cen_x, obj_flux(rsn))
+                flux=float(obj_flux[real_star_num,0])
+                streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+               
+                STARS.write(streak_line+"\n")
                # print(Streaks_Detected, [num2str(cen_x) ',' num2str(rms_x) ',' num2str(cen_y) ',' num2str(rms_y) ',' num2str(obj_max1(1,rsn)) ',' num2str(temp_SNR) ',' fpath1(i).name '\r\n'])
             else:
                 new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+                flux=float(obj_flux[real_star_num,0])
+                streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+                STARS.write(streak_line+"\n")
                 streak_array.append(new_element)
                
+STARS.close()

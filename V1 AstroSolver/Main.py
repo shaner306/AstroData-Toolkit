@@ -565,8 +565,8 @@ def space_based_transform(directory, ref_stars_file):
     
     return
 
-def trm_photometry():
-    directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\LIGHT'
+def trm_photometry(directory):
+    
     temp_dir = 'tmp'
     max_distance_from_sat = 20
     size = 20
@@ -583,8 +583,8 @@ def trm_photometry():
     sat_fwhm_table.pprint_all()
     uncertainty_table.pprint_all()
     sats_table.pprint_all()
-
-def trm_streak_detection
+    
+#def trm_streak_detection
 
 
 def Image_reduce(reduce_dir, create_master_dark, create_master_flat,create_master_bias, create_master_dir=True):
