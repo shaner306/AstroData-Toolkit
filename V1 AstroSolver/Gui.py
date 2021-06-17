@@ -23,6 +23,7 @@ Find:
 import PySimpleGUI as sg
 import os, os.path
 import Main
+import AstroFunctions as astro
 imagefolder=0
 catalogfolder=0
 refdoc = 0
@@ -35,7 +36,7 @@ def Gui ():
    
     column2 = [[sg.Text('Pinpoint Solve Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
                
-            [sg.T("Maximum Mag.:"),sg.T("     "), sg.InputText('13', size=(5,5), key="-IN51-"), sg.T("Sigma Above Mean:  "), sg.InputText('2.5', size=(5,5), key="-IN52-")],      
+            [sg.T("Maximum Mag.:"),sg.T("     "), sg.InputText('13', size=(5,5), key="-IN51-"), sg.T("Sigma Above Mean:  "), sg.InputText('3.0', size=(5,5), key="-IN52-")],      
             [sg.T("Max Solve Time (sec):"), sg.InputText('60', size=(5,5),key="-IN56-"), sg.T("Max Match Residual:"), sg.InputText('1.5', size=(5,5), key="-IN53-")],
             [sg.T("Catalog Expansion:"),sg.T(""), sg.InputText('0.8', size=(5,5),key="-IN55-"), sg.T("Catalog:"), sg.T("            "), sg.InputText('UCAC4', size=(7,5), disabled=True,  key="-IN54-")]
             ]   
@@ -43,7 +44,7 @@ def Gui ():
     column1 = [[sg.Text('Analysis Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
                
             [sg.Frame('Source Capture Mode',[[
-              sg.T(""), sg.Radio('Star Stare Mode', "RADIO3", default=True),
+              sg.T(""), sg.Radio('Star Stare Mode', "RADIO3", default=True, key="-IN91-"),
                sg.T("            "), sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN92-")]], size=(200,100))],
                   
               [sg.Frame('Image Source',[[      
@@ -58,10 +59,10 @@ def Gui ():
                sg.Input("D:\Solved Stars\Tycho 3023_1724", key="-IN2-" ,change_submits=True), 
                sg.FolderBrowse(key="-IN1-"), sg.Text('')],
               [sg.Text("Catalog Folder:    "), 
-               sg.Input(key="-IN3-" ,change_submits=True), 
+               sg.Input("D:\\squid\\UCAC4", key="-IN3-",change_submits=True), 
                sg.FolderBrowse(key="-IN4-")],
               [sg.Text("Reference Stars:  "), 
-               sg.Input ("D:\Astro2\Reference Star Files\Reference_stars.csv", key="-IN5-" ,change_submits=True), 
+               sg.Input (r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt', key="-IN5-" ,change_submits=True), 
                sg.FileBrowse(key="-IN6-")],
               
               
@@ -110,6 +111,7 @@ def Gui ():
     
         
     while True:
+        window.Refresh()
         event, values = window.read()
         # window["-IN56-"].update("hello")
         
@@ -165,8 +167,11 @@ def Gui ():
             save_data = values["-IN7-"]
             plot_data = values["-IN1013-"]
             
-            
-            
+            if values["-IN82-"]==True:
+                sb=0
+            else:
+                sb=1
+            window.Refresh()
             
             if values["-IN100-"]:
                 max_mag = values["-IN51-"]
@@ -176,38 +181,69 @@ def Gui ():
                 catalog_exp = values["-IN55-"]
                 max_solve_time = values["-IN56-"]
                 
-                try:
-            
-                    Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog)
-                    print ("Reducing Images ---- Started")
-                    window.close()
-                except:
-                    print("Input Error. Please See Instructions")
-                    window.update()
+                #try:
+                    
+                Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog,sb)
+                #print ("Reducing Images ---- Started")
+                window.close()
+                # except:
+                #     print("Pinpoint Error. Please See Instructions")
+                #     window.refresh()
                 
             
             else:
-               continue
-               # Main.Ground_based_transforms(image_dir,refstar_dir)
-            if values["-IN82-"]==True:
-                try:
-            
-                    Main.Ground_based_transforms(image_dir,refstar_dir)
-                    print (image_dir,refstar_dir)
-                    window.close()
-                except:
-                    print("Input Error. Please See Instructions")
-                    #window.update()
+               #print("yes")
+               pass
+               #Main.Ground_based_transforms(image_dir,refstar_dir)
+               
+               
+               
+               
+            #print("yes")
+            if values["-IN91-"]==True:
+                if values["-IN82-"]==True:
+                    try:
+                
+                        Main.Ground_based_transforms(image_dir,refstar_dir)
+                        print (image_dir,refstar_dir)
+                        window.close()
+                    except:
+                        print("Input Error. Please See Instructions")
+                        #window.update()
+                else:
+                    try:
+                
+                        Main.space_based_transform(image_dir,refstar_dir)
+                        print ("Reducing Images ---- Started")
+                        window.close()
+                    except:
+                        print(" space based Input Error. Please See Instructions")
+                        #window.update()
             else:
                 try:
-            
-                    Main.space_based_transforms(image_dir,refstar_dir)
-                    print ("Reducing Images ---- Started")
-                    window.close()
+                        temp_dir = 'tmp'
+                        max_distance_from_sat = 20
+                        size = 20
+                        max_num_nan = 5
+                        plot_results = 0
+                        
+                        sats_table, uncertainty_table, sat_fwhm_table = astro._main_sc_lightcurve(image_dir, 
+                                                                                                  temp_dir=temp_dir, 
+                                                                                                  max_distance_from_sat=max_distance_from_sat, 
+                                                                                                  size=size, 
+                                                                                                  max_num_nan=max_num_nan, 
+                                                                                                  plot_results=plot_results)
+                        
+                        sat_fwhm_table.pprint_all()
+                        uncertainty_table.pprint_all()
+                        sats_table.pprint_all()
+                        window.Refresh()
+                        print (image_dir)
+                        window.close()
                 except:
-                    print("Input Error. Please See Instructions")
-                    #window.update()
-                
+                        print("Input Error. Please See Instructions")
+                        #window.update()
+                        continue
                 
                 
             

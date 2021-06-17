@@ -45,6 +45,7 @@ from photutils.background import Background2D
 from photutils.background import ModeEstimatorBackground
 from photutils.background import MedianBackground
 import pandas as pd
+import numpy
 # from scipy.optimize import curve_fit
 
 
@@ -78,6 +79,116 @@ def init_linear_fitting(niter=3, sigma=3.0):
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
     line_init = Linear1D()
     return fit, or_fit, line_init
+
+def BackgroundIteration(image, tolerance):       
+    old_mean = 1e9
+    old_rms   = 1e9
+    
+    new_mean = 2e9
+    new_rms = 2e9
+    
+    while abs(new_rms - old_rms) > (tolerance * old_rms):
+        old_mean = float(new_mean)
+        old_rms = float(new_rms)
+        #image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
+    	
+        if (np.size(image) == 0):
+            new_mean = 0
+            new_rms = 2e9
+            break
+      
+            
+       	new_mean = mean(image)
+       	new_rms   = numpy.std(image)
+        retval = [new_mean, new_rms]
+       	return new_mean, new_rms
+    
+    
+def myclip(x1,lo,hi):
+        vector = np.vectorize(np.float)
+        x= vector(x1)
+        
+        float(hi)
+        float(lo)
+        #print(x)
+        #print(hi)
+        #print(lo)
+
+       	y = (x * np.any(x<= hi)) + ((hi) * np.any(x> hi))
+       	y = (y * np.any(y>lo)) + ((lo) * np.any(y<=lo))
+        return y
+def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
+      
+    num_elem_x = mask_x.size
+    num_elem_y = mask_y.size
+    sum1 = 0
+    pix_flux = np.zeros((num_elem_x))    
+    for i in range(num_elem_x):
+        x_pix = mask_x[i]
+        y_pix = mask_y[i]
+        
+        sum1 = sum1 + flux_image[x_pix, y_pix]
+        pix_flux[i] = flux_image[x_pix, y_pix]
+    
+    object_flux = sum1
+    max_pixel_flux = max(pix_flux)
+    return object_flux, max_pixel_flux
+def MomentCalculation(xmask, ymask, xc, yc, p, q):
+        num_pix = xmask.size
+        mom = sum((xmask - xc)**p * (ymask - yc)**q) / num_pix
+        moment=mom
+        return moment
+
+def EccentricityCalculation(m11, m02, m20):
+    eccent = numpy.sqrt((m20 - m02)**2 + (4*m11**2))/ (m20+m02)
+    return eccent
+
+def Compact(num_pix, m02, m20):
+    compact = (num_pix/(m02 + m20))
+    return compact
+
+def WeightedCentroid(mask_x, mask_y, flux_image):
+  
+    num_elem_x = mask_x.size
+    num_elem_y = mask_y.size
+    x_wt_sum = 0
+    y_wt_sum = 0
+    flux_sum = 0
+    #print("2")
+    if num_elem_x != num_elem_y:
+        object_flux = -999
+        #print("3")
+        return
+    else:
+      for i in range(num_elem_x):
+                       
+                x_pix = mask_x[i]
+                y_pix = mask_y[i]
+                
+                x_wt_sum =x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
+                y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
+                flux_sum = flux_sum + flux_image[x_pix, y_pix]
+            
+    x_centroid = x_wt_sum / flux_sum
+    y_centroid = y_wt_sum / flux_sum
+    
+    
+    x_var_sum = 0
+    y_var_sum = 0
+    flux_sum = 0
+    #print("2")
+    for i in range(num_elem_x):
+                   
+            x_pix = mask_x[i]
+            y_pix = mask_y[i]
+            
+            x_var_sum =x_var_sum + ((x_pix-x_centroid)**2 * flux_image[x_pix, y_pix])
+            y_var_sum = y_var_sum + ((y_pix-y_centroid)**2 * flux_image[x_pix, y_pix])
+            flux_sum = flux_sum + flux_image[x_pix, y_pix]
+            
+    x_rms = numpy.sqrt(x_var_sum/flux_sum)
+    y_rms = numpy.sqrt(y_var_sum/flux_sum)
+    return x_centroid, x_rms, y_centroid, y_rms
 
 
 def read_ref_stars(ref_stars_file):

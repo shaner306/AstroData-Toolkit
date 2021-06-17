@@ -323,29 +323,39 @@ def getFileList(inbox):
     
     list1 = os.listdir(inbox) #List of Files
     listSize = len(list1) #Number of Files
-    print(listSize)
+    #print(listSize)
     c=list1
-    print(c)
+    #print(c)
     #o=0;
     for i in range(1,listSize):
-        print(c[i])
+        #print(c[i])
         filepath2 = inbox+"\\"+c[i]
         filepathall.append(filepath2)
         #o=o+1;
     return filepathall
     #o=0;
-def fits_header_import(filepath, filter_key='FILTER'):
+def fits_header_import(filepath, sb, filter_key='FILTER'):
         imagehdularray = fits.open(filepath)
         header = imagehdularray[0].header
         date=imagehdularray[0].header['DATE-OBS']
-        exposuretime=imagehdularray[0].header['EXPTIME']
+        if sb==1:
+            exposuretime=imagehdularray[0].header['AEXPTIME'] 
+            XPIXSZ=0
+            YPIXSZ=0
+        else:
+            exposuretime=imagehdularray[0].header['EXPTIME']
+            XPIXSZ=imagehdularray[0].header['XPIXSZ']
+            YPIXSZ=imagehdularray[0].header['YPIXSZ']
+            focal_Length=imagehdularray[0].header['FOCALLEN']
+            
+            
         imagesizeX=imagehdularray[0].header['NAXIS1']
         imagesizeY=imagehdularray[0].header['NAXIS2']
         fitsdata =  imagehdularray[0].data
         #focal_Length=imagehdularray[0].header['FOCALLEN']
-        XPIXSZ=imagehdularray[0].header['XPIXSZ']
-        YPIXSZ=imagehdularray[0].header['YPIXSZ']
+        
         filt=imagehdularray[0].header['FILTER']
+
         wcs = WCS(header)
         return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ, wcs
 
@@ -355,8 +365,9 @@ def calc_ArcsecPerPixel(header):
    ypix_size=header['XPIXSZ']
    xbin=header['XPIXSZ']
    ybin=header['XPIXSZ']
-   x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
-   y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
+   print(str(focal_Length) + " " + str(xpix_size))
+   x_arcsecperpixel = math.atan(xpix_size/(focal_Length))*206.265  
+   y_arcsecperpixel = math.atan(ypix_size/(focal_Length))*206.265  
    
    return x_arcsecperpixel, y_arcsecperpixel
 
@@ -375,10 +386,14 @@ def edge_Protect (bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
 # inbox, catloc, refstars_doc = Gui()
 # print(imagefolder, catalogfolder, refdoc)
 
-inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT' #Image Location of .fits Format
+inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B' #Image Location of .fits Format
+inbox1= r'D:\NEOSSat-SA-111\test'
+
+
 #refstars_doc = 'D:\\Reference_stars.xlsx'
 #refstars_csv='D:\\Reference_stars.csv' #Reference Star List
-catloc = 'D:\squid\\USNOA20-All'; #Catalog #TODO Change Catalog to UCAC3 
+catloc1 = 'D:\squid\\USNOA20-All'; #Catalog #TODO Change Catalog to UCAC3 
+catloc2 = 'D:\squid\\UCAC4';
 save_loc = os.path.join(inbox, 'Outputs') # Output Folder for Files
 
 "#TODO Initialize these once astroreduction is included"
@@ -409,14 +424,14 @@ min_obj_pixels = 5 #Min Pixels to qualify as a Point Source
 SNRLimit = 0; #Signal-To-Noise Ratio
 ground_based = False
 space_based = False # TODO Add Ground Based Selection Input
-pinpoint = False #TODO Add Pinpoint Solve or Not to GUI
+pinpoint = True #TODO Add Pinpoint Solve or Not to GUI
 plot_results = True
 TRM = False
 save_plots = True
 remove_large_airmass = False
 image_reduce=False
 "Opening Image Folder and Determing the number of files"
-filepathall = getFileList(inbox); #Get List of Images
+#filepathall = getFileList(inbox); #Get List of Images
 
 # -*- coding: utf-8 -*-
 """
@@ -426,7 +441,7 @@ Created on Mon May 31 12:35:34 2021
 @author: jmwawrow
 """
 
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat):
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb):
         f = pinpoint_init()
         filepathall = getFileList(inbox)
         file_suffix=".fits"
@@ -439,7 +454,8 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                     print("Processing Image: " + filepath)
                     
                     "Import Data from FITS Image"
-                    imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepath)
+                    header=0
+                    imagehdularray, date, exposure_Time,imagesizeX, imagesizeY, fitsdata, filt, header,XPIXSZ, YPIXSZ,wcs = fits_header_import(filepath, sb)
                 
                     """Pinpoint Solve"""
                     if pinpoint:
@@ -447,33 +463,46 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             f.AttachFITS(filepath)
                             f.Declination = f.targetDeclination
                             f.RightAscension = f.targetRightAscension 
-                            x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+                           
+                            #x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
                             # yBin = 4.33562092816E-004*3600;
                             # xBin =  4.33131246330E-004*3600; 
-                            f.ArcsecperPixelHoriz  =  x_arcsecperpixel
-                            f.ArcsecperPixelVert =  y_arcsecperpixel
-                            
+                            # f.ArcsecperPixelHoriz  = 4.556
+                            # f.ArcsecperPixelVert =  4.556
+                            if sb==1:
+                                yBin = 4.33562092816E-004*3600*2 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                                xBin =  4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            else:
+                                yBin = 4.33562092816E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                                xBin =  4.33131246330E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            f.ArcsecperPixelHoriz  = xBin    #%CCD Pixel scale on CD
+                            f.ArcsecperPixelVert = yBin
+                            #print(f.ArcsecperPixelVert)
                             
                             "Pinpoint Solve Inputs"
                             #TODO Add Inputs for pinpoint solving to GUI
-                            f.Catalog = 5
+                            f.Catalog = 11
                             f.CatalogPath = catloc
+                            #print(f.CatalogPath)
                             f.CatalogMaximumMagnitude = max_mag
+                            #print(f.CatalogMaximumMagnitude)
                             f.CatalogExpansion = catexp
-                            f.SigmaAboveMean = sigma
-                            f.FindImageStars
-                            f.FindCatalogStars
-                            f.MaxSolveTime = max_solve_time 
+                            f.MaxSolveTime = max_solve_time
                             f.MaxMatchResidual = match_residual
+                            f.SigmaAboveMean = sigma
+                            f.RemoveHotPixels()
+                            
+                            
+                            
                     
                             
                             "Pinpoint Solving"
                             f.FindCatalogStars()
-                            print(f.CatalogStars.Count)
+                            #print(f.CatalogStars.Count)
                             f.FindImageStars()
-                            print(f.ImageStars.Count)
+                            #print(f.ImageStars.Count)
                             f.Solve()
-                            #f.MatchedStars.count
+                            #print( f.MatchedStars.count)
                             #f.FindImageStars()
                             #print(f.ImageStars)
                             
@@ -483,8 +512,8 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             f=None
                             print ("Pinpoint Solved")
                         except:
-                            print("Could Not Solve")
-                            continue
+                              print("Could Not Solve")
+                              continue
 
             
 "Import Data from FITS Image"

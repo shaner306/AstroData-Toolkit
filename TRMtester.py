@@ -167,13 +167,14 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     y_rms = numpy.sqrt(y_var_sum/flux_sum)
     return x_centroid, x_rms, y_centroid, y_rms
 
-streak = 'D:\\Wawrow\\2. Observational Data\\2021-02-07 - Calibrated\\Intelsat 10-02\\LIGHT\\G\\0150_3x3_-10.00_5.00_G_19-43-13.fits'
-streak1 = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT'
+streak1 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
+streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
+streak12 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
 STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
 imagehdularray = fits.open(streak1)
 
 streak_array = []         
-sigma_clip = 3.5           
+sigma_clip = 2.5           
 edge_protect = 10          
 min_obj_pixels = 5
 SNRLimit = 0
@@ -213,6 +214,9 @@ binary_image = np.zeros((imagesizeX,imagesizeY))
 
 bg_rem[bg_rem<= low_clip]
 #binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
+
+
+
 th, im_th = cv2.threshold(bg_rem, low_clip, 1, cv2.THRESH_BINARY)
 #print(im_mean)
 connected_image = measure.label(im_th, background=0)
@@ -229,8 +233,8 @@ plt.show()
 num_sourcepix =numpy.zeros(shape=(100000,1))
 [size_x, size_y] = imagesizeX,imagesizeY
             
-for x in range(size_x):
-    for y in range(size_y):
+for x in range(0,size_y):
+    for y in range(0,size_x):
         pixval = connected_image[x,y]
         
         if (pixval != 0):
@@ -281,7 +285,8 @@ for j in range(num_valid_sources):
 [compact_mean, compact_rms] = BackgroundIteration(compact,0.1)
 [ecct_mean, ecct_rms] = BackgroundIteration(ecct,0.1)
 compact_cut = compact_mean  + 1 * compact_rms  
-ecct_cut = 0.7 
+ecct_cut = 0.5
+
 stars = numpy.nonzero(ecct < ecct_cut)
 streaks = numpy.nonzero(ecct > ecct_cut)
 stars= np.delete(stars, 1,0)
