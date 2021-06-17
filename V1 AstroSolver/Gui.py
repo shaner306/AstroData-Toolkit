@@ -23,6 +23,7 @@ Find:
 import PySimpleGUI as sg
 import os, os.path
 import Main
+import AstroFunctions as astro
 imagefolder=0
 catalogfolder=0
 refdoc = 0
@@ -43,7 +44,7 @@ def Gui ():
     column1 = [[sg.Text('Analysis Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
                
             [sg.Frame('Source Capture Mode',[[
-              sg.T(""), sg.Radio('Star Stare Mode', "RADIO3", default=True),
+              sg.T(""), sg.Radio('Star Stare Mode', "RADIO3", default=True, key="-IN91-"),
                sg.T("            "), sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN92-")]], size=(200,100))],
                   
               [sg.Frame('Image Source',[[      
@@ -110,6 +111,7 @@ def Gui ():
     
         
     while True:
+        window.Refresh()
         event, values = window.read()
         # window["-IN56-"].update("hello")
         
@@ -165,8 +167,7 @@ def Gui ():
             save_data = values["-IN7-"]
             plot_data = values["-IN1013-"]
             
-            
-            
+            window.Refresh()
             
             if values["-IN100-"]:
                 max_mag = values["-IN51-"]
@@ -187,27 +188,58 @@ def Gui ():
                 
             
             else:
-               continue
-               # Main.Ground_based_transforms(image_dir,refstar_dir)
-            if values["-IN82-"]==True:
-                try:
-            
-                    Main.Ground_based_transforms(image_dir,refstar_dir)
-                    print (image_dir,refstar_dir)
-                    window.close()
-                except:
-                    print("Input Error. Please See Instructions")
-                    #window.update()
+               print("yes")
+               pass
+               #Main.Ground_based_transforms(image_dir,refstar_dir)
+               
+               
+               
+               
+            print("yes")
+            if values["-IN91-"]==True:
+                if values["-IN82-"]==True:
+                    try:
+                
+                        Main.Ground_based_transforms(image_dir,refstar_dir)
+                        print (image_dir,refstar_dir)
+                        window.close()
+                    except:
+                        print("Input Error. Please See Instructions")
+                        #window.update()
+                else:
+                    try:
+                
+                        Main.space_based_transforms(image_dir,refstar_dir)
+                        print ("Reducing Images ---- Started")
+                        window.close()
+                    except:
+                        print("Input Error. Please See Instructions")
+                        #window.update()
             else:
                 try:
-            
-                    Main.space_based_transforms(image_dir,refstar_dir)
-                    print ("Reducing Images ---- Started")
-                    window.close()
+                        temp_dir = 'tmp'
+                        max_distance_from_sat = 20
+                        size = 20
+                        max_num_nan = 5
+                        plot_results = 0
+                        
+                        sats_table, uncertainty_table, sat_fwhm_table = astro._main_sc_lightcurve(image_dir, 
+                                                                                                  temp_dir=temp_dir, 
+                                                                                                  max_distance_from_sat=max_distance_from_sat, 
+                                                                                                  size=size, 
+                                                                                                  max_num_nan=max_num_nan, 
+                                                                                                  plot_results=plot_results)
+                        
+                        sat_fwhm_table.pprint_all()
+                        uncertainty_table.pprint_all()
+                        sats_table.pprint_all()
+                        window.Refresh()
+                        print (image_dir)
+                        window.close()
                 except:
-                    print("Input Error. Please See Instructions")
-                    #window.update()
-                
+                        print("Input Error. Please See Instructions")
+                        #window.update()
+                        continue
                 
                 
             
