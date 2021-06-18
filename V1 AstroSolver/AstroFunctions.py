@@ -3896,8 +3896,7 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
     uncertainty_table = sat_information.uncertainty_table
     sat_fwhm_table = sat_information.sat_fwhm_table
     sat_dict = interpolate_sats(sats_table, uncertainty_table)
-    print(sat_dict)
-    return sats_table, uncertainty_table, sat_fwhm_table
+    return sat_dict, sats_table, uncertainty_table, sat_fwhm_table
         
 
 def __debugging__(gb_final_transforms, save_loc):
