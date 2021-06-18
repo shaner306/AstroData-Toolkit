@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Run the light curve generation process..
+Run the light curve generation process.
 Created on Thu Jun  3 11:16:13 2021
 
 @author: jmwawrow
 """
 import AstroFunctions as astro
 
-directory = 'D:\\Transfer to mac\\2021-03-10 - Calibrated\\Intelsat 10-02 Post Eclipse\\LIGHT\\B_lim'
+# directory = 'D:\\Transfer to mac\\2021-03-10 - Calibrated\\Intelsat 10-02 Post Eclipse\\LIGHT\\B_lim'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\Test'
 
 temp_dir = 'tmp'
 max_distance_from_sat = 20
