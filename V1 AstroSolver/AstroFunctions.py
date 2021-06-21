@@ -46,6 +46,7 @@ from photutils.background import ModeEstimatorBackground
 from photutils.background import MedianBackground
 import pandas as pd
 import numpy
+from skimage import measure
 # from scipy.optimize import curve_fit
 
 
@@ -471,8 +472,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
         fwhms_arcsec = fwhms
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
-
-def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=15):
+def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=5):
     """
     Perform PSF photometry on all sources in a selected image.
 
@@ -526,6 +526,71 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
+    
+    photometry = BasicPSFPhotometry(group_maker=daogroup, 
+                                    bkg_estimator=None, 
+                                    psf_model=psf_model, 
+                                    fitter=fitter,
+                                    fitshape=fitshape)
+    photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+    return photometry_result
+
+
+def perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=5):
+    """
+    Perform PSF photometry on all sources in a selected image.
+
+    Parameters
+    ----------
+    irafsources : astropy.table.Table
+        Table containing information of all stars detected in the image.
+        Has columns:
+            id,
+            xcentroid,
+            ycentroid,
+            fwhm,
+            sharpness,
+            roundness,
+            pa,
+            npix,
+            sky,
+            peak,
+            flux,
+            mag
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    imgdata : numpy.ndarray
+        Data from the fits file.
+    bkg : float, optional
+        Background value of the image in ADU. The default is None.
+    bkg_estimator : callable, instance of any photutils.background.BackgroundBase subclass, optional
+        bkg_estimator should be able to compute either a scalar background or a 2D background of a given 2D image. 
+        If None, no background subtraction is performed. The default is None.
+    fitter : astropy.modeling.fitting.Fitter instance, optional
+        Fitter object used to compute the optimized centroid positions and/or flux of the identified sources. 
+        The default is LevMarLSQFitter().
+    fitshape : int or length-2 array-like, optional
+        Rectangular shape around the center of a star which will be used to collect the data to do the fitting. 
+        Can be an integer to be the same along both axes. For example, 5 is the same as (5, 5), 
+        which means to fit only at the following relative pixel positions: [-2, -1, 0, 1, 2]. 
+        Each element of fitshape must be an odd number. The default is 25.
+
+    Returns
+    -------
+    photometry_result : astropy.table.Table or None
+        Table with the photometry results, i.e., centroids and fluxes estimations and the initial estimates used to 
+        start the fitting process. Uncertainties on the fitted parameters are reported as columns called 
+        <paramname>_unc provided that the fitter object contains a dictionary called fit_info with the key param_cov, 
+        which contains the covariance matrix. If param_cov is not present, uncertanties are not reported.
+
+    """
+    daogroup = DAOGroup(2 * fwhm)
+    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
+    psf_model.x_0.fixed = True
+    psf_model.y_0.fixed = True
+    pos = Table(names=['x_0', 'y_0'],
+                data=[sat_x, sat_y])
+    
     photometry = BasicPSFPhotometry(group_maker=daogroup, 
                                     bkg_estimator=None, 
                                     psf_model=psf_model, 
@@ -3064,6 +3129,306 @@ def remove_temp_dir(temp_dir='tmp'):
     rmtree(temp_dir)
 
 
+def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, min_obj_pixels=5):
+    def BackgroundIteration(image, tolerance):       
+        # old_mean = 1e9
+        old_rms   = 1e9
+        
+        new_mean = 2e9
+        new_rms = 2e9
+        
+        while abs(new_rms - old_rms) > (tolerance * old_rms):
+            # old_mean = float(new_mean)
+            old_rms = float(new_rms)
+            #image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
+        	
+            if (np.size(image) == 0):
+                new_mean = 0
+                new_rms = 2e9
+                break
+          
+                
+            new_mean = np.mean(image)
+            new_rms   = np.std(image)
+            # retval = [new_mean, new_rms]
+            return new_mean, new_rms
+        
+        
+    def myclip(x1,lo,hi):
+            vector = np.vectorize(np.float)
+            x= vector(x1)
+            
+            float(hi)
+            float(lo)
+            #print(x)
+            #print(hi)
+            #print(lo)
+    
+            y = (x * np.any(x<= hi)) + ((hi) * np.any(x> hi))
+            y = (y * np.any(y>lo)) + ((lo) * np.any(y<=lo))
+            return y
+    def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
+          
+        num_elem_x = mask_x.size
+        # num_elem_y = mask_y.size
+        sum1 = 0
+        pix_flux = np.zeros((num_elem_x))    
+        for i in range(num_elem_x):
+            x_pix = mask_x[i]
+            y_pix = mask_y[i]
+            
+            sum1 = sum1 + flux_image[x_pix, y_pix]
+            pix_flux[i] = flux_image[x_pix, y_pix]
+        
+        object_flux = sum1
+        max_pixel_flux = max(pix_flux)
+        return object_flux, max_pixel_flux
+    def MomentCalculation(xmask, ymask, xc, yc, p, q):
+            num_pix = xmask.size
+            mom = sum((xmask - xc)**p * (ymask - yc)**q) / num_pix
+            moment=mom
+            return moment
+    
+    def EccentricityCalculation(m11, m02, m20):
+        eccent = np.sqrt((m20 - m02)**2 + (4*m11**2))/ (m20+m02)
+        return eccent
+    
+    def Compact(num_pix, m02, m20):
+        compact = (num_pix/(m02 + m20))
+        return compact
+    
+    def WeightedCentroid(mask_x, mask_y, flux_image):
+      
+        num_elem_x = mask_x.size
+        num_elem_y = mask_y.size
+        x_wt_sum = 0
+        y_wt_sum = 0
+        flux_sum = 0
+        #print("2")
+        if num_elem_x != num_elem_y:
+            # object_flux = -999
+            #print("3")
+            return
+        else:
+          for i in range(num_elem_x):
+                           
+                    x_pix = mask_x[i]
+                    y_pix = mask_y[i]
+                    
+                    x_wt_sum =x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
+                    y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
+                    flux_sum = flux_sum + flux_image[x_pix, y_pix]
+                
+        x_centroid = x_wt_sum / flux_sum
+        y_centroid = y_wt_sum / flux_sum
+        
+        
+        x_var_sum = 0
+        y_var_sum = 0
+        flux_sum = 0
+        #print("2")
+        for i in range(num_elem_x):
+                       
+                x_pix = mask_x[i]
+                y_pix = mask_y[i]
+                
+                x_var_sum =x_var_sum + ((x_pix-x_centroid)**2 * flux_image[x_pix, y_pix])
+                y_var_sum = y_var_sum + ((y_pix-y_centroid)**2 * flux_image[x_pix, y_pix])
+                flux_sum = flux_sum + flux_image[x_pix, y_pix]
+                
+        x_rms = np.sqrt(x_var_sum/flux_sum)
+        y_rms = np.sqrt(y_var_sum/flux_sum)
+        return x_centroid, x_rms, y_centroid, y_rms
+    
+    # streak1 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
+    # streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
+    # streak12 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
+    # STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
+    hdr, fitsdata = read_fits_file(filepath)
+    # imagehdularray = fits.open(filepath)
+    
+    # streak_array = []         
+    # sigma_clip = 2.5           
+    # edge_protect = 10          
+    # min_obj_pixels = 5
+    # SNRLimit = 0
+    
+    # date=imagehdularray[0].header['DATE-OBS']
+    # exposuretime=imagehdularray[0].header['EXPTIME']
+    # imagesizeX=imagehdularray[0].header['NAXIS1']
+    # imagesizeY=imagehdularray[0].header['NAXIS2']
+    imagesizeX=hdr['NAXIS1']
+    imagesizeY=hdr['NAXIS2']
+    # fitsdata =  imagehdularray[0].data 
+    sigma_clip = SigmaClip(sigma=2.5)
+    # bkg = SExtractorBackground(sigma_clip)
+    # bkg_value = bkg.calc_background(fitsdata)
+    
+    #print(bkg_value)
+    # bkg = MeanBackground(sigma_clip)
+    # bkg_value = bkg.calc_background(fitsdata)
+    # bkg_estimator1 = SExtractorBackground()
+    bkg_estimator2 = SExtractorBackground()
+    #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    bg_rem = fitsdata - bkg.background
+    
+    # print(np.mean(bkg.background))
+    
+    bg_rem[1:edge_protect,1:edge_protect] = 0
+    bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
+    bg_rem[:, 1:edge_protect] = 0
+    bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
+    im_mean = np.mean(bg_rem)
+    
+    im_rms=np.std(fitsdata)
+    im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
+    low_clip = im_mean + 2.5 * im_rms
+    # high_clip = 161
+    
+    # binary_image = np.zeros((imagesizeX,imagesizeY))
+    
+    bg_rem[bg_rem<= low_clip]
+    #binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
+    
+    
+    
+    th, im_th = cv.threshold(bg_rem, low_clip, 1, cv.THRESH_BINARY)
+    #print(im_mean)
+    connected_image = measure.label(im_th, background=0)
+    # plt.subplot(133)
+    # plt.imshow(connected_image, cmap='nipy_spectral')
+    # plt.axis('off')
+    # plt.tight_layout()
+    # plt.show()
+    #im = cv2.imread(bg_rem)
+    # th, im_th = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
+    
+    #num_labels, labels_im = cv2.connectedComponents(im_th)
+    #num_sourcepix = cv2.connectedComponentsWithStats(binary_image, np.array(connected_image), np.array(stats), np.array(centroids), 4, np.int(CV_32S))
+    num_sourcepix =np.zeros(shape=(100000,1))
+    [size_x, size_y] = imagesizeX,imagesizeY
+                
+    for x in range(0,size_y):
+        for y in range(0,size_x):
+            pixval = connected_image[x,y]
+            
+            if (pixval != 0):
+                num_sourcepix[pixval, 0] = num_sourcepix[pixval, 0] + 1
+     
+    [valid_sources, temp] = np.nonzero(num_sourcepix > min_obj_pixels)
+    num_valid_sources = valid_sources.size
+    if num_valid_sources == 0:
+        return
+    
+    centroid_x = np.zeros((num_valid_sources,1))
+    centroid_y = np.zeros((num_valid_sources,1))
+    rms_x_pos = np.zeros((num_valid_sources,1))
+    rms_y_pos = np.zeros((num_valid_sources,1))
+    m11        = np.zeros((num_valid_sources,1))
+    m02        = np.zeros((num_valid_sources,1))
+    m20        = np.zeros((num_valid_sources,1))
+    ecct       = np.zeros((num_valid_sources,1))
+    compact    = np.zeros((num_valid_sources,1))
+    obj_flux   = np.zeros((num_valid_sources,1))
+    obj_max1   = np.zeros((num_valid_sources,1))
+    length     = np.zeros((num_valid_sources,1))
+    
+    
+    for j in range(num_valid_sources):
+    
+        vsj = valid_sources[j]  
+    
+        [mask_x, mask_y] = np.nonzero(connected_image == vsj)
+        obj_flux[j], obj_max1[j] = PointSourceFluxExtraction(mask_x, mask_y, bg_rem)
+        
+      
+        centroid_x[j] = np.mean(mask_x)
+        rms_x_pos[j] = np.std(mask_x)
+        centroid_y[j] = np.mean(mask_y)
+        rms_y_pos[j] = np.std(mask_y)
+    
+        m11[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 1,1)
+        m02[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 0,2)
+        m20[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 2,0)
+        compact[j] = Compact(num_sourcepix[vsj], m02[j], m20[j])
+        ecct[j] = EccentricityCalculation(m11[j], m02[j], m20[j])
+    
+        x_length = (max(mask_x) - min(mask_x))
+        y_length = (max(mask_y) - min(mask_y))
+        length[j] = np.sqrt(x_length**2 + y_length**2)
+    
+                
+    
+    # [compact_mean, compact_rms] = BackgroundIteration(compact,0.1)
+    [ecct_mean, ecct_rms] = BackgroundIteration(ecct,0.1)
+    # compact_cut = compact_mean  + 1 * compact_rms  
+    # ecct_cut = 0.5
+    
+    stars = np.nonzero(ecct < ecct_cut)
+    streaks = np.nonzero(ecct > ecct_cut)
+    stars= np.delete(stars, 1,0)
+    streaks= np.delete(streaks, 1,0)
+    sda = valid_sources[stars]
+    if len(sda) == 0:
+        return
+    num_pix_in_stars = num_sourcepix[sda]
+    [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1)
+    
+    sat_x = centroid_y[stars].flatten()
+    sat_y = centroid_x[stars].flatten()
+    # sat_array = np.empty((len(stars[0]), 2))
+    # for sat_index in range(len(stars[0])):
+    #     sat_array[sat_index][0] = float(sat_x[0][sat_index])
+    #     sat_array[sat_index][1] = float(sat_y[0][sat_index])
+    
+    
+    # pix_cutoff = mean_starpix + 10 * rms_starpix
+    
+    # num_stars = stars.size
+    
+    # stellar_flux_SNR = np.zeros((num_valid_sources,1))
+                
+    # xmin = edge_protect
+    # xmax = imagesizeX - edge_protect
+    # ymin = edge_protect
+    # ymax = imagesizeY - edge_protect
+    # streaksize = streaks.size
+    
+    # for k in range(streaksize):
+        
+    #     real_star_num = streaks[0,k]  
+    #     vsj = valid_sources[real_star_num]   
+    #     [mask_x, mask_y] = np.nonzero(connected_image == vsj)
+    
+    #     [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, bg_rem)
+        
+    #     temp_SNR = obj_max1[real_star_num]/im_rms
+    #     stellar_flux_SNR[k] = temp_SNR
+    #     #print(temp_SNR)
+    #     if temp_SNR > SNRLimit:
+    #         if ((cen_x > xmin) & (cen_x < xmax) & (cen_y > ymin) & (cen_y < ymax)):
+    #             stellar_flux_SNR[k] = temp_SNR
+    
+    #             if streak_array== []:
+    #                 streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+    #                 streak_array.append(streak_arrayelement)
+    #                 flux=float(obj_flux[real_star_num,0])
+    #                 streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+                   
+    #                 STARS.write(streak_line+"\n")
+    #                # print(Streaks_Detected, [num2str(cen_x) ',' num2str(rms_x) ',' num2str(cen_y) ',' num2str(rms_y) ',' num2str(obj_max1(1,rsn)) ',' num2str(temp_SNR) ',' fpath1(i).name '\r\n'])
+    #             else:
+    #                 new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+    #                 flux=float(obj_flux[real_star_num,0])
+    #                 streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+    #                 STARS.write(streak_line+"\n")
+    #                 streak_array.append(new_element)
+                   
+    # STARS.close()
+    return sat_x, sat_y, bkg.background
+
+
 def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
     """
     Initialize the names and locations of the satellites to create a light curve for.
@@ -3285,10 +3650,10 @@ def plot_detected_sats(filename,
         plt.close()
 
 
-def check_if_sat(sat_information, index, irafsources, instr_mags, instr_mags_sigma, fwhms_arcsec, max_distance_from_sat=20):
-    for obj_index, obj in enumerate(irafsources):
-        obj_x = obj['xcentroid']
-        obj_y = obj['ycentroid']
+def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, instr_mags_sigma, fwhms_arcsec, max_distance_from_sat=20):
+    for obj_index in range(len(sat_x_array)):
+        obj_x = sat_x_array[obj_index]
+        obj_y = sat_y_array[obj_index]
         for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
             sat_x = sat[0]
             sat_y = sat[1]
@@ -3404,25 +3769,13 @@ def change_sat_positions(filenames,
             hdr, imgdata = read_fits_file(filepath)
             print(filenames[filenum - reversing_index])
             filename = filenames[filenum - reversing_index]
-            # Do the photometry on the images. Should change this to a bunch of function calls, rather than copy
-            # and pasting the code.
-            exptime = hdr['EXPTIME'] * u.s  # Store the exposure time with unit seconds.
+            exptime = hdr['EXPTIME'] * u.s
+            sat_x, sat_y, bkg_trm = TRM_sat_detection(filepath)
             bkg, bkg_std = calculate_img_bkg(imgdata)
-            # mean_val, median_val, std_val = sigma_clipped_stats(imgdata)  # Calculate background stats.
             irafsources = detecting_stars(imgdata, bkg, bkg_std)
-            # iraffind = IRAFStarFinder(threshold=4*std_val, fwhm=2)  # Find stars using IRAF.
-            # irafsources = iraffind(imgdata - median_val)  # Subtract background median value.
             if not irafsources:
                 sat_information.num_nans[:] = 0
                 continue
-            # try:
-            #     irafsources.sort('flux', reverse=True)  # Sort the stars by flux, from greatest to least.
-            # except Exception as e:
-            #     # Reset the NaN boolean as it doesn't count.
-            #     num_nans[:] = 0
-            #     continue
-            # irafpositions = np.transpose((irafsources['xcentroid'],
-            #                               irafsources['ycentroid']))  # Store source positions as a numpy array.
             plot_detected_sats(filename,
                                plot_results, 
                                imgdata, 
@@ -3430,117 +3783,20 @@ def change_sat_positions(filenames,
                                sat_information, 
                                max_distance_from_sat=max_distance_from_sat, 
                                norm=LogNorm())
-            # if plot_results != 0:
-            #     fig, ax = plt.subplots()
-            #     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
-            #     ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
-            #                s=100, edgecolor='red', facecolor='none')
-            #     for i in range(0, sat_information.num_sats):
-            #         rect = patches.Rectangle(
-            #             (sat_locs[i, 0] - max_distance_from_sat, sat_locs[i, 1] - max_distance_from_sat),
-            #             width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
-            #             edgecolor='green', facecolor='none')
-            #         ax.add_patch(rect)
-            #     plt.title(filenames[filenum - reversing_index])
-            #     if plot_results == 1:
-            #         plt.show(block=False)
-            #         plt.pause(2)
-            #     elif plot_results == 2:
-            #         plt.show()
-            #     plt.close()
-            # TODO: Calculate array of FWHM to be used later.
             fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
             fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
-            # iraf_fwhms = irafsources['fwhm']  # Save FWHM in a list.
-            # iraf_fwhms = np.array(iraf_fwhms)  # Convert FWHM list to numpy array.
-            # # Print information about the file                                                                              #####
-            # # Calculate statistics of the FWHMs given by the loop over each source.                                         #####
-            # iraf_sdom = iraf_fwhms.std() / sqrt(len(iraf_fwhms))  # Standard deviation of the mean. Not used.
-            # num_IRAF_sources = len(irafsources)  # Number of stars IRAF found.
-            # print(f"No. of IRAF sources: {num_IRAF_sources}")  # Print number of IRAF stars found.
-            # iraf_fwhm = iraf_fwhms.mean()  # Calculate IRAF FWHM mean.
-            # iraf_std = iraf_fwhms.std()  # Calculate IRAF standard deviation.
-            # print(f"IRAF Calculated FWHM (pixels): {iraf_fwhm:.3f} +/- {iraf_std:.3f}")  # Print IRAF FWHM.
-            # Calculate the flux of each star using PSF photometry. This uses the star positions calculated by
-            # IRAFStarFinder earlier.
-            photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
-            # daogroup = DAOGroup(2 * iraf_fwhm)  # Groups overlapping stars together.
-            # # sigma_clip = SigmaClip()
-            # # mmm_bkg = MMMBackground(sigma_clip=sigma_clip)
-            # # bkg_value = mmm_bkg(imgdata)
-            # psf_model = IntegratedGaussianPRF(
-            #     sigma=iraf_fwhm * gaussian_fwhm_to_sigma)  # Defime the PSF model to be used for photometry.
-            # psf_model.x_0.fixed = True  # Don't change the initial 'guess' of the star x positions to be provided.
-            # psf_model.y_0.fixed = True  # Don't change the initial 'guess' of the star y positions to be provided.
-            # # Provide the initial guesses for the x-y positions and the flux. The flux will be fit using the psf_model,
-            # # so that will change, but the star positions will remain the same.
-            # pos = Table(names=['x_0', 'y_0', 'flux_0'],
-            #             data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
-            # # Initialize the photometry to be performed. Do not estimate the background, as it will be subtracted from
-            # # the image when fitting the PSF.
-            # photometry = BasicPSFPhotometry(group_maker=daogroup,
-            #                                 bkg_estimator=None,
-            #                                 psf_model=psf_model,
-            #                                 fitter=LevMarLSQFitter(),
-            #                                 fitshape=size)
-            # Perform the photometry on the background subtracted image. Also pass the fixed x-y positions and the
-            # initial guess for the flux.
-            # result_tab = photometry(image=imgdata - median_val, init_guesses=pos)
-            # fluxes = photometry_result['flux_fit']  # Store the fluxes as a list.
+            photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
+            # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-            # fluxes = np.array(
-            #     fluxes) * u.ct  # Convert the fluxes to a numpy array and add the unit of count to it.
-            # fluxes = fluxes / exptime  # Normalize the fluxes by exposure time (unit is now counts / second)
-            # flux_uncs = result_tab['flux_unc']
-            # flux_uncs = np.array(flux_uncs) * u.ct
-            # flux_uncs = flux_uncs / exptime
-            # snr = (fluxes / flux_uncs).value
-            # instr_mags_sigma = 1.0857 / np.sqrt(snr)
-            # instr_mags_units = u.Magnitude(fluxes)  # Convert the fluxes to an instrumental magnitude.
-            # instr_mags = instr_mags_units.value  # Store the magnitudes without the unit attached.
-            # Calculate the FWHM in units of arcseconds as opposed to pixels.
-            # TODO: Calculate FWHM in arcsec (create function if one doesn't already exist).
-            # try:
-            #     focal_length = hdr['FOCALLEN'] * u.mm  # Store the telescope's focal length with unit millimetres.
-            #     xpixsz = hdr['XPIXSZ']  # Store the size of the x pixels.
-            #     ypixsz = hdr['XPIXSZ']  # Store the size of the y pixels.
-            #     if xpixsz == ypixsz:  # If the pixels are square.
-            #         pixsz = xpixsz * u.um  # Store the pixel size with unit micrometre.
-            #         # Can find FOV by finding deg/pix and then multiplying by the x and y number of pix (NAXIS).
-            #         rad_per_pix = atan(
-            #             pixsz / focal_length) * u.rad  # Calculate the angular resolution of each pixel. Store with unit radians.
-            #         arcsec_per_pix = rad_per_pix.to(
-            #             u.arcsec)  # Convert the per pixel angular resultion to arcseconds.
-            #         iraf_FWHM_arcsec = iraf_fwhm * arcsec_per_pix.value  # Convert the IRAFStarFinder FWHM from pixels to arcsec.
-            #         iraf_std_arcsec = iraf_std * arcsec_per_pix  # Convert the IRAFStarFinder FWHM standard deviation from pixels to arcsec.
-            #         iraf_FWHMs_arcsec = iraf_fwhms * arcsec_per_pix.value
-            #         print(
-            #             f"IRAF Calculated FWHM (arcsec): {iraf_FWHM_arcsec:.3f} +/- {iraf_std_arcsec:.3f}")  # Print the IRAFStarFinder FWHM in arcsec.
-            # except KeyError:
-            #     iraf_FWHMs_arcsec = iraf_fwhms
-            # print(irafsources['peak'] + median_val)                                                                         # Akin to 'max_pixel' from Shane's spreadsheet.
-            # print(result_tab['x_0', 'y_0', 'flux_fit', 'flux_unc'])                                                         # Print the fluxes and their uncertainty for the current image.
             sat_information = check_if_sat(sat_information, 
                                            filenum - reversing_index, 
-                                           irafsources, 
+                                           sat_x,
+                                           sat_y,
                                            instr_mags, 
                                            instr_mags_sigma,
                                            fwhms_arcsec,
                                            max_distance_from_sat=max_distance_from_sat)
-            # for obj_index, obj in enumerate(irafsources):
-            #     obj_x = obj['xcentroid']
-            #     obj_y = obj['ycentroid']
-            #     for sat_num, sat in enumerate(sat_locs, start=2):
-            #         sat_x = sat[0]
-            #         sat_y = sat[1]
-            #         if abs(sat_x - obj_x) < max_distance_from_sat and abs(
-            #                 sat_y - obj_y) < max_distance_from_sat:
-            #             sat_information.sats_table[filenum - reversing_index][sat_num] = instr_mags[obj_index]
-            #             sat_information.uncertainty_table[filenum - reversing_index][sat_num] = instr_mags_sigma[obj_index]
-            #             # TODO: array FWHMs
-            #             # sat_information.sat_fwhm_table[filenum - reversing_index][sat_num] = iraf_FWHMs_arcsec[obj_index]
-            # print(sat_information.sats_table[filenum - reversing_index])
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
     return change_sat_positions_bool, sat_information
@@ -3564,6 +3820,32 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
     except KeyError:
         sat_information.sat_fwhm_table['Filter'][filenum] = 'C'
     return sat_information
+
+
+def interpolate_sats(sats_table, uncertainty_table):
+    dict_keys = sats_table.columns[2:]
+    unique_filter_table = table.unique(sats_table, keys='Filter')
+    unique_filters = list(unique_filter_table['Filter'])
+    num_filters = len(unique_filters)
+    time_table = sats_table['Time (JD)']
+    times_list = np.array(time_table)
+    num_obs = len(sats_table)
+    data = np.empty((num_obs, num_filters))
+    data.fill(np.nan)
+    filter_table = Table(names=unique_filters, data=data)
+    uncertainty_interpolation_table = hstack([time_table, filter_table] )
+    sat_dict = dict.fromkeys(dict_keys)
+    for sat, sat_table in sat_dict.items():
+        sat_dict[sat] = hstack([time_table, filter_table])
+        for unique_filter in unique_filters:
+            mask = sats_table['Filter'] == unique_filter
+            filter_all_sats_table = sats_table[mask]
+            filter_interpolated = np.interp(times_list, 
+                                            filter_all_sats_table['Time (JD)'][~np.isnan(filter_all_sats_table[sat])],
+                                            filter_all_sats_table[sat][~np.isnan(filter_all_sats_table[sat])])
+            filter_interpolated[np.isnan(sats_table[sat])] = np.nan
+            sat_dict[sat][unique_filter] = filter_interpolated
+    return sat_dict
 
 
 def _main_gb_transform_calc(directory, 
@@ -3715,101 +3997,101 @@ def _main_gb_transform_calc(directory,
                                                                    plot_results=plot_results, 
                                                                    save_plots=save_plots)
     # Test the Transforms.
-    directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
-    large_table_columns = init_large_table_columns()
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith(".fit"):
-                filepath = os.path.join(dirpath, filename)
-                hdr, imgdata = read_fits_file(filepath)
-                exptime = hdr['EXPTIME']
-                bkg, bkg_std = calculate_img_bkg(imgdata)
-                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-                if not irafsources:
-                    continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-                fluxes = np.array(photometry_result['flux_fit'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-                wcs = WCS(hdr)
-                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                altazpositions = None
-                try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
-                                                                    lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
-                except AttributeError as e:
-                    print(e)
-                    continue
-                matched_stars = find_ref_stars(reference_stars, 
-                                                      ref_star_positions,
-                                                      skypositions,
-                                                      instr_mags,
-                                                      instr_mags_sigma,
-                                                      fluxes,
-                                                      ground_based=True,
-                                                      altazpositions=altazpositions)
-                if not matched_stars:
-                    continue
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                        matched_stars, 
-                                                                        hdr, 
-                                                                        exptime, 
-                                                                        ground_based=True, 
-                                                                        name_key='Name')
+    # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
+    # large_table_columns = init_large_table_columns()
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in filenames:
+    #         if filename.endswith(".fit"):
+    #             filepath = os.path.join(dirpath, filename)
+    #             hdr, imgdata = read_fits_file(filepath)
+    #             exptime = hdr['EXPTIME']
+    #             bkg, bkg_std = calculate_img_bkg(imgdata)
+    #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+    #             if not irafsources:
+    #                 continue
+    #             _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+    #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+    #             fluxes = np.array(photometry_result['flux_fit'])
+    #             instr_mags = calculate_magnitudes(photometry_result, exptime)
+    #             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+    #             wcs = WCS(hdr)
+    #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+    #             altazpositions = None
+    #             try:
+    #                 altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', 
+    #                                                                 lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
+    #             except AttributeError as e:
+    #                 print(e)
+    #                 continue
+    #             matched_stars = find_ref_stars(reference_stars, 
+    #                                                   ref_star_positions,
+    #                                                   skypositions,
+    #                                                   instr_mags,
+    #                                                   instr_mags_sigma,
+    #                                                   fluxes,
+    #                                                   ground_based=True,
+    #                                                   altazpositions=altazpositions)
+    #             if not matched_stars:
+    #                 continue
+    #             large_table_columns = update_large_table_columns(large_table_columns, 
+    #                                                                     matched_stars, 
+    #                                                                     hdr, 
+    #                                                                     exptime, 
+    #                                                                     ground_based=True, 
+    #                                                                     name_key='Name')
     
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    large_stars_table.pprint_all()
-    # large_stars_table = remove_large_airmass(large_stars_table)
-    stars_table = group_each_star(large_stars_table, ground_based=True)
-    stars_table.pprint_all()
+    # large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table.pprint_all()
+    # # large_stars_table = remove_large_airmass(large_stars_table)
+    # stars_table = group_each_star(large_stars_table, ground_based=True)
+    # stars_table.pprint_all()
     
-    instr_filters = ['b', 'g', 'r']
-    app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
-    for instr_filter in instr_filters:
-        app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
-        app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
+    # instr_filters = ['b', 'v', 'r', 'i']
+    # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    # for instr_filter in instr_filters:
+    #     app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+    #     app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
     
-    app_mag_table.pprint_all()
+    # app_mag_table.pprint_all()
     
-    import matplotlib.pyplot as plt
-    # import matplotlib
-    # matplotlib.use('TkAgg')
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('B (calculated)')
-    plt.xlabel('B (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # import matplotlib.pyplot as plt
+    # # import matplotlib
+    # # matplotlib.use('TkAgg')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('B (calculated)')
+    # plt.xlabel('B (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
-    plt.plot(app_mag_table['V_ref'], app_mag_table['G'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['G'])], app_mag_table['G'][~np.isnan(app_mag_table['G'])], 1)
-    plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('V (calculated)')
-    plt.xlabel('V (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
+    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('V (calculated)')
+    # plt.xlabel('V (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
-    m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
-                      app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
-              m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
-              '-', label=f'y={m:.3f}x+{b:.3f}')
-    plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
-    plt.title('Calculated Magnitude vs. Reference Magnitude')
-    plt.ylabel('R (calculated)')
-    plt.xlabel('R (Reference)')
-    plt.legend()
-    plt.show(block=True)
-    plt.close()
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
+    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('R (calculated)')
+    # plt.xlabel('R (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
     
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
@@ -3949,30 +4231,37 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
                                                                               cmap_set='Set1', 
                                                                               plot_results=plot_results)
         exptime = hdr['EXPTIME'] * u.s
+        try:
+            sat_x, sat_y, bkg_trm = TRM_sat_detection(filepath)
+        except TypeError:
+            print("No satellites detected.")
+            continue
         bkg, bkg_std = calculate_img_bkg(imgdata)
         irafsources = detecting_stars(imgdata, bkg, bkg_std)
         if not irafsources:
             sat_information.num_nans[:] = 0
             continue
-        plot_detected_sats(filenames[filenum],
-                           plot_results, 
-                           imgdata, 
-                           irafsources, 
-                           sat_information, 
-                           max_distance_from_sat=max_distance_from_sat, 
-                           norm=LogNorm())
+        # plot_detected_sats(filenames[filenum],
+        #                    plot_results, 
+        #                    imgdata, 
+        #                    irafsources, 
+        #                    sat_information, 
+        #                    max_distance_from_sat=max_distance_from_sat, 
+        #                    norm=LogNorm())
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
-        photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
+        photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
+        # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
         instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-        check_if_sat(sat_information, 
-                     filenum, 
-                     irafsources, 
-                     instr_mags, 
-                     instr_mags_sigma, 
-                     fwhms_arcsec,
-                     max_distance_from_sat=max_distance_from_sat)
+        sat_information = check_if_sat(sat_information, 
+                                       filenum, 
+                                       sat_x,
+                                       sat_y,
+                                       instr_mags, 
+                                       instr_mags_sigma, 
+                                       fwhms_arcsec,
+                                       max_distance_from_sat=max_distance_from_sat)
         change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
                                                                                filenum, 
                                                                                change_sat_positions_bool, 
@@ -3981,7 +4270,8 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
     sats_table = sat_information.sats_table
     uncertainty_table = sat_information.uncertainty_table
     sat_fwhm_table = sat_information.sat_fwhm_table
-    return sats_table, uncertainty_table, sat_fwhm_table
+    sat_dict = interpolate_sats(sats_table, uncertainty_table)
+    return sat_dict, sats_table, uncertainty_table, sat_fwhm_table
         
 
 def __debugging__(gb_final_transforms, save_loc):
