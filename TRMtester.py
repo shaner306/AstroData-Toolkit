@@ -326,14 +326,14 @@ for j in range(num_valid_sources):
                     #print(C)
                     fun = lambda a: sum((S - (C/((1+(r**2)/(a[0]**2))**1.5)))**2)
                     aguess = 1
-                    a = scipy.optimize.fmin(func=fun, x0=aguess)
+                    a = scipy.optimize.fmin(func=fun, x0=aguess,disp=0)
                     #print(a)
                     
                     #%b holds [alpha Beta] moffat parameters
                     
                     fung = lambda b: sum((S - (C*np.exp(-(r**2)/(2*(b**2)))))**2)
                     bguess = 2;
-                    b = scipy.optimize.fmin(func=fung, x0=bguess)
+                    b = scipy.optimize.fmin(func=fung, x0=bguess, disp=0)
                     #print(b)
                     #%Optional plot the fits:
                     
@@ -429,7 +429,7 @@ for k in range(streaksize):
 avg_pix_frac = pix_frac/star_count
 moffat_avg = moffat_avg/count
 gauss_avg = gauss_avg/count
-
+FWHM= 2*gauss_avg*0.7664
 
 STARS.close()
 
