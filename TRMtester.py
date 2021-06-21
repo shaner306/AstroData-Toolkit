@@ -167,9 +167,10 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     y_rms = numpy.sqrt(y_var_sum/flux_sum)
     return x_centroid, x_rms, y_centroid, y_rms
 
-streak1 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
+streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
 streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
-streak12 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
+streak1= r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173159frame.fits'
+streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
 STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
 imagehdularray = fits.open(streak1)
 
@@ -178,6 +179,12 @@ sigma_clip = 2.5
 edge_protect = 10          
 min_obj_pixels = 5
 SNRLimit = 0
+pix_frac = 0;
+moffat_avg = 0;
+gauss_avg = 0;
+star_count = 0;
+mstar_count = 0;
+count =0
 
 date=imagehdularray[0].header['DATE-OBS']
 exposuretime=imagehdularray[0].header['EXPTIME']
@@ -207,7 +214,7 @@ im_mean = mean(bg_rem)
 
 im_rms=np.std(fitsdata)
 im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
-low_clip = im_mean + 2.5 * im_rms
+low_clip = 56
 high_clip = 161
 
 binary_image = np.zeros((imagesizeX,imagesizeY))
@@ -258,7 +265,7 @@ length     = np.zeros((num_valid_sources,1))
 
 
 for j in range(num_valid_sources):
-
+    a = [0,0]
     vsj = valid_sources[j]  
 
     [mask_x, mask_y] = numpy.nonzero(connected_image == vsj)
@@ -279,6 +286,87 @@ for j in range(num_valid_sources):
     x_length = (max(mask_x) - min(mask_x))
     y_length = (max(mask_y) - min(mask_y))
     length[j] = numpy.sqrt(x_length**2 + y_length**2)
+    
+    
+   
+
+    Zp = 21
+    vmag= Zp - 2.5*np.log10(obj_flux[j]/exposuretime)
+
+   
+    if obj_max1[j] < 60000:  #%fit unsaturated stars only
+          if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeY-10)) and (centroid_y[j] > 10) and ( centroid_y[j] < (imagesizeX-10)):
+           #%Find middle pixel value
+            
+           [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0*bg_rem+1)
+
+           if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeX-10)) and (centroid_y[j] > 10) and (centroid_y[j] < (imagesizeY-10)):
+               
+                #mid_pix_val = bg_rem(round(cen_x),round(cen_y))
+                cenx=int(centroid_y[j])
+                ceny=int(centroid_x[j])
+                mid_pix_valPP = bg_rem[ceny,cenx]
+                
+                if vmag < 13:
+                    #Fit a moffat profile
+                    r = np.zeros(len(mask_x))  #holds radial distance from centroid
+                    S = np.zeros(len(mask_x))  #holds intensity
+                    np.delete(S, -1)
+                    for q in range(0,len(mask_x)):
+                       r[q] = np.sqrt((mask_x[q]+0.5-(ceny+1))**2 + (mask_y[q]+0.5-(cenx+1))**2)
+                       S[q] = bg_rem[mask_x[q],mask_y[q]]
+                    
+   
+                    C_index = np.argmin(r)
+                    r[C_index] = 0; #%centroid radial value
+                    C = S[C_index]
+                    #%a holds [alpha Beta] moffat parameters
+                   # %Fix a(2) Beta parameter to 1.5
+                    #a = [0,0]
+                    #print(C)
+                    fun = lambda a: sum((S - (C/((1+(r**2)/(a[0]**2))**1.5)))**2)
+                    aguess = 1
+                    a = scipy.optimize.fmin(func=fun, x0=aguess)
+                    #print(a)
+                    
+                    #%b holds [alpha Beta] moffat parameters
+                    
+                    fung = lambda b: sum((S - (C*np.exp(-(r**2)/(2*(b**2)))))**2)
+                    bguess = 2;
+                    b = scipy.optimize.fmin(func=fung, x0=bguess)
+                    #print(b)
+                    #%Optional plot the fits:
+                    
+                    #plt.scatter(r,S);
+                    #E = lambda a,r: (C/((1+(r**2)/(a[0]^2))**1.5))
+                    #F = lambda b,r:(C*np.exp(-(r**2)/(2*(b**2))))
+                    #plot=plt(E,[0,max(r)])
+                    
+                    #h = plt.gca().get_children()
+                    
+                    #plot.set(h(1),'color','red')
+                    
+                    #plot= plt(F,[0,max(r)])
+                    #plt.axis([0,max(r),0,60000])
+                    
+                    #h = plt.gca().get_children()
+                    #plot.set(h(1),'color','green')
+                    # Output results
+                   
+                else: 
+                    a = [0,0]
+                    b = 0
+                    
+         
+                
+                pix_frac = pix_frac + mid_pix_valPP/obj_flux[j];
+                
+                if vmag < 13 and a[0]<4:
+                    #mstar_count = mstar_count +1;
+                    #print(a[0])
+                    count = count+1
+                    moffat_avg = moffat_avg + a[0];
+                    gauss_avg = gauss_avg + b;
 
             
 
@@ -291,6 +379,7 @@ stars = numpy.nonzero(ecct < ecct_cut)
 streaks = numpy.nonzero(ecct > ecct_cut)
 stars= np.delete(stars, 1,0)
 streaks= np.delete(streaks, 1,0)
+
 sda = valid_sources[stars]
 num_pix_in_stars = num_sourcepix[sda]
 [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1)
@@ -336,5 +425,119 @@ for k in range(streaksize):
                 streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
                 STARS.write(streak_line+"\n")
                 streak_array.append(new_element)
-               
+
+avg_pix_frac = pix_frac/star_count
+moffat_avg = moffat_avg/count
+gauss_avg = gauss_avg/count
+
+
 STARS.close()
+
+
+
+
+
+
+
+# [bg_mean, bg_rms] = determine_bg_iteratively(enlarged_bg_image, 0.1);
+# pix_frac = 0;
+# moffat_avg = 0;
+# gauss_avg = 0;
+# star_count = 0;
+# mstar_count = 0;
+# #Get the matched star intesity and max pixel     
+
+# nmstars = p.MatchedStars.Count
+# mstars = p.MatchedStars;
+
+# for j in nmstars:
+#     mstar = mstars.Item(j)
+#     rawflux = mstar.RawFlux
+#     Zp = p.MagZeroPoint
+#     vmag= Zp - 2.5*log10(rawflux/exptime)
+#     #StarXY = [mstar.X mstar.Y]
+#     InstrumentalMag= 1;
+#     #%Get the bg avg and std
+#     ppbgsigma = p.ImageBackgroundSigma;
+#     ppbgmean = p.ImageBackgroundmean;
+#     SQmean = bg_mean;
+#     SQsigma = im_rms;
+# #           Get the flux and max_ppixel of each star
+#     X = round(mstar.X)+1
+#     if X > image_size_y:
+#         X = image_size_y;
+    
+#     Y = round(mstar.Y)+1
+#     if Y > image_size_x:
+#         Y = image_size_x
+    
+#     st_index = connected_image(Y,X);
+#     [mask_x, mask_y] = numpy.nonzero(connected_image == vsj)
+#     mobj_flux[j], mobj_max1[j] = PointSourceFluxExtraction(mask_x, mask_y, bg_rem)
+   
+#     if mobj_max1[j] < 60000:  #%fit unsaturated stars only
+# #                Border checks
+#           if (X > 10) and (X < (image_size_y-10)) and (Y > 10) and (Y < (image_size_x-10)):
+#            #%Find middle pixel value
+            
+#            [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0*bg_rem+1)
+
+#            if (cen_x > 10) and (cen_x < (image_size_x-10)) and (cen_y > 10) and (cen_y < (image_size_y-10)):
+#                 mid_pix_val = bg_rem(round(cen_x),round(cen_y))
+                
+#                 mid_pix_valPP = bg_rem(Y,X)
+                
+#                 if vmag < 13:
+#                     #Fit a moffat profile
+#                     r = np.zeros(1,mask_x);  #holds radial distance from centroid
+#                     S = np.zeros(1,mask_x);  #holds intensity
+#                     for q in mask_x:
+#                        r[q] = np.sqrt((mask_x(q)+0.5-(mstar.Y+1))^2 + (mask_y(q)+0.5-(mstar.X+1))^2)
+#                        S[q] = bg_rem(mask_x(q),mask_y(q))
+                    
+   
+#                     C_index = numpy.nonzero(r==min(r),1)
+#                     r[C_index] = 0; #%centroid radial value
+#                     C = S[C_index]
+#                     #%a holds [alpha Beta] moffat parameters
+#                    # %Fix a(2) Beta parameter to 1.5
+#                     fun = lambda a: sum((S - (C/((1+(r**2)/(a(1)^2))**1.5)))**2)
+#                     aguess = 1
+#                     a = scipy.optimize.fmin(func=fun, x0=aguess)
+                    
+                    
+#                     #%b holds [alpha Beta] moffat parameters
+                    
+#                     fung = lambda b: sum((S - (C*math.exp(-(r**2)/(2*(b^2)))))**2)
+#                     bguess = 2;
+#                     b = scipy.optimize.fmin(func=fung, x0=bguess)
+                    
+#                     #%Optional plot the fits:
+                    
+#                     plt.scatter(r,S);
+#                     E = lambda a,r: (C/((1+(r**2)/(a(1)^2))**1.5))
+#                     F = lambda b,r:(C*math.exp(-(r**2)/(2*(b^2))))
+#                     plot=plt(E,[0,max(r)])
+                    
+#                     h = plt.gca().get_children()
+                    
+#                     plot.set(h(1),'color','red')
+                    
+#                     plot= plt(F,[0,max(r)])
+#                     plt.axis([0,max(r),0,60000])
+                    
+#                     h = plt.gca().get_children()
+#                     plot.set(h(1),'color','green')
+#                     # Output results
+                   
+#                 else: 
+#                     a = [0,0]
+#                     b = 0
+                    
+         
+#                 star_count = star_count +1;
+#                 pix_frac = pix_frac + mid_pix_valPP/rawflux;
+#                 if vmag < 13:
+#                     mstar_count = mstar_count +1;
+#                     moffat_avg = moffat_avg + a(1);
+#                     gauss_avg = gauss_avg + b;
