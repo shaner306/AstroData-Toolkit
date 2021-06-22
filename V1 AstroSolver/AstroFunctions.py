@@ -47,6 +47,7 @@ from photutils.background import MedianBackground
 import pandas as pd
 import numpy
 from skimage import measure
+import scipy
 # from scipy.optimize import curve_fit
 
 
@@ -471,6 +472,48 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     except KeyError:
         fwhms_arcsec = fwhms
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
+
+
+def convert_fwhm_to_arcsec_trm(hdr, fwhm, 
+                           focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
+    """
+    Convert the FWHM from pixels to arcsec.
+
+    Parameters
+    ----------
+    hdr : astropy.io.fits.header.Header
+        Header from the fits file.
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    focal_length_key : string, optional
+        Key in the FITS header that contains the focal length. The default is 'FOCALLEN'.
+    xpixsz_key : string, optional
+        Key in the FITS header that contains the x pixel size. The default is 'XPIXSZ'.
+    ypixsz_key : string, optional
+        Key in the FITS header that contains the y pixel size. The default is 'YPIXSZ'.
+
+    Returns
+    -------
+    fwhms_arcsec : numpy array
+        Array containing the FWHM of all sources in the image in arcsec.
+    fwhm_arcsec : float
+        Mean FWHM of all sources in the image in arcsec.
+    fwhm_std_arcsec : float
+        Standard deviation of the FWHM of all sources in the image in arcsec.
+
+    """
+    try:
+        focal_length = hdr[focal_length_key] * u.mm
+        xpixsz = hdr[xpixsz_key]
+        ypixsz = hdr[ypixsz_key]
+        if xpixsz == ypixsz:
+            pixsz = xpixsz * u.um
+            rad_per_pix = atan(pixsz / focal_length) * u.rad
+            arcsec_per_pix = rad_per_pix.to(u.arcsec)
+            fwhm_arcsec = fwhm * arcsec_per_pix.value
+    except KeyError:
+        fwhm_arcsec = fwhm
+    return fwhm_arcsec
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=5):
     """
@@ -3103,7 +3146,10 @@ def copy_and_rename(directory,
                 with fits.open(os.path.join(dirpth, file)) as image:
                     hdr = image[0].header
                 t = Time(hdr[time_key], format='fits', scale='utc')
-                filter_name = hdr[filter_key]
+                try:
+                    filter_name = hdr[filter_key]
+                except KeyError:
+                    filter_name = 'C'
                 t_datetime = t.to_datetime()
                 new_filename = f'{t_datetime.strftime("%Y%m%d%H%M%S")}{filter_name}.fits'
                 copy2(os.path.join(dirpth, file), f'{temp_dir}/{new_filename}')
@@ -3129,7 +3175,18 @@ def remove_temp_dir(temp_dir='tmp'):
     rmtree(temp_dir)
 
 
-def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, min_obj_pixels=5):
+def TRM_sat_detection(filepath, 
+                      ecct_cut=0.5, 
+                      sigma_clip=2.5, 
+                      edge_protect=10, 
+                      SNRLimit = 0,
+                      min_obj_pixels=5,
+                      pix_frac=0,
+                      moffat_avg=0,
+                      gauss_avg=0,
+                      star_count=0,
+                      mstar_count=0,
+                      count=0):
     def BackgroundIteration(image, tolerance):       
         # old_mean = 1e9
         old_rms   = 1e9
@@ -3243,15 +3300,21 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
     # streak1 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
     # streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
     # streak12 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
-    # STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
     hdr, fitsdata = read_fits_file(filepath)
+    # STARS = open(filepath, "w")
     # imagehdularray = fits.open(filepath)
     
-    # streak_array = []         
+    streak_array = []         
     # sigma_clip = 2.5           
     # edge_protect = 10          
     # min_obj_pixels = 5
     # SNRLimit = 0
+    # pix_frac = 0;
+    # moffat_avg = 0;
+    # gauss_avg = 0;
+    # star_count = 0;
+    # mstar_count = 0;
+    # count =0
     
     # date=imagehdularray[0].header['DATE-OBS']
     # exposuretime=imagehdularray[0].header['EXPTIME']
@@ -3259,6 +3322,7 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
     # imagesizeY=imagehdularray[0].header['NAXIS2']
     imagesizeX=hdr['NAXIS1']
     imagesizeY=hdr['NAXIS2']
+    exposuretime = hdr['EXPTIME']
     # fitsdata =  imagehdularray[0].data 
     sigma_clip = SigmaClip(sigma=2.5)
     # bkg = SExtractorBackground(sigma_clip)
@@ -3338,6 +3402,7 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
     for j in range(num_valid_sources):
     
         vsj = valid_sources[j]  
+        a = [0,0]
     
         [mask_x, mask_y] = np.nonzero(connected_image == vsj)
         obj_flux[j], obj_max1[j] = PointSourceFluxExtraction(mask_x, mask_y, bg_rem)
@@ -3357,6 +3422,84 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
         x_length = (max(mask_x) - min(mask_x))
         y_length = (max(mask_y) - min(mask_y))
         length[j] = np.sqrt(x_length**2 + y_length**2)
+        
+        Zp = 21
+        vmag= Zp - 2.5*np.log10(obj_flux[j]/exposuretime)
+    
+       
+        if obj_max1[j] < 60000:  #%fit unsaturated stars only
+              if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeY-10)) and (centroid_y[j] > 10) and ( centroid_y[j] < (imagesizeX-10)):
+               #%Find middle pixel value
+                
+               [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0*bg_rem+1)
+    
+               if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeX-10)) and (centroid_y[j] > 10) and (centroid_y[j] < (imagesizeY-10)):
+                   
+                    #mid_pix_val = bg_rem(round(cen_x),round(cen_y))
+                    cenx=int(centroid_y[j])
+                    ceny=int(centroid_x[j])
+                    mid_pix_valPP = bg_rem[ceny,cenx]
+                    
+                    if vmag < 13:
+                        #Fit a moffat profile
+                        r = np.zeros(len(mask_x))  #holds radial distance from centroid
+                        S = np.zeros(len(mask_x))  #holds intensity
+                        np.delete(S, -1)
+                        for q in range(0,len(mask_x)):
+                           r[q] = np.sqrt((mask_x[q]+0.5-(ceny+1))**2 + (mask_y[q]+0.5-(cenx+1))**2)
+                           S[q] = bg_rem[mask_x[q],mask_y[q]]
+                        
+       
+                        C_index = np.argmin(r)
+                        r[C_index] = 0; #%centroid radial value
+                        C = S[C_index]
+                        #%a holds [alpha Beta] moffat parameters
+                       # %Fix a(2) Beta parameter to 1.5
+                        #a = [0,0]
+                        #print(C)
+                        fun = lambda a: sum((S - (C/((1+(r**2)/(a[0]**2))**1.5)))**2)
+                        aguess = 1
+                        a = scipy.optimize.fmin(func=fun, x0=aguess,disp=0)
+                        #print(a)
+                        
+                        #%b holds [alpha Beta] moffat parameters
+                        
+                        fung = lambda b: sum((S - (C*np.exp(-(r**2)/(2*(b**2)))))**2)
+                        bguess = 2;
+                        b = scipy.optimize.fmin(func=fung, x0=bguess, disp=0)
+                        #print(b)
+                        #%Optional plot the fits:
+                        
+                        #plt.scatter(r,S);
+                        #E = lambda a,r: (C/((1+(r**2)/(a[0]^2))**1.5))
+                        #F = lambda b,r:(C*np.exp(-(r**2)/(2*(b**2))))
+                        #plot=plt(E,[0,max(r)])
+                        
+                        #h = plt.gca().get_children()
+                        
+                        #plot.set(h(1),'color','red')
+                        
+                        #plot= plt(F,[0,max(r)])
+                        #plt.axis([0,max(r),0,60000])
+                        
+                        #h = plt.gca().get_children()
+                        #plot.set(h(1),'color','green')
+                        # Output results
+                       
+                    else: 
+                        a = [0,0]
+                        b = 0
+                        
+             
+                    
+                    pix_frac = pix_frac + mid_pix_valPP/obj_flux[j];
+                    
+                    if vmag < 13 and a[0]<4:
+                        #mstar_count = mstar_count +1;
+                        #print(a[0])
+                        count = count+1
+                        moffat_avg = moffat_avg + a[0];
+                        gauss_avg = gauss_avg + b;
     
                 
     
@@ -3370,7 +3513,7 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
     stars= np.delete(stars, 1,0)
     streaks= np.delete(streaks, 1,0)
     sda = valid_sources[stars]
-    if len(sda) == 0:
+    if len(sda) == 0 or count == 0:
         return
     num_pix_in_stars = num_sourcepix[sda]
     [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1)
@@ -3383,50 +3526,55 @@ def TRM_sat_detection(filepath, ecct_cut=0.5, sigma_clip=2.5, edge_protect=10, m
     #     sat_array[sat_index][1] = float(sat_y[0][sat_index])
     
     
-    # pix_cutoff = mean_starpix + 10 * rms_starpix
+    pix_cutoff = mean_starpix + 10 * rms_starpix
     
-    # num_stars = stars.size
+    num_stars = stars.size
     
-    # stellar_flux_SNR = np.zeros((num_valid_sources,1))
+    stellar_flux_SNR = np.zeros((num_valid_sources,1))
                 
-    # xmin = edge_protect
-    # xmax = imagesizeX - edge_protect
-    # ymin = edge_protect
-    # ymax = imagesizeY - edge_protect
-    # streaksize = streaks.size
+    xmin = edge_protect
+    xmax = imagesizeX - edge_protect
+    ymin = edge_protect
+    ymax = imagesizeY - edge_protect
+    streaksize = streaks.size
     
-    # for k in range(streaksize):
+    for k in range(streaksize):
         
-    #     real_star_num = streaks[0,k]  
-    #     vsj = valid_sources[real_star_num]   
-    #     [mask_x, mask_y] = np.nonzero(connected_image == vsj)
+        real_star_num = streaks[0,k]  
+        vsj = valid_sources[real_star_num]   
+        [mask_x, mask_y] = np.nonzero(connected_image == vsj)
     
-    #     [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, bg_rem)
+        [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, bg_rem)
         
-    #     temp_SNR = obj_max1[real_star_num]/im_rms
-    #     stellar_flux_SNR[k] = temp_SNR
-    #     #print(temp_SNR)
-    #     if temp_SNR > SNRLimit:
-    #         if ((cen_x > xmin) & (cen_x < xmax) & (cen_y > ymin) & (cen_y < ymax)):
-    #             stellar_flux_SNR[k] = temp_SNR
+        temp_SNR = obj_max1[real_star_num]/im_rms
+        stellar_flux_SNR[k] = temp_SNR
+        #print(temp_SNR)
+        if temp_SNR > SNRLimit:
+            if ((cen_x > xmin) & (cen_x < xmax) & (cen_y > ymin) & (cen_y < ymax)):
+                stellar_flux_SNR[k] = temp_SNR
     
-    #             if streak_array== []:
-    #                 streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
-    #                 streak_array.append(streak_arrayelement)
-    #                 flux=float(obj_flux[real_star_num,0])
-    #                 streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+                if streak_array== []:
+                    streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+                    streak_array.append(streak_arrayelement)
+                    # flux=float(obj_flux[real_star_num,0])
+                    # streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
                    
-    #                 STARS.write(streak_line+"\n")
-    #                # print(Streaks_Detected, [num2str(cen_x) ',' num2str(rms_x) ',' num2str(cen_y) ',' num2str(rms_y) ',' num2str(obj_max1(1,rsn)) ',' num2str(temp_SNR) ',' fpath1(i).name '\r\n'])
-    #             else:
-    #                 new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
-    #                 flux=float(obj_flux[real_star_num,0])
-    #                 streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
-    #                 STARS.write(streak_line+"\n")
-    #                 streak_array.append(new_element)
+                    # STARS.write(streak_line+"\n")
+                    # print(Streaks_Detected, [num2str(cen_x) ',' num2str(rms_x) ',' num2str(cen_y) ',' num2str(rms_y) ',' num2str(obj_max1(1,rsn)) ',' num2str(temp_SNR) ',' fpath1(i).name '\r\n'])
+                else:
+                    new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+                    # flux=float(obj_flux[real_star_num,0])
+                    # streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
+                    # STARS.write(streak_line+"\n")
+                    streak_array.append(new_element)
                    
+    # avg_pix_frac = pix_frac/star_count
+    moffat_avg = moffat_avg/count
+    gauss_avg = gauss_avg/count
+    FWHM= float(2*gauss_avg*0.7664)
+    
     # STARS.close()
-    return sat_x, sat_y, bkg.background
+    return sat_x, sat_y, bkg.background, FWHM
 
 
 def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
@@ -3493,6 +3641,8 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         filter_col = np.empty((filecount, 1), dtype=object)
         data = np.empty((filecount, num_sats))
         data.fill(np.nan)
+        fwhm_data = np.empty((filecount, 1))
+        fwhm_data.fill(np.nan)
 
         for i, name in enumerate(names[2:]):
             fig = Figure()
@@ -3576,9 +3726,10 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         date_table = Table(names=[names[0]], data=date_col)
         filter_table = Table(names=[names[1]], data=filter_col)
         data_table = Table(names=names[2:], data=data)
+        fwhm_column = Table(names=["FWHM (arcsec)"], data=fwhm_data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
-        sat_fwhm_table = hstack([date_table, filter_table, data_table], join_type='exact')
+        sat_fwhm_table = hstack([date_table, filter_table, fwhm_column], join_type='exact')
         sats_table.pprint_all()
     sat_information = namedtuple('sat_information', 
                                  ['sats_table',
@@ -3650,7 +3801,7 @@ def plot_detected_sats(filename,
         plt.close()
 
 
-def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, instr_mags_sigma, fwhms_arcsec, max_distance_from_sat=20):
+def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, instr_mags_sigma, fwhm_arcsec, max_distance_from_sat=20):
     for obj_index in range(len(sat_x_array)):
         obj_x = sat_x_array[obj_index]
         obj_y = sat_y_array[obj_index]
@@ -3660,7 +3811,7 @@ def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, i
             if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
                 sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
                 sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index]
-                sat_information.sat_fwhm_table[index][sat_num] = fwhms_arcsec[obj_index]
+                sat_information.sat_fwhm_table[index][2] = fwhm_arcsec
                 sat[0] = obj_x
                 sat[1] = obj_y
     print(sat_information.sats_table[index])
@@ -3770,21 +3921,25 @@ def change_sat_positions(filenames,
             print(filenames[filenum - reversing_index])
             filename = filenames[filenum - reversing_index]
             exptime = hdr['EXPTIME'] * u.s
-            sat_x, sat_y, bkg_trm = TRM_sat_detection(filepath)
-            bkg, bkg_std = calculate_img_bkg(imgdata)
-            irafsources = detecting_stars(imgdata, bkg, bkg_std)
-            if not irafsources:
-                sat_information.num_nans[:] = 0
+            try:
+                sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath)
+            except TypeError:
+                print("No satellites detected.")
                 continue
-            plot_detected_sats(filename,
-                               plot_results, 
-                               imgdata, 
-                               irafsources, 
-                               sat_information, 
-                               max_distance_from_sat=max_distance_from_sat, 
-                               norm=LogNorm())
-            fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-            fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+            # bkg, bkg_std = calculate_img_bkg(imgdata)
+            # irafsources = detecting_stars(imgdata, bkg, bkg_std)
+            # if not irafsources:
+            #     sat_information.num_nans[:] = 0
+            #     continue
+            # plot_detected_sats(filename,
+            #                    plot_results, 
+            #                    imgdata, 
+            #                    irafsources, 
+            #                    sat_information, 
+            #                    max_distance_from_sat=max_distance_from_sat, 
+            #                    norm=LogNorm())
+            # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+            fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
             photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
             # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -3795,7 +3950,7 @@ def change_sat_positions(filenames,
                                            sat_y,
                                            instr_mags, 
                                            instr_mags_sigma,
-                                           fwhms_arcsec,
+                                           fwhm_arcsec,
                                            max_distance_from_sat=max_distance_from_sat)
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
@@ -4208,8 +4363,18 @@ def _main_sb_transform_calc(directory,
                              formats=formats)
     return sb_final_transform_table
 
-def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, size=25, max_num_nan=5, plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory, temp_dir=temp_dir, debugging=True)
+def _main_sc_lightcurve(directory, 
+                        temp_dir='tmp', 
+                        file_suffix=".fits", 
+                        ecct_cut=0.5,
+                        max_distance_from_sat=20, 
+                        size=25,
+                        max_num_nan=5, 
+                        plot_results=0):
+    filecount, filenames = copy_and_rename(directory=directory, 
+                                           file_suffix=file_suffix, 
+                                           temp_dir=temp_dir, 
+                                           debugging=True)
     set_sat_positions_bool = True
     change_sat_positions_bool = False
     num_nan = 0
@@ -4232,15 +4397,15 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
                                                                               plot_results=plot_results)
         exptime = hdr['EXPTIME'] * u.s
         try:
-            sat_x, sat_y, bkg_trm = TRM_sat_detection(filepath)
+            sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath, ecct_cut=ecct_cut)
         except TypeError:
             print("No satellites detected.")
             continue
-        bkg, bkg_std = calculate_img_bkg(imgdata)
-        irafsources = detecting_stars(imgdata, bkg, bkg_std)
-        if not irafsources:
-            sat_information.num_nans[:] = 0
-            continue
+        # bkg, bkg_std = calculate_img_bkg(imgdata)
+        # irafsources = detecting_stars(imgdata, bkg, bkg_std)
+        # if not irafsources:
+        #     sat_information.num_nans[:] = 0
+        #     continue
         # plot_detected_sats(filenames[filenum],
         #                    plot_results, 
         #                    imgdata, 
@@ -4248,8 +4413,8 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
         #                    sat_information, 
         #                    max_distance_from_sat=max_distance_from_sat, 
         #                    norm=LogNorm())
-        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
         photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
         # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -4260,7 +4425,7 @@ def _main_sc_lightcurve(directory, temp_dir='tmp', max_distance_from_sat=20, siz
                                        sat_y,
                                        instr_mags, 
                                        instr_mags_sigma, 
-                                       fwhms_arcsec,
+                                       fwhm_arcsec,
                                        max_distance_from_sat=max_distance_from_sat)
         change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
                                                                                filenum, 
