@@ -21,6 +21,7 @@ from astropy.wcs import WCS
 from collections import namedtuple
 import ctypes
 import cv2 as cv
+from itertools import permutations
 from math import sqrt, atan
 from matplotlib import patches
 from matplotlib import pyplot as plt
@@ -29,6 +30,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from photutils.aperture import RectangularAperture
 from matplotlib.colors import LogNorm
 from matplotlib.lines import Line2D
+import matplotlib.dates as mdates
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
@@ -470,6 +472,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
             fwhm_std_arcsec = fwhm_std * arcsec_per_pix.value
             fwhms_arcsec = fwhms * arcsec_per_pix.value
     except KeyError:
+        print("FWHM in pixels.")
         fwhms_arcsec = fwhms
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
@@ -494,12 +497,8 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
 
     Returns
     -------
-    fwhms_arcsec : numpy array
-        Array containing the FWHM of all sources in the image in arcsec.
     fwhm_arcsec : float
         Mean FWHM of all sources in the image in arcsec.
-    fwhm_std_arcsec : float
-        Standard deviation of the FWHM of all sources in the image in arcsec.
 
     """
     try:
@@ -512,6 +511,7 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
             arcsec_per_pix = rad_per_pix.to(u.arcsec)
             fwhm_arcsec = fwhm * arcsec_per_pix.value
     except KeyError:
+        print("FWHM in pixels.")
         fwhm_arcsec = fwhm
     return fwhm_arcsec
 
@@ -3977,18 +3977,19 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
     return sat_information
 
 
-def interpolate_sats(sats_table, uncertainty_table):
+def interpolate_sats(sats_table, uncertainty_table, unique_filters):
     dict_keys = sats_table.columns[2:]
-    unique_filter_table = table.unique(sats_table, keys='Filter')
-    unique_filters = list(unique_filter_table['Filter'])
-    num_filters = len(unique_filters)
+    # unique_filter_table = table.unique(sats_table, keys='Filter')
+    # unique_filters = list(unique_filter_table['Filter'])
+    unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
+    filter_table_columns = unique_filters + unique_filters_sigma
+    num_columns = len(filter_table_columns)
     time_table = sats_table['Time (JD)']
     times_list = np.array(time_table)
     num_obs = len(sats_table)
-    data = np.empty((num_obs, num_filters))
+    data = np.empty((num_obs, num_columns))
     data.fill(np.nan)
-    filter_table = Table(names=unique_filters, data=data)
-    uncertainty_interpolation_table = hstack([time_table, filter_table] )
+    filter_table = Table(names=filter_table_columns, data=data)
     sat_dict = dict.fromkeys(dict_keys)
     for sat, sat_table in sat_dict.items():
         sat_dict[sat] = hstack([time_table, filter_table])
@@ -4000,8 +4001,54 @@ def interpolate_sats(sats_table, uncertainty_table):
                                             filter_all_sats_table[sat][~np.isnan(filter_all_sats_table[sat])])
             filter_interpolated[np.isnan(sats_table[sat])] = np.nan
             sat_dict[sat][unique_filter] = filter_interpolated
+            # Uncertainty interpolation
+            mask = uncertainty_table['Filter'] == unique_filter
+            filter_all_uncertainty_table = uncertainty_table[mask]
+            filter_uncertainty_interpolated = np.interp(times_list, 
+                            filter_all_uncertainty_table['Time (JD)'][~np.isnan(filter_all_uncertainty_table[sat])],
+                            filter_all_uncertainty_table[sat][~np.isnan(filter_all_uncertainty_table[sat])])
+            filter_uncertainty_interpolated[np.isnan(uncertainty_table[sat])] = np.nan
+            sat_dict[sat][f"{unique_filter}_sigma"] = filter_uncertainty_interpolated
     return sat_dict
 
+
+def determine_num_filters(sats_table):
+    unique_filter_table = table.unique(sats_table, keys='Filter')
+    unique_filters = list(unique_filter_table['Filter'])
+    num_filters = len(unique_filters)
+    multiple_filters = True
+    if num_filters == 1:
+        multiple_filters = False
+    return unique_filters, num_filters, multiple_filters
+
+
+def get_all_indicies_combinations(unique_filters, num_filters, multiple_filters):
+    if multiple_filters:
+        all_indices = list(permutations(unique_filters, 2))
+        return all_indices
+    else:
+        return
+
+
+def calculate_timeseries_colour_indices(sat_dict, all_indices):
+    index_column_names = [f"{index[0]}-{index[1]}" for index in all_indices]
+    index_uncertainty_column_names = [f"{index}_sigma" for index in index_column_names]
+    index_table_columns = index_column_names + index_uncertainty_column_names
+    num_columns = len(index_table_columns)
+    colour_indices_dict = dict.fromkeys(sat_dict.keys())
+    for sat, sat_table in colour_indices_dict.items():
+        time_table = sat_dict[sat]['Time (JD)']
+        data = np.empty((len(time_table), num_columns))
+        data.fill(np.nan)
+        index_table = Table(names=index_table_columns, data=data)
+        colour_indices_dict[sat] = hstack([time_table, index_table])
+        for index_number, index in enumerate(all_indices):
+            colour_indices_dict[sat][index_column_names[index_number]] = sat_dict[sat][index[0]] \
+                - sat_dict[sat][index[1]]
+            colour_indices_dict[sat][index_uncertainty_column_names[index_number]] = sat_dict[sat][f"{index[0]}_sigma"] \
+                + sat_dict[sat][f"{index[1]}_sigma"]
+    return colour_indices_dict
+        
 
 def _main_gb_transform_calc(directory, 
                             ref_stars_file,
@@ -4435,7 +4482,40 @@ def _main_sc_lightcurve(directory,
     sats_table = sat_information.sats_table
     uncertainty_table = sat_information.uncertainty_table
     sat_fwhm_table = sat_information.sat_fwhm_table
-    sat_dict = interpolate_sats(sats_table, uncertainty_table)
+    unique_filters, num_filters, multiple_filters = determine_num_filters(sats_table)
+    if multiple_filters:
+        sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
+        all_indices = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
+        colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
+        for sat, sat_table in colour_indices_dict.items():
+            print(sat)
+            sat_table.pprint_all()
+        # Proof of concept. Change to a function later.
+        for sat, sat_table in sat_dict.items():
+            times_list = np.array(sat_table['Time (JD)'])
+            times_obj = Time(times_list, format='jd', scale='utc')
+            times_datetime = times_obj.to_value('datetime')
+            fig, axs = plt.subplots(nrows=2)
+            for unique_filter in unique_filters:
+                axs[0].errorbar(times_datetime, sat_table[unique_filter], 
+                                yerr=sat_table[f"{unique_filter}_sigma"], 
+                                fmt='o', markersize=3, capsize=2, label=unique_filter)
+            for index in all_indices:
+                colour_index = f"{index[0]}-{index[1]}"
+                axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
+                                yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
+                                fmt='o', markersize=3, capsize=2, label=colour_index)
+            axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs[0].legend()
+            axs[1].legend()
+            axs[0].invert_yaxis()
+            axs[1].invert_yaxis()
+            axs[1].set_xlabel("Time (UTC)")
+            axs[0].set_ylabel("Instrumental Magnitude")
+            axs[1].set_ylabel("Colour Index")
+            plt.show(block=True)
+            plt.close()
     return sat_dict, sats_table, uncertainty_table, sat_fwhm_table
         
 
