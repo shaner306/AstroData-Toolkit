@@ -3063,37 +3063,64 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_fil
     return app_mag_table
 
 
-# def apply_gb_timeseries_transforms(gb_final_transforms, large_sats_table):
-#     """
-#     Apply the transforms to a timeseries of observations.
+def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters):
+    """
+    Apply the transforms to a timeseries of observations.
+    
+    TODO.
 
-#     Parameters
-#     ----------
-#     gb_final_transforms : astropy.table.Table
-#         Table containing the results for the final transforms. Has columns:
-#             filter : string
-#                 Instrumental filter band used to calculate the transform.
-#             CI : string
-#                 Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
-#             k''_fCI : float
-#                 The second order atmospheric extinction coefficient for filter f using the colour index CI.
-#             T_fCI : float
-#                 The instrumental transform coefficient for filter f using the colour index CI.
-#             k'_f : float
-#                 The first order atmospheric extinction coefficient for filter f.
-#             Z_f : float
-#                 The zero point magnitude for filter f.
-#     large_sats_table : astropy.table.Table
-#         DESCRIPTION.
+    Parameters
+    ----------
+    gb_final_transforms : astropy.table.Table
+        Table containing the results for the final transforms. Has columns:
+            filter : string
+                Instrumental filter band used to calculate the transform.
+            CI : string
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    large_sats_table : astropy.table.Table
+        DESCRIPTION.
 
-#     Returns
-#     -------
-#     app_large_sats_table : TYPE
-#         DESCRIPTION.
+    Returns
+    -------
+    app_large_sats_table : TYPE
+        DESCRIPTION.
 
-#     """
-#     app_large_sats_table = large_sats_table
-#     return app_large_sats_table
+    """
+    app_sat_dict = dict.fromkeys(sat_dict.keys())
+    for sat, sat_table in sat_dict.items():
+        sat_table_columns = sat_table.columns
+        num_columns = len(sat_table_columns)
+        app_table_data = np.empty((len(sat_table), num_columns))
+        app_sat_table = Table(names=sat_table_columns, data=app_table_data)
+        app_sat_table['Time (JD)'] = sat_table['Time (JD)']
+        for unique_filter in unique_filters:
+            instr_filter = unique_filter.lower()
+            app_sat_table[f'{unique_filter}_sigma'] = sat_table[f'{unique_filter}_sigma']
+            colour_index, ci = get_colour_index_lower(instr_filter)
+            CI = ci.upper()
+            instr_mag = sat_table[unique_filter]
+            airmass = sat_auxiliary_table['Airmass']
+            c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
+            try:
+                positive_instr_mag = sat_table[CI[0]]
+                negative_instr_mag = sat_table[CI[1]]
+            except KeyError:
+                table_ci = CI.replace('V', 'G')
+                positive_instr_mag = sat_table[table_ci[0]]
+                negative_instr_mag = sat_table[table_ci[1]]
+            lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+            app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
+            app_sat_table[unique_filter] = app_mag_list
+        app_sat_dict[sat] = app_sat_table
+    return app_sat_dict
 
 
 def copy_and_rename(directory, 
@@ -3641,8 +3668,8 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         filter_col = np.empty((filecount, 1), dtype=object)
         data = np.empty((filecount, num_sats))
         data.fill(np.nan)
-        fwhm_data = np.empty((filecount, 1))
-        fwhm_data.fill(np.nan)
+        auxiliary_data = np.empty((filecount, 2))
+        auxiliary_data.fill(np.nan)
 
         for i, name in enumerate(names[2:]):
             fig = Figure()
@@ -3726,22 +3753,23 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         date_table = Table(names=[names[0]], data=date_col)
         filter_table = Table(names=[names[1]], data=filter_col)
         data_table = Table(names=names[2:], data=data)
-        fwhm_column = Table(names=["FWHM (arcsec)"], data=fwhm_data)
+        auxiliary_column_names = ["FWHM (arcsec)", "Airmass"]
+        ausiliary_columns = Table(names=auxiliary_column_names, data=auxiliary_data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
-        sat_fwhm_table = hstack([date_table, filter_table, fwhm_column], join_type='exact')
+        sat_auxiliary_table = hstack([date_table, filter_table, ausiliary_columns], join_type='exact')
         sats_table.pprint_all()
     sat_information = namedtuple('sat_information', 
                                  ['sats_table',
                                   'uncertainty_table',
-                                  'sat_fwhm_table',
+                                  'sat_auxiliary_table',
                                   'sat_locs',
                                   'num_sats',
                                   'num_nans',
                                   'sat_names'])
     return set_sat_positions_bool, sat_information(sats_table, 
                                                    uncertainty_table, 
-                                                   sat_fwhm_table, 
+                                                   sat_auxiliary_table, 
                                                    sat_locs, 
                                                    num_sats, 
                                                    num_nans, 
@@ -3801,7 +3829,40 @@ def plot_detected_sats(filename,
         plt.close()
 
 
-def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, instr_mags_sigma, fwhm_arcsec, max_distance_from_sat=20):
+def get_image_airmass(hdr, 
+                      airmass_key='AIRMASS',
+                      az_key='CENAZ',
+                      alt_key='CENALT',
+                      ra_key='RA',
+                      dec_key='DEC',
+                      unit=(u.deg, u.deg),
+                      lat_key='SITELAT',
+                      lon_key='SITELONG',
+                      elev_key='SITEELEV',
+                      time_key='DATE-OBS'):
+    if airmass_key in hdr.keys():
+        airmass = hdr[airmass_key]
+    elif az_key and alt_key in hdr.keys():
+        altaz = AltAz(az=hdr[az_key], alt=hdr[alt_key])
+        airmass = altaz.secz
+    elif ra_key and dec_key in hdr.keys():
+        skypositions = SkyCoord(ra=hdr[ra_key], dec=hdr[dec_key], unit=unit)
+        altaz = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key, elev_key=elev_key)
+        airmass = altaz.secz
+    else:
+        return
+    return airmass
+
+
+def check_if_sat(sat_information, 
+                 index, 
+                 sat_x_array, 
+                 sat_y_array, 
+                 instr_mags, 
+                 instr_mags_sigma, 
+                 fwhm_arcsec, 
+                 airmass, 
+                 max_distance_from_sat=20):
     for obj_index in range(len(sat_x_array)):
         obj_x = sat_x_array[obj_index]
         obj_y = sat_y_array[obj_index]
@@ -3811,9 +3872,10 @@ def check_if_sat(sat_information, index, sat_x_array, sat_y_array, instr_mags, i
             if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
                 sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
                 sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index]
-                sat_information.sat_fwhm_table[index][2] = fwhm_arcsec
                 sat[0] = obj_x
                 sat[1] = obj_y
+    sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
+    sat_information.sat_auxiliary_table[index][3] = airmass
     print(sat_information.sats_table[index])
     return sat_information
 
@@ -3940,6 +4002,7 @@ def change_sat_positions(filenames,
             #                    norm=LogNorm())
             # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
             fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
+            airmass = get_image_airmass(hdr)
             photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
             # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -3951,6 +4014,7 @@ def change_sat_positions(filenames,
                                            instr_mags, 
                                            instr_mags_sigma,
                                            fwhm_arcsec,
+                                           airmass,
                                            max_distance_from_sat=max_distance_from_sat)
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
@@ -3969,11 +4033,11 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
         sat_information.uncertainty_table['Filter'][filenum] = hdr['FILTER']
     except KeyError:
         sat_information.uncertainty_table['Filter'][filenum] = 'C'
-    sat_information.sat_fwhm_table['Time (JD)'][filenum] = t.jd
+    sat_information.sat_auxiliary_table['Time (JD)'][filenum] = t.jd
     try:
-        sat_information.sat_fwhm_table['Filter'][filenum] = hdr['FILTER']
+        sat_information.sat_auxiliary_table['Filter'][filenum] = hdr['FILTER']
     except KeyError:
-        sat_information.sat_fwhm_table['Filter'][filenum] = 'C'
+        sat_information.sat_auxiliary_table['Filter'][filenum] = 'C'
     return sat_information
 
 
@@ -4185,6 +4249,7 @@ def _main_gb_transform_calc(directory,
         'Z_f': '%0.3f',
         'Z_f_sigma': '%0.3f'
         }
+        ascii.write(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.csv", format='csv')
         write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
         formats = {
         'exptime': '%0.3f',
@@ -4411,6 +4476,7 @@ def _main_sb_transform_calc(directory,
     return sb_final_transform_table
 
 def _main_sc_lightcurve(directory, 
+                        gb_final_transforms=None,
                         temp_dir='tmp', 
                         file_suffix=".fits", 
                         ecct_cut=0.5,
@@ -4462,6 +4528,7 @@ def _main_sc_lightcurve(directory,
         #                    norm=LogNorm())
         # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
+        airmass = get_image_airmass(hdr)
         photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
         # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
@@ -4473,6 +4540,7 @@ def _main_sc_lightcurve(directory,
                                        instr_mags, 
                                        instr_mags_sigma, 
                                        fwhm_arcsec,
+                                       airmass,
                                        max_distance_from_sat=max_distance_from_sat)
         change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
                                                                                filenum, 
@@ -4481,17 +4549,21 @@ def _main_sc_lightcurve(directory,
     remove_temp_dir(temp_dir=temp_dir)
     sats_table = sat_information.sats_table
     uncertainty_table = sat_information.uncertainty_table
-    sat_fwhm_table = sat_information.sat_fwhm_table
+    sat_auxiliary_table = sat_information.sat_auxiliary_table
     unique_filters, num_filters, multiple_filters = determine_num_filters(sats_table)
     if multiple_filters:
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
+        app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
+        for sat, sat_table in app_sat_dict.items():
+            print(sat)
+            sat_table.pprint_all()
         all_indices = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
-        colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
+        colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
         for sat, sat_table in colour_indices_dict.items():
             print(sat)
             sat_table.pprint_all()
         # Proof of concept. Change to a function later.
-        for sat, sat_table in sat_dict.items():
+        for sat, sat_table in app_sat_dict.items():
             times_list = np.array(sat_table['Time (JD)'])
             times_obj = Time(times_list, format='jd', scale='utc')
             times_datetime = times_obj.to_value('datetime')
@@ -4514,9 +4586,9 @@ def _main_sc_lightcurve(directory,
             axs[1].set_xlabel("Time (UTC)")
             axs[0].set_ylabel("Instrumental Magnitude")
             axs[1].set_ylabel("Colour Index")
-            plt.show(block=True)
+            plt.show(block=False)
             plt.close()
-    return sat_dict, sats_table, uncertainty_table, sat_fwhm_table
+    return sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
 def __debugging__(gb_final_transforms, save_loc):
