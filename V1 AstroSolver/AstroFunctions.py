@@ -4166,24 +4166,58 @@ def choose_indices_to_plot(unique_filters, num_filters, all_indices_formatted, s
     sat_aux_columns_formatted = np.array(list(sat_auxiliary_table.columns[2:]))
     aux_data_to_plot = sat_aux_columns_formatted[aux_checked_mask]
     return filters_to_plot, indices_to_plot, aux_data_to_plot
-    
-    # input_frame = tk.Frame(root)
-    # input_frame.pack(side=tk.RIGHT)
-    # img_frame = tk.Frame(root)
-    # img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-    # label = tk.Label(input_frame, text='Select the satellite(s) whose position you would like to change.')
-    # label.grid(row=0)
-    # sat_checked = []
-    # for sat_num, sat in enumerate(sat_information.sat_names):
-    #     sat_checked.append(tk.IntVar())
-    #     checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
-    #     checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
-    # none_select = tk.IntVar()
-    # checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
-    # checkbutton.grid(row=sat_information.num_sats+2, sticky=tk.W, padx=5)
-    # closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
-    # closebutton.grid(row=sat_information.num_sats+3)
-        
+
+
+def remove_light_curve_outliers(app_sat_dict, unique_filters):
+    unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
+    for sat, sat_table in app_sat_dict.items():
+        sat_table_pandas = sat_table[unique_filters].to_pandas()
+        sat_table_rolling_median = sat_table_pandas.rolling(15).median()
+        sat_table_rolling_std = sat_table_pandas.rolling(15).std()
+        points_to_remove = (sat_table_pandas >= sat_table_rolling_median + (3.0 * sat_table_rolling_std)) | (sat_table_pandas <= sat_table_rolling_median - (3.0 * sat_table_rolling_std))
+        points_to_remove_numpy = points_to_remove.to_numpy()
+        # print(points_to_remove_numpy)
+        sat_table_numpy = sat_table[unique_filters].to_pandas().to_numpy()
+        # print(sat_table_numpy)
+        sat_table_numpy[points_to_remove_numpy] = np.nan
+        # print(sat_table_numpy)
+        uncertainty_table_numpy = sat_table[unique_filters_sigma].to_pandas().to_numpy()
+        uncertainty_table_numpy[points_to_remove_numpy] = np.nan
+        # time_numpy = np.array(sat_table['Time (JD)'])
+        data_table = Table(names=unique_filters, data=sat_table_numpy)
+        uncertainty_table = Table(names=unique_filters_sigma, data=uncertainty_table_numpy)
+        new_sat_table = hstack([sat_table['Time (JD)'], data_table, uncertainty_table])
+        app_sat_dict[sat] = new_sat_table
+
+
+def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, filters_to_plot, indices_to_plot):
+    for sat, sat_table in app_sat_dict.items():
+        times_list = np.array(sat_table['Time (JD)'])
+        times_obj = Time(times_list, format='jd', scale='utc')
+        times_datetime = times_obj.to_value('datetime')
+        fig, axs = plt.subplots(nrows=2)
+        for unique_filter in filters_to_plot:
+            axs[0].errorbar(times_datetime, sat_table[unique_filter], 
+                            yerr=sat_table[f"{unique_filter}_sigma"], 
+                            fmt='o', markersize=3, capsize=2, label=unique_filter)
+        for colour_index in indices_to_plot:
+            # colour_index = f"{index[0]}-{index[1]}"
+            axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
+                            yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
+                            fmt='o', markersize=3, capsize=2, label=colour_index)
+        axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        axs[0].legend()
+        axs[1].legend()
+        axs[0].invert_yaxis()
+        axs[1].invert_yaxis()
+        axs[1].set_xlabel("Time (UTC)")
+        axs[0].set_ylabel("Magnitude")
+        axs[1].set_ylabel("Colour Index")
+        plt.show(block=False)
+        plt.close()
+    return
+
 
 def _main_gb_transform_calc(directory, 
                             ref_stars_file,
@@ -4625,45 +4659,21 @@ def _main_sc_lightcurve(directory,
     if multiple_filters:
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
         app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
-        for sat, sat_table in app_sat_dict.items():
-            print(sat)
-            sat_table.pprint_all()
+        remove_light_curve_outliers(app_sat_dict, unique_filters)
+        # for sat, sat_table in app_sat_dict.items():
+            # print(sat)
+            # sat_table.pprint_all()
         all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
         colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
-        for sat, sat_table in colour_indices_dict.items():
-            print(sat)
-            sat_table.pprint_all()
-        # Proof of concept. Change to a function later.
+        # for sat, sat_table in colour_indices_dict.items():
+            # print(sat)
+            # sat_table.pprint_all()
         filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
                                                                                     num_filters, 
                                                                                     all_indices_formatted, 
                                                                                     sat_auxiliary_table)
-        print(indices_to_plot)
-        for sat, sat_table in app_sat_dict.items():
-            times_list = np.array(sat_table['Time (JD)'])
-            times_obj = Time(times_list, format='jd', scale='utc')
-            times_datetime = times_obj.to_value('datetime')
-            fig, axs = plt.subplots(nrows=2)
-            for unique_filter in filters_to_plot:
-                axs[0].errorbar(times_datetime, sat_table[unique_filter], 
-                                yerr=sat_table[f"{unique_filter}_sigma"], 
-                                fmt='o', markersize=3, capsize=2, label=unique_filter)
-            for colour_index in indices_to_plot:
-                # colour_index = f"{index[0]}-{index[1]}"
-                axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
-                                yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
-                                fmt='o', markersize=3, capsize=2, label=colour_index)
-            axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            axs[0].legend()
-            axs[1].legend()
-            axs[0].invert_yaxis()
-            axs[1].invert_yaxis()
-            axs[1].set_xlabel("Time (UTC)")
-            axs[0].set_ylabel("Instrumental Magnitude")
-            axs[1].set_ylabel("Colour Index")
-            plt.show(block=False)
-            plt.close()
+        # print(indices_to_plot)
+        plot_light_curve_multiband(app_sat_dict, colour_indices_dict, filters_to_plot, indices_to_plot)
     return sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
