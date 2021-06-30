@@ -4172,8 +4172,8 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
     unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
     for sat, sat_table in app_sat_dict.items():
         sat_table_pandas = sat_table[unique_filters].to_pandas()
-        sat_table_rolling_median = sat_table_pandas.rolling(15).median()
-        sat_table_rolling_std = sat_table_pandas.rolling(15).std()
+        sat_table_rolling_median = sat_table_pandas.rolling(5).median()
+        sat_table_rolling_std = sat_table_pandas.rolling(5).std()
         points_to_remove = (sat_table_pandas >= sat_table_rolling_median + (3.0 * sat_table_rolling_std)) | (sat_table_pandas <= sat_table_rolling_median - (3.0 * sat_table_rolling_std))
         points_to_remove_numpy = points_to_remove.to_numpy()
         # print(points_to_remove_numpy)
@@ -4190,28 +4190,36 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
         app_sat_dict[sat] = new_sat_table
 
 
-def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, filters_to_plot, indices_to_plot):
+def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot):
+    # plot_aux_data = False
+    # print(len(aux_data_to_plot))
+    nrows = 2 + len(aux_data_to_plot)
     for sat, sat_table in app_sat_dict.items():
+        # max_aux_num = 1
         times_list = np.array(sat_table['Time (JD)'])
         times_obj = Time(times_list, format='jd', scale='utc')
         times_datetime = times_obj.to_value('datetime')
-        fig, axs = plt.subplots(nrows=2)
+        fig, axs = plt.subplots(nrows=nrows)
         for unique_filter in filters_to_plot:
             axs[0].errorbar(times_datetime, sat_table[unique_filter], 
                             yerr=sat_table[f"{unique_filter}_sigma"], 
-                            fmt='o', markersize=3, capsize=2, label=unique_filter)
+                            fmt='o', markersize=2, capsize=0, label=unique_filter)
         for colour_index in indices_to_plot:
-            # colour_index = f"{index[0]}-{index[1]}"
             axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
                             yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
-                            fmt='o', markersize=3, capsize=2, label=colour_index)
+                            fmt='o', markersize=2, capsize=0, label=colour_index)
+        for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
+            # max_aux_num += 1
+            axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
+            axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs[aux_num].set_ylabel(aux_data)
         axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[0].legend()
         axs[1].legend()
         axs[0].invert_yaxis()
         axs[1].invert_yaxis()
-        axs[1].set_xlabel("Time (UTC)")
+        axs[nrows-1].set_xlabel("Time (UTC)")
         axs[0].set_ylabel("Magnitude")
         axs[1].set_ylabel("Colour Index")
         plt.show(block=False)
@@ -4659,7 +4667,7 @@ def _main_sc_lightcurve(directory,
     if multiple_filters:
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
         app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
-        remove_light_curve_outliers(app_sat_dict, unique_filters)
+        # remove_light_curve_outliers(app_sat_dict, unique_filters)
         # for sat, sat_table in app_sat_dict.items():
             # print(sat)
             # sat_table.pprint_all()
@@ -4673,7 +4681,7 @@ def _main_sc_lightcurve(directory,
                                                                                     all_indices_formatted, 
                                                                                     sat_auxiliary_table)
         # print(indices_to_plot)
-        plot_light_curve_multiband(app_sat_dict, colour_indices_dict, filters_to_plot, indices_to_plot)
+        plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
     return sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
