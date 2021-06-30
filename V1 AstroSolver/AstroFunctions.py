@@ -3753,7 +3753,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         date_table = Table(names=[names[0]], data=date_col)
         filter_table = Table(names=[names[1]], data=filter_col)
         data_table = Table(names=names[2:], data=data)
-        auxiliary_column_names = ["FWHM (arcsec)", "Airmass"]
+        auxiliary_column_names = ["FWHM", "Airmass"]
         ausiliary_columns = Table(names=auxiliary_column_names, data=auxiliary_data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
@@ -4191,8 +4191,6 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
 
 
 def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot):
-    # plot_aux_data = False
-    # print(len(aux_data_to_plot))
     nrows = 2 + len(aux_data_to_plot)
     for sat, sat_table in app_sat_dict.items():
         # max_aux_num = 1
@@ -4209,7 +4207,6 @@ def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_
                             yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
                             fmt='o', markersize=2, capsize=0, label=colour_index)
         for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
-            # max_aux_num += 1
             axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
             axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             axs[aux_num].set_ylabel(aux_data)
@@ -4222,6 +4219,59 @@ def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_
         axs[nrows-1].set_xlabel("Time (UTC)")
         axs[0].set_ylabel("Magnitude")
         axs[1].set_ylabel("Colour Index")
+        plt.show(block=False)
+        plt.close()
+    return
+
+
+def choose_aux_data_to_plot(sat_auxiliary_table):
+    rootx = tk.Tk()
+    rootx.title("Plot Options")
+    label = tk.Label(rootx, text='Please select the items that you wish to plot.')
+    label.grid(row=0, column=0)
+    label = tk.Label(rootx, text='Auxiliary Data:')
+    label.grid(row=1, column=0)
+    aux_checked = []
+    for aux_num, aux_type in enumerate(sat_auxiliary_table.columns[2:]):
+        aux_checked.append(tk.IntVar())
+        checkbutton = tk.Checkbutton(rootx, text=aux_type, variable=aux_checked[aux_num])
+        checkbutton.grid(row=aux_num+2, column=0, sticky=tk.W)
+    closebutton = tk.Button(rootx, text='OK', command=rootx.destroy)
+    closebutton.grid(row=len(sat_auxiliary_table.columns[2:])+2, column=0)
+    rootx.mainloop()
+    aux_checked_int = np.empty(len(aux_checked), dtype=int)
+    for aux_num, aux_type in enumerate(aux_checked):
+        aux_checked_int[aux_num] = aux_type.get()
+    aux_checked_mask = aux_checked_int == 1
+    sat_aux_columns_formatted = np.array(list(sat_auxiliary_table.columns[2:]))
+    aux_data_to_plot = sat_aux_columns_formatted[aux_checked_mask]
+    return aux_data_to_plot
+
+
+def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot):
+    nrows = 1 + len(aux_data_to_plot)
+    for sat in sats_table.columns[2:]:
+        # max_aux_num = 1
+        times_list = np.array(sats_table['Time (JD)'])
+        times_obj = Time(times_list, format='jd', scale='utc')
+        times_datetime = times_obj.to_value('datetime')
+        fig, axs = plt.subplots(nrows=nrows)
+        if nrows > 1:
+            axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
+            for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
+                axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
+                axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+                axs[aux_num].set_ylabel(aux_data)
+            axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs[0].invert_yaxis()
+            axs[nrows-1].set_xlabel("Time (UTC)")
+            axs[0].set_ylabel("Instrumental Magnitude")
+        else:
+            axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
+            axs.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs.invert_yaxis()
+            axs.set_xlabel("Time (UTC)")
+            axs.set_ylabel("Instrumental Magnitude")
         plt.show(block=False)
         plt.close()
     return
@@ -4682,6 +4732,9 @@ def _main_sc_lightcurve(directory,
                                                                                     sat_auxiliary_table)
         # print(indices_to_plot)
         plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
+    else:
+        aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
+        plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot)
     return sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
