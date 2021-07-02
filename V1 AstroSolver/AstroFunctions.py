@@ -4277,6 +4277,11 @@ def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_tab
     return
 
 
+def save_interpolated_light_curve(sat_dict, save_loc):
+    for sat, sat_table in sat_dict.items():
+        ascii.write(sat_table, output=f"{save_loc}/{sat}.csv", format='csv')
+
+
 def _main_gb_transform_calc(directory, 
                             ref_stars_file,
                             plot_results=False, 
@@ -4641,6 +4646,7 @@ def _main_sb_transform_calc(directory,
 def _main_sc_lightcurve(directory, 
                         gb_final_transforms=None,
                         temp_dir='tmp', 
+                        save_loc='Outputs',
                         file_suffix=".fits", 
                         ecct_cut=0.5,
                         max_distance_from_sat=20, 
@@ -4710,32 +4716,43 @@ def _main_sc_lightcurve(directory,
                                                                                change_sat_positions_bool, 
                                                                                max_num_nan=max_num_nan)
     remove_temp_dir(temp_dir=temp_dir)
+    if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
     sats_table = sat_information.sats_table
+    ascii.write(sats_table, output=f"{save_loc}/Measured_Magnitudes.csv", format='csv')
     uncertainty_table = sat_information.uncertainty_table
+    ascii.write(uncertainty_table, output=f"{save_loc}/Measured_Magnitude_Uncertainties.csv", format='csv')
     sat_auxiliary_table = sat_information.sat_auxiliary_table
+    ascii.write(sat_auxiliary_table, output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
     unique_filters, num_filters, multiple_filters = determine_num_filters(sats_table)
     if multiple_filters:
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
-        app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
-        # remove_light_curve_outliers(app_sat_dict, unique_filters)
-        # for sat, sat_table in app_sat_dict.items():
-            # print(sat)
-            # sat_table.pprint_all()
-        all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
-        colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
-        # for sat, sat_table in colour_indices_dict.items():
-            # print(sat)
-            # sat_table.pprint_all()
-        filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
-                                                                                    num_filters, 
-                                                                                    all_indices_formatted, 
-                                                                                    sat_auxiliary_table)
-        # print(indices_to_plot)
-        plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
+        if not gb_final_transforms:
+            app_sat_dict = None
+            save_interpolated_light_curve(sat_dict, save_loc)
+            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
+            colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
+            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
+                                                                                        num_filters, 
+                                                                                        all_indices_formatted, 
+                                                                                        sat_auxiliary_table)
+            plot_light_curve_multiband(sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
+        else:
+            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
+            save_interpolated_light_curve(app_sat_dict, save_loc)
+            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
+            colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
+            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
+                                                                                        num_filters, 
+                                                                                        all_indices_formatted, 
+                                                                                        sat_auxiliary_table)
+            plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
     else:
+        sat_dict = None
+        app_sat_dict = None
         aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
         plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot)
-    return sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
+    return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
 def __debugging__(gb_final_transforms, save_loc):
