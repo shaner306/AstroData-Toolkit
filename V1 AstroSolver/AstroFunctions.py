@@ -23,6 +23,7 @@ import ctypes
 import cv2 as cv
 from itertools import permutations
 from math import sqrt, atan
+from matplotlib import gridspec
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -4190,23 +4191,40 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
         app_sat_dict[sat] = new_sat_table
 
 
-def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot):
+def plot_light_curve_multiband(app_sat_dict, 
+                               colour_indices_dict, 
+                               sat_auxiliary_table, 
+                               filters_to_plot, 
+                               indices_to_plot, 
+                               aux_data_to_plot,
+                               save_loc):
     nrows = 2 + len(aux_data_to_plot)
+    height_ratios = [1] * nrows
+    height_ratios[0] = 3
     for sat, sat_table in app_sat_dict.items():
         # max_aux_num = 1
         times_list = np.array(sat_table['Time (JD)'])
         times_obj = Time(times_list, format='jd', scale='utc')
         times_datetime = times_obj.to_value('datetime')
-        fig, axs = plt.subplots(nrows=nrows)
-        for unique_filter in filters_to_plot:
+        # fig, axs = plt.subplots(nrows=nrows, figsize=(8, 10))
+        fig = plt.figure(figsize=(7.5, 9.5))
+        spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
+        axs = [None] * nrows
+        for filter_num, unique_filter in enumerate(filters_to_plot):
+            if filter_num == 0:
+                axs[0] = fig.add_subplot(spec[0])
             axs[0].errorbar(times_datetime, sat_table[unique_filter], 
                             yerr=sat_table[f"{unique_filter}_sigma"], 
                             fmt='o', markersize=2, capsize=0, label=unique_filter)
-        for colour_index in indices_to_plot:
+        for index_num, colour_index in enumerate(indices_to_plot):
+            if index_num == 0:
+                axs[1] = fig.add_subplot(spec[1])
             axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
                             yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
                             fmt='o', markersize=2, capsize=0, label=colour_index)
         for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
+            if aux_num == 2:
+                axs[aux_num] = fig.add_subplot(spec[aux_num])
             axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
             axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             axs[aux_num].set_ylabel(aux_data)
@@ -4219,7 +4237,8 @@ def plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_
         axs[nrows-1].set_xlabel("Time (UTC)")
         axs[0].set_ylabel("Magnitude")
         axs[1].set_ylabel("Colour Index")
-        plt.show(block=False)
+        plt.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
+        plt.show()
         plt.close()
     return
 
@@ -4248,17 +4267,25 @@ def choose_aux_data_to_plot(sat_auxiliary_table):
     return aux_data_to_plot
 
 
-def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot):
+def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc):
     nrows = 1 + len(aux_data_to_plot)
+    height_ratios = [1] * nrows
+    height_ratios[0] = 3
     for sat in sats_table.columns[2:]:
         # max_aux_num = 1
         times_list = np.array(sats_table['Time (JD)'])
         times_obj = Time(times_list, format='jd', scale='utc')
         times_datetime = times_obj.to_value('datetime')
-        fig, axs = plt.subplots(nrows=nrows)
+        fig = plt.figure(figsize=(7.5, 9.5))
+        spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
+        # fig, axs = plt.subplots(nrows=nrows)
         if nrows > 1:
+            axs = [None] * nrows
+            axs[0] = fig.add_subplot(spec[0])
             axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
             for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
+                if aux_num == 1:
+                    axs[aux_num] = fig.add_subplot(spec[aux_num])
                 axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
                 axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
                 axs[aux_num].set_ylabel(aux_data)
@@ -4267,11 +4294,13 @@ def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_tab
             axs[nrows-1].set_xlabel("Time (UTC)")
             axs[0].set_ylabel("Instrumental Magnitude")
         else:
+            axs = fig.add_subplot(spec[0])
             axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
             axs.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             axs.invert_yaxis()
             axs.set_xlabel("Time (UTC)")
             axs.set_ylabel("Instrumental Magnitude")
+        plt.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         plt.show(block=False)
         plt.close()
     return
@@ -4736,7 +4765,13 @@ def _main_sc_lightcurve(directory,
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 
                                                                                         sat_auxiliary_table)
-            plot_light_curve_multiband(sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
+            plot_light_curve_multiband(sat_dict, 
+                                       colour_indices_dict, 
+                                       sat_auxiliary_table, 
+                                       filters_to_plot, 
+                                       indices_to_plot, 
+                                       aux_data_to_plot,
+                                       save_loc)
         else:
             app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
             save_interpolated_light_curve(app_sat_dict, save_loc)
@@ -4746,12 +4781,18 @@ def _main_sc_lightcurve(directory,
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 
                                                                                         sat_auxiliary_table)
-            plot_light_curve_multiband(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot, aux_data_to_plot)
+            plot_light_curve_multiband(app_sat_dict, 
+                                       colour_indices_dict, 
+                                       sat_auxiliary_table, 
+                                       filters_to_plot, 
+                                       indices_to_plot, 
+                                       aux_data_to_plot,
+                                       save_loc)
     else:
         sat_dict = None
         app_sat_dict = None
         aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot)
+        plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc)
     return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
