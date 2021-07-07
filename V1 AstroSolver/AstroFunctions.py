@@ -716,6 +716,41 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     return instr_mags_sigma
 
 
+def calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms=None,
+                                        focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ',
+                                        filter_key='Filter'):
+    bkg_flux = normalize_flux_by_time(bkg, exptime)
+    # bkg_std_flux = normalize_flux_by_time(bkg_std, exptime)
+    try:
+        focal_length = hdr[focal_length_key] * u.mm
+        xpixsz = hdr[xpixsz_key] * u.um
+        ypixsz = hdr[ypixsz_key] * u.um
+        x_rad_per_pix = atan(xpixsz / focal_length) * u.rad
+        x_arcsec_per_pix = x_rad_per_pix.to(u.arcsec)
+        y_rad_per_pix = atan(ypixsz / focal_length) * u.rad
+        y_arcsec_per_pix = y_rad_per_pix.to(u.arcsec)
+        square_arcsec_per_pix = x_arcsec_per_pix * y_arcsec_per_pix
+    except KeyError:
+        print("Could not determine arcsec^2 / pix.")
+        bsb = np.nan
+        return bsb
+    bkg_flux_per_area = bkg_flux / square_arcsec_per_pix
+    # bkg_flux_std_per_area = bkg_std_flux / square_arcsec_per_pix
+    bsb_units = u.Magnitude(bkg_flux_per_area)
+    instr_bsb = bsb_units.value
+    if not gb_final_transforms:
+        bsb = instr_bsb
+    else:
+        instr_filter = get_instr_filter_name(hdr, filter_key)
+        if instr_filter == 'v' or instr_filter =='g':
+            mask = (gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == 'B-V')
+        else:
+            mask = gb_final_transforms['filter'] == instr_filter
+        zpoint = float(gb_final_transforms['Z_f'][mask])
+        bsb = instr_bsb + zpoint
+    return bsb
+
+
 def find_ref_stars(reference_stars, 
                    ref_star_positions, 
                    skypositions, 
@@ -3669,7 +3704,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         filter_col = np.empty((filecount, 1), dtype=object)
         data = np.empty((filecount, num_sats))
         data.fill(np.nan)
-        auxiliary_data = np.empty((filecount, 2))
+        auxiliary_data = np.empty((filecount, 3))
         auxiliary_data.fill(np.nan)
 
         for i, name in enumerate(names[2:]):
@@ -3754,7 +3789,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         date_table = Table(names=[names[0]], data=date_col)
         filter_table = Table(names=[names[1]], data=filter_col)
         data_table = Table(names=names[2:], data=data)
-        auxiliary_column_names = ["FWHM", "Airmass"]
+        auxiliary_column_names = ["FWHM", "Airmass", "Background Sky Brightness"]
         ausiliary_columns = Table(names=auxiliary_column_names, data=auxiliary_data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
@@ -3863,6 +3898,7 @@ def check_if_sat(sat_information,
                  instr_mags_sigma, 
                  fwhm_arcsec, 
                  airmass, 
+                 bsb, 
                  max_distance_from_sat=20):
     for obj_index in range(len(sat_x_array)):
         obj_x = sat_x_array[obj_index]
@@ -3877,6 +3913,7 @@ def check_if_sat(sat_information,
                 sat[1] = obj_y
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
     sat_information.sat_auxiliary_table[index][3] = airmass
+    sat_information.sat_auxiliary_table[index][4] = bsb
     print(sat_information.sats_table[index])
     return sat_information
 
@@ -3899,6 +3936,7 @@ def change_sat_positions(filenames,
                          num_nan, 
                          sat_information,
                          change_sat_positions_bool,
+                         gb_final_transforms=None,
                          max_distance_from_sat=20, 
                          size=25, 
                          temp_dir='tmp', 
@@ -4002,6 +4040,8 @@ def change_sat_positions(filenames,
             #                    max_distance_from_sat=max_distance_from_sat, 
             #                    norm=LogNorm())
             # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+            bkg = np.median(bkg_trm)
+            bsb = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
             fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
             airmass = get_image_airmass(hdr)
             photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
@@ -4016,6 +4056,7 @@ def change_sat_positions(filenames,
                                            instr_mags_sigma,
                                            fwhm_arcsec,
                                            airmass,
+                                           bsb,
                                            max_distance_from_sat=max_distance_from_sat)
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
@@ -4075,6 +4116,22 @@ def interpolate_sats(sats_table, uncertainty_table, unique_filters):
             filter_uncertainty_interpolated[np.isnan(uncertainty_table[sat])] = np.nan
             sat_dict[sat][f"{unique_filter}_sigma"] = filter_uncertainty_interpolated
     return sat_dict
+
+
+def interpolate_bsb(sat_auxiliary_table, filters_to_plot, times_list):
+    bsb_key = "Background Sky Brightness"
+    bsb_table_data = np.empty((len(times_list), len(filters_to_plot)))
+    bsb_table_data.fill(np.nan)
+    bsb_table = Table(names=filters_to_plot, data=bsb_table_data)
+    for unique_filter in filters_to_plot:
+        mask = sat_auxiliary_table['Filter'] == unique_filter
+        filter_all_aux_table = sat_auxiliary_table[mask]
+        filter_interpolated = np.interp(times_list,
+                                        filter_all_aux_table['Time (JD)'][~np.isnan(filter_all_aux_table[bsb_key])],
+                                        filter_all_aux_table[bsb_key][~np.isnan(filter_all_aux_table[bsb_key])])
+        filter_interpolated[np.isnan(sat_auxiliary_table[bsb_key])] = np.nan
+        bsb_table[unique_filter] = filter_interpolated
+    return bsb_table
 
 
 def determine_num_filters(sats_table):
@@ -4173,8 +4230,9 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
     unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
     for sat, sat_table in app_sat_dict.items():
         sat_table_pandas = sat_table[unique_filters].to_pandas()
-        sat_table_rolling_median = sat_table_pandas.rolling(5).median()
-        sat_table_rolling_std = sat_table_pandas.rolling(5).std()
+        # sat_table_pandas.set_index('Time (JD)')
+        sat_table_rolling_median = sat_table_pandas.diff().rolling(15).median()
+        sat_table_rolling_std = sat_table_pandas.diff().rolling(15).std()
         points_to_remove = (sat_table_pandas >= sat_table_rolling_median + (3.0 * sat_table_rolling_std)) | (sat_table_pandas <= sat_table_rolling_median - (3.0 * sat_table_rolling_std))
         points_to_remove_numpy = points_to_remove.to_numpy()
         # print(points_to_remove_numpy)
@@ -4191,6 +4249,9 @@ def remove_light_curve_outliers(app_sat_dict, unique_filters):
         app_sat_dict[sat] = new_sat_table
 
 
+# def remove_dimmer_than_bavkground
+
+
 def plot_light_curve_multiband(app_sat_dict, 
                                colour_indices_dict, 
                                sat_auxiliary_table, 
@@ -4201,33 +4262,42 @@ def plot_light_curve_multiband(app_sat_dict,
     nrows = 2 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
     height_ratios[0] = 3
+    gs_kw = dict(height_ratios=height_ratios)
     for sat, sat_table in app_sat_dict.items():
         # max_aux_num = 1
         times_list = np.array(sat_table['Time (JD)'])
         times_obj = Time(times_list, format='jd', scale='utc')
         times_datetime = times_obj.to_value('datetime')
         # fig, axs = plt.subplots(nrows=nrows, figsize=(8, 10))
-        fig = plt.figure(figsize=(7.5, 9.5))
-        spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
-        axs = [None] * nrows
+        fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
+        # spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
+        # axs = [None] * nrows
         for filter_num, unique_filter in enumerate(filters_to_plot):
-            if filter_num == 0:
-                axs[0] = fig.add_subplot(spec[0])
+            # if filter_num == 0:
+            #     axs[0] = fig.add_subplot(spec[0])
             axs[0].errorbar(times_datetime, sat_table[unique_filter], 
                             yerr=sat_table[f"{unique_filter}_sigma"], 
                             fmt='o', markersize=2, capsize=0, label=unique_filter)
         for index_num, colour_index in enumerate(indices_to_plot):
-            if index_num == 0:
-                axs[1] = fig.add_subplot(spec[1])
+            # if index_num == 0:
+            #     axs[1] = fig.add_subplot(spec[1])
             axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
                             yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
                             fmt='o', markersize=2, capsize=0, label=colour_index)
         for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
-            if aux_num == 2:
-                axs[aux_num] = fig.add_subplot(spec[aux_num])
-            axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
+            # if aux_num == 2:
+            # axs[aux_num] = fig.add_subplot(spec[aux_num])
             axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             axs[aux_num].set_ylabel(aux_data)
+            if aux_data == "Background Sky Brightness":
+                bsb_table = interpolate_bsb(sat_auxiliary_table, filters_to_plot, times_list)
+                for filter_num, unique_filter in enumerate(filters_to_plot):
+                    axs[aux_num].plot(times_datetime, bsb_table[unique_filter], 'o', ms=2, label=unique_filter)
+                if len(filters_to_plot) > 1:
+                    axs[aux_num].legend()
+                axs[aux_num].invert_yaxis()
+            else:
+                axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
         axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[0].legend()
@@ -4237,6 +4307,7 @@ def plot_light_curve_multiband(app_sat_dict,
         axs[nrows-1].set_xlabel("Time (UTC)")
         axs[0].set_ylabel("Magnitude")
         axs[1].set_ylabel("Colour Index")
+        plt.tight_layout()
         plt.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         plt.show()
         plt.close()
@@ -4701,12 +4772,15 @@ def _main_sc_lightcurve(directory,
                                                                               num_nan, 
                                                                               sat_information,
                                                                               change_sat_positions_bool,
+                                                                              gb_final_transforms=gb_final_transforms,
                                                                               max_distance_from_sat=max_distance_from_sat, 
                                                                               size=size, 
                                                                               temp_dir=temp_dir, 
                                                                               cmap_set='Set1', 
                                                                               plot_results=plot_results)
         exptime = hdr['EXPTIME'] * u.s
+        # bkg, bkg_std = calculate_img_bkg(imgdata)
+        
         try:
             sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath, ecct_cut=ecct_cut)
         except TypeError:
@@ -4725,6 +4799,9 @@ def _main_sc_lightcurve(directory,
         #                    max_distance_from_sat=max_distance_from_sat, 
         #                    norm=LogNorm())
         # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        bkg = np.median(bkg_trm)
+        bsb = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms,
+                                        focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ')
         fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
         airmass = get_image_airmass(hdr)
         photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
@@ -4739,6 +4816,7 @@ def _main_sc_lightcurve(directory,
                                        instr_mags_sigma, 
                                        fwhm_arcsec,
                                        airmass,
+                                       bsb,
                                        max_distance_from_sat=max_distance_from_sat)
         change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
                                                                                filenum, 
@@ -4758,6 +4836,7 @@ def _main_sc_lightcurve(directory,
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
         if not gb_final_transforms:
             app_sat_dict = None
+            # remove_light_curve_outliers(sat_dict, unique_filters)
             save_interpolated_light_curve(sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
@@ -4774,6 +4853,7 @@ def _main_sc_lightcurve(directory,
                                        save_loc)
         else:
             app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
+            # remove_light_curve_outliers(app_sat_dict, unique_filters)
             save_interpolated_light_curve(app_sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
