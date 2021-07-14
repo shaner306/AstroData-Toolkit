@@ -4292,93 +4292,73 @@ def choose_indices_to_plot(unique_filters, num_filters, all_indices_formatted, s
     return filters_to_plot, indices_to_plot, aux_data_to_plot
 
 
-def remove_light_curve_outliers(app_sat_dict, unique_filters):
-    unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
-    for sat, sat_table in app_sat_dict.items():
-        sat_table_pandas = sat_table[unique_filters].to_pandas()
-        # sat_table_pandas.set_index('Time (JD)')
-        sat_table_rolling_median = sat_table_pandas.rolling(45).median()
-        sat_table_rolling_std = sat_table_pandas.rolling(45).std()
-        points_to_remove = (sat_table_pandas >= sat_table_rolling_median + (2.5 * sat_table_rolling_std)) | (sat_table_pandas <= sat_table_rolling_median - (2.5 * sat_table_rolling_std))
-        points_to_remove_numpy = points_to_remove.to_numpy()
-        # print(points_to_remove_numpy)
-        sat_table_numpy = sat_table[unique_filters].to_pandas().to_numpy()
-        # print(sat_table_numpy)
-        sat_table_numpy[points_to_remove_numpy] = np.nan
-        # print(sat_table_numpy)
-        uncertainty_table_numpy = sat_table[unique_filters_sigma].to_pandas().to_numpy()
-        uncertainty_table_numpy[points_to_remove_numpy] = np.nan
-        # time_numpy = np.array(sat_table['Time (JD)'])
-        data_table = Table(names=unique_filters, data=sat_table_numpy)
-        uncertainty_table = Table(names=unique_filters_sigma, data=uncertainty_table_numpy)
-        new_sat_table = hstack([sat_table['Time (JD)'], data_table, uncertainty_table])
-        app_sat_dict[sat] = new_sat_table
+# def remove_light_curve_outliers(app_sat_dict, unique_filters):
+#     unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
+#     for sat, sat_table in app_sat_dict.items():
+#         sat_table_pandas = sat_table[unique_filters].to_pandas()
+#         # sat_table_pandas.set_index('Time (JD)')
+#         sat_table_rolling_median = sat_table_pandas.rolling(45).median()
+#         sat_table_rolling_std = sat_table_pandas.rolling(45).std()
+#         points_to_remove = (sat_table_pandas >= sat_table_rolling_median + (2.5 * sat_table_rolling_std)) | (sat_table_pandas <= sat_table_rolling_median - (2.5 * sat_table_rolling_std))
+#         points_to_remove_numpy = points_to_remove.to_numpy()
+#         # print(points_to_remove_numpy)
+#         sat_table_numpy = sat_table[unique_filters].to_pandas().to_numpy()
+#         # print(sat_table_numpy)
+#         sat_table_numpy[points_to_remove_numpy] = np.nan
+#         # print(sat_table_numpy)
+#         uncertainty_table_numpy = sat_table[unique_filters_sigma].to_pandas().to_numpy()
+#         uncertainty_table_numpy[points_to_remove_numpy] = np.nan
+#         # time_numpy = np.array(sat_table['Time (JD)'])
+#         data_table = Table(names=unique_filters, data=sat_table_numpy)
+#         uncertainty_table = Table(names=unique_filters_sigma, data=uncertainty_table_numpy)
+#         new_sat_table = hstack([sat_table['Time (JD)'], data_table, uncertainty_table])
+#         app_sat_dict[sat] = new_sat_table
 
 
-def remove_outliers(app_sat_dict, unique_filters):
-    # unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
-    for sat, sat_table in app_sat_dict.items():
-        for unique_filter in unique_filters:
-            q75, q25 = np.percentile(sat_table[unique_filter], [75, 25])
-            intr_qtr = q75 - q25
-            upper_bound = q75 + (1.5 * intr_qtr)
-            lower_bound = q25 - (1.5 * intr_qtr)
-            # mask = (sat_table[unique_filter] > upper_bound) | (sat_table[unique_filter] < lower_bound)
-            sat_table[unique_filter][sat_table[unique_filter] > upper_bound] = np.nan
-            sat_table[f"{unique_filter}_sigma"][sat_table[unique_filter] > upper_bound] = np.nan
-            sat_table[unique_filter][sat_table[unique_filter] < lower_bound] = np.nan
-            sat_table[f"{unique_filter}_sigma"][sat_table[unique_filter] < lower_bound] = np.nan
+# def remove_outliers(app_sat_dict, unique_filters):
+#     # unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
+#     for sat, sat_table in app_sat_dict.items():
+#         for unique_filter in unique_filters:
+#             q75, q25 = np.percentile(sat_table[unique_filter], [75, 25])
+#             intr_qtr = q75 - q25
+#             upper_bound = q75 + (1.5 * intr_qtr)
+#             lower_bound = q25 - (1.5 * intr_qtr)
+#             # mask = (sat_table[unique_filter] > upper_bound) | (sat_table[unique_filter] < lower_bound)
+#             sat_table[unique_filter][sat_table[unique_filter] > upper_bound] = np.nan
+#             sat_table[f"{unique_filter}_sigma"][sat_table[unique_filter] > upper_bound] = np.nan
+#             sat_table[unique_filter][sat_table[unique_filter] < lower_bound] = np.nan
+#             sat_table[f"{unique_filter}_sigma"][sat_table[unique_filter] < lower_bound] = np.nan
 
 
 def plot_light_curve_multiband(sat_table, 
                                sat,
                                colour_indices_dict, 
                                sat_auxiliary_table, 
-                               limiting_mag_dict,
                                filters_to_plot, 
                                indices_to_plot, 
-                               aux_data_to_plot,
-                               save_loc):
+                               aux_data_to_plot):
     nrows = 2 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
     height_ratios[0] = 3
     gs_kw = dict(height_ratios=height_ratios)
-    # limiting_mag_table = limiting_mag_dict['Limiting Mag']
-    # for sat, sat_table in app_sat_dict.items():
-    # y_limit = np.nan
-    # max_aux_num = 1
     times_list = np.array(sat_table['Time (JD)'])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
-    # fig, axs = plt.subplots(nrows=nrows, figsize=(8, 10))
     fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
-    # spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
-    # axs = [None] * nrows
     for filter_num, unique_filter in enumerate(filters_to_plot):
-        # dimmest_mag = max(limiting_mag_table[unique_filter])
-        # if any(sat_table[unique_filter] > dimmest_mag):
-        #     if np.isnan(y_limit) or dimmest_mag > y_limit:
-        #         y_limit = dimmest_mag
-        # if filter_num == 0:
-        #     axs[0] = fig.add_subplot(spec[0])
         _, _, bars = axs[0].errorbar(times_datetime, sat_table[unique_filter], 
                                     yerr=sat_table[f"{unique_filter}_sigma"], 
                                     fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=unique_filter)
         [bar.set_alpha(0.3) for bar in bars]
     for index_num, colour_index in enumerate(indices_to_plot):
-        # if index_num == 0:
-        #     axs[1] = fig.add_subplot(spec[1])
         _, _, bars = axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
                                     yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
                                     fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=colour_index)
         [bar.set_alpha(0.3) for bar in bars]
     for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
-        # if aux_num == 2:
-        # axs[aux_num] = fig.add_subplot(spec[aux_num])
         axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[aux_num].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[aux_num].set_ylabel(aux_data)
-        # interpolated_table = interpolate_aux_data(sat_auxiliary_table, filters_to_plot, aux_data)
         for filter_num, unique_filter in enumerate(filters_to_plot):
             mask = sat_auxiliary_table['Filter'] == unique_filter
             filter_all_aux_table = sat_auxiliary_table[mask]
@@ -4388,23 +4368,14 @@ def plot_light_curve_multiband(sat_table,
             axs[aux_num].plot(aux_times_datetime, filter_all_aux_table[aux_data], 'o', ms=2, label=unique_filter)
         if len(filters_to_plot) > 1:
             axs[aux_num].legend()
-        if aux_data == "BSB" or aux_data == "Limiting Magnitude":
-            # bsb_table = interpolate_bsb(sat_auxiliary_table, filters_to_plot, times_list)
-            # for filter_num, unique_filter in enumerate(filters_to_plot):
-            #     axs[aux_num].plot(times_datetime, bsb_table[unique_filter], 'o', ms=2, label=unique_filter)
-            # if len(filters_to_plot) > 1:
-            #     axs[aux_num].legend()
+        if aux_data == "BSB":
             axs[aux_num].invert_yaxis()
-        # else:
-        #     axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
     axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     axs[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
     axs[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     axs[0].legend()
     axs[1].legend()
-    # if not np.isnan(y_limit):
-    #     axs[0].set_ylim(top=y_limit+1)
     axs[0].invert_yaxis()
     axs[1].invert_yaxis()
     axs[nrows-1].set_xlabel("Time (UTC)")
@@ -4412,10 +4383,6 @@ def plot_light_curve_multiband(sat_table,
     axs[1].set_ylabel("Colour Index")
     plt.tight_layout()
     return fig, axs
-    # plt.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
-    # plt.show()
-    # plt.close()
-    # return
 
 
 def choose_aux_data_to_plot(sat_auxiliary_table):
@@ -4442,41 +4409,135 @@ def choose_aux_data_to_plot(sat_auxiliary_table):
     return aux_data_to_plot
 
 
-def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc):
+def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliary_table, aux_data_to_plot):
     nrows = 1 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
     height_ratios[0] = 3
+    times_list = np.array(sats_table['Time (JD)'])
+    times_obj = Time(times_list, format='jd', scale='utc')
+    times_datetime = times_obj.to_value('datetime')
+    gs_kw = dict(height_ratios=height_ratios)
+    fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
+    # fig = plt.figure(figsize=(7.5, 9.5))
+    # spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
+    if nrows > 1:
+        _, _, bars = axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], 
+                        fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+        [bar.set_alpha(0.3) for bar in bars]
+        for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
+            axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
+            axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            axs[aux_num].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+            axs[aux_num].set_ylabel(aux_data)
+            if aux_data == "BSB":
+                axs[aux_num].invert_yaxis()
+        axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        axs[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        axs[0].invert_yaxis()
+        axs[nrows-1].set_xlabel("Time (UTC)")
+        axs[0].set_ylabel("Instrumental Magnitude")
+        plt.tight_layout()
+    else:
+        _, _, bars = axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], 
+                     fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+        [bar.set_alpha(0.3) for bar in bars]
+        axs.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        axs.invert_yaxis()
+        axs.set_xlabel("Time (UTC)")
+        axs.set_ylabel("Instrumental Magnitude")
+        plt.tight_layout()
+    return fig, axs
+
+def axis_limits_singleband_gui(sats_table, 
+                               uncertainty_table,
+                               sat_auxiliary_table, 
+                               aux_data_to_plot,
+                               save_loc):
+    def refresh_plots(canvas):
+        fig_list[0], axs = plot_light_curve_singleband(sats_table,
+                                         sat,
+                                         uncertainty_table,
+                                         sat_auxiliary_table, 
+                                         aux_data_to_plot)
+        for entry_num, entry in enumerate(entries):
+            if entry_num % 2 == 0:
+                axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
+            elif entry_num % 2 == 1:
+                axs[entry_num // 2].set_ylim(top=float(entry.get()))
+        canvas.get_tk_widget().delete()
+        canvas = FigureCanvasTkAgg(fig_list[0], master=root)
+        canvas.draw()
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
+        plt.close()
+    def reset_plots(canvas):
+        fig_list[0], axs = plot_light_curve_singleband(sats_table,
+                                         sat,
+                                         uncertainty_table,
+                                         sat_auxiliary_table, 
+                                         aux_data_to_plot)
+        row_num = 1
+        for ax in axs:
+            entries[row_num-1].delete(0, tk.END)
+            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num].delete(0, tk.END)
+            entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
+            row_num += 2
+        canvas.get_tk_widget().delete()
+        canvas = FigureCanvasTkAgg(fig_list[0], master=root)
+        canvas.draw()
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
+        plt.close()
+    def save_plots(fig):
+        fig.set_size_inches(7.5, 9.5)
+        fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
+        root.destroy()
+    nrows = 10 * (2 + len(aux_data_to_plot))
     for sat in sats_table.columns[2:]:
-        # max_aux_num = 1
-        times_list = np.array(sats_table['Time (JD)'])
-        times_obj = Time(times_list, format='jd', scale='utc')
-        times_datetime = times_obj.to_value('datetime')
-        fig = plt.figure(figsize=(7.5, 9.5))
-        spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
-        # fig, axs = plt.subplots(nrows=nrows)
-        if nrows > 1:
-            axs = [None] * nrows
-            axs[0] = fig.add_subplot(spec[0])
-            axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
-            for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
-                if aux_num == 1:
-                    axs[aux_num] = fig.add_subplot(spec[aux_num])
-                axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
-                axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-                axs[aux_num].set_ylabel(aux_data)
-            axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            axs[0].invert_yaxis()
-            axs[nrows-1].set_xlabel("Time (UTC)")
-            axs[0].set_ylabel("Instrumental Magnitude")
-        else:
-            axs = fig.add_subplot(spec[0])
-            axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], fmt='o', markersize=2, capsize=0)
-            axs.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            axs.invert_yaxis()
-            axs.set_xlabel("Time (UTC)")
-            axs.set_ylabel("Instrumental Magnitude")
-        plt.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
-        plt.show(block=False)
+        fig_list = [None]
+        fig_list[0], axs = plot_light_curve_singleband(sats_table,
+                                         sat,
+                                         uncertainty_table,
+                                         sat_auxiliary_table, 
+                                         aux_data_to_plot)
+        
+        root = tk.Tk()
+        for x in range(nrows+1):
+            tk.Grid.rowconfigure(root, x, weight=1)
+        root.title(sat)
+        canvas = FigureCanvasTkAgg(fig_list[0], master=root)
+        canvas.draw_idle()
+        toolbarFrame = tk.Frame(master=root)
+        tk.Grid.columnconfigure(root, 0, weight=1)
+        toolbarFrame.grid(row=nrows+1, column=0, sticky=tk.NSEW)
+        toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
+        # toolbar = NavigationToolbar2Tk(canvas, root)
+        toolbar.update()
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
+        root.update()
+        tk.Grid.columnconfigure(root, 1, weight=1)
+        label = tk.Label(text="Please set the y axis limits.")
+        label.grid(column=1, row=0, columnspan=2)
+        row_num = 1
+        entries = [tk.Entry(root, width=10) for _ in range(2*len(axs))]
+        for ax in axs:
+            label = tk.Label(root, text=ax.get_ylabel())
+            label.grid(column=1, row=row_num, columnspan=2, sticky=tk.N)
+            # entries[row_num-1] = tk.Entry(root, width=10)
+            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num-1].grid(column=1, row=row_num+1, padx=(10, 5), pady=0, sticky=tk.N)
+            # entries[row_num] = tk.Entry(root, width=10)
+            entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
+            entries[row_num].grid(column=2, row=row_num+1, padx=(5, 10), pady=0, sticky=tk.N)
+            # print(ax.get_ylim())
+            row_num += 2
+        button = tk.Button(root, text="Refresh", command=lambda: refresh_plots(canvas))
+        button.grid(column=1, row=row_num)
+        button = tk.Button(root, text="Reset", command=lambda: reset_plots(canvas))
+        button.grid(column=2, row=row_num)
+        button = tk.Button(root, text="Save and Close", command=lambda: save_plots(fig_list[0]))
+        button.grid(column=1, row=row_num+1, columnspan=2)
+        root.mainloop()
+        # fig.show()
         plt.close()
     return
 
@@ -4484,7 +4545,6 @@ def plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_tab
 def axis_limits_multiband_gui(app_sat_dict, 
                               colour_indices_dict, 
                               sat_auxiliary_table, 
-                              limiting_mag_dict,
                               filters_to_plot, 
                               indices_to_plot, 
                               aux_data_to_plot,
@@ -4495,19 +4555,14 @@ def axis_limits_multiband_gui(app_sat_dict,
                                          sat,
                                          colour_indices_dict, 
                                          sat_auxiliary_table, 
-                                         limiting_mag_dict, 
                                          filters_to_plot, 
                                          indices_to_plot, 
-                                         aux_data_to_plot, 
-                                         save_loc)
+                                         aux_data_to_plot)
         for entry_num, entry in enumerate(entries):
             if entry_num % 2 == 0:
                 axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
             elif entry_num % 2 == 1:
                 axs[entry_num // 2].set_ylim(top=float(entry.get()))
-            # print(f"{entry_num // 2}, {entry_num % 2}")
-            # print(entry.get())
-        # axs[0].set_ylim(0, 20)
         canvas.get_tk_widget().delete()
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw()
@@ -4518,19 +4573,15 @@ def axis_limits_multiband_gui(app_sat_dict,
                                          sat,
                                          colour_indices_dict, 
                                          sat_auxiliary_table, 
-                                         limiting_mag_dict, 
                                          filters_to_plot, 
                                          indices_to_plot, 
-                                         aux_data_to_plot, 
-                                         save_loc)
+                                         aux_data_to_plot)
         row_num = 1
         for ax in axs:
             entries[row_num-1].delete(0, tk.END)
             entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
-            # entries[row_num-1].grid(column=1, row=row_num+1, padx=(10, 5), pady=0, sticky=tk.N)
             entries[row_num].delete(0, tk.END)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
-            # entries[row_num].grid(column=2, row=row_num+1, padx=(5, 10), pady=0, sticky=tk.N)
             row_num += 2
         canvas.get_tk_widget().delete()
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
@@ -4538,11 +4589,6 @@ def axis_limits_multiband_gui(app_sat_dict,
         canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
     def save_plots(fig):
-        # for entry_num, entry in enumerate(entries):
-        #     if entry_num % 2 == 0:
-        #         axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
-        #     elif entry_num % 2 == 1:
-        #         axs[entry_num // 2].set_ylim(top=float(entry.get()))
         fig.set_size_inches(7.5, 9.5)
         fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
@@ -4553,11 +4599,9 @@ def axis_limits_multiband_gui(app_sat_dict,
                                          sat,
                                          colour_indices_dict, 
                                          sat_auxiliary_table, 
-                                         limiting_mag_dict, 
                                          filters_to_plot, 
                                          indices_to_plot, 
-                                         aux_data_to_plot, 
-                                         save_loc)
+                                         aux_data_to_plot)
         
         root = tk.Tk()
         for x in range(nrows+1):
@@ -5056,58 +5100,34 @@ def _main_sc_lightcurve(directory,
     uncertainty_table = sat_information.uncertainty_table
     ascii.write(uncertainty_table, output=f"{save_loc}/Measured_Magnitude_Uncertainties.csv", format='csv')
     sat_auxiliary_table = sat_information.sat_auxiliary_table
+    for aux_data in sat_auxiliary_table.columns[2:]:
+        if all(np.isnan(sat_auxiliary_table[aux_data])):
+               sat_auxiliary_table.remove_column(aux_data)
     ascii.write(sat_auxiliary_table, output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
     unique_filters, num_filters, multiple_filters = determine_num_filters(sats_table)
-    limiting_mag_table = interpolate_aux_data(sat_auxiliary_table, unique_filters, aux_key="Limiting Magnitude")
     if multiple_filters:
         sat_dict = interpolate_sats(sats_table, uncertainty_table, unique_filters)
-        remove_dim_sats(sat_dict, limiting_mag_table, unique_filters)
         if not gb_final_transforms:
             app_sat_dict = None
-            # remove_light_curve_outliers(sat_dict, unique_filters)
-            remove_dim_sats(sat_dict, limiting_mag_table, unique_filters)
             save_interpolated_light_curve(sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
-            remove_light_curve_outliers(colour_indices_dict, all_indices_formatted)
             filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 
                                                                                         sat_auxiliary_table)
-            plot_light_curve_multiband(sat_dict, 
-                                       colour_indices_dict, 
-                                       sat_auxiliary_table, 
-                                       filters_to_plot, 
-                                       indices_to_plot, 
-                                       aux_data_to_plot,
-                                       save_loc)
+            fig = axis_limits_multiband_gui(sat_dict, 
+                              colour_indices_dict, 
+                              sat_auxiliary_table, 
+                              filters_to_plot, 
+                              indices_to_plot, 
+                              aux_data_to_plot,
+                              save_loc)
         else:
             app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
-            limiting_mag_dict = create_limiting_mag_dict(limiting_mag_table)
-            app_limiting_mag_dict = apply_gb_timeseries_transforms(gb_final_transforms, limiting_mag_dict, sat_auxiliary_table, unique_filters)
-            # for sat, sat_table in app_sat_dict.items():
-            #     for unique_filter in unique_filters:
-            #         print(f"{sat} {unique_filter} before")
-            #         print(np.count_nonzero(np.isnan(sat_table[unique_filter])))
-            # # remove_outliers(app_sat_dict, unique_filters)
-            # remove_light_curve_outliers(app_sat_dict, unique_filters)
-            # for sat, sat_table in app_sat_dict.items():
-            #     for unique_filter in unique_filters:
-            #         print(f"{sat} {unique_filter} after")
-            #         print(np.count_nonzero(np.isnan(sat_table[unique_filter])))
             save_interpolated_light_curve(app_sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
-            # for sat, sat_table in colour_indices_dict.items():
-            #     for unique_filter in all_indices_formatted:
-            #         print(f"{sat} {unique_filter} before")
-            #         print(np.count_nonzero(np.isnan(sat_table[unique_filter])))
-            # # remove_outliers(colour_indices_dict, all_indices_formatted)
-            # remove_light_curve_outliers(colour_indices_dict, all_indices_formatted)
-            # for sat, sat_table in colour_indices_dict.items():
-            #     for unique_filter in all_indices_formatted:
-            #         print(f"{sat} {unique_filter} after")
-            #         print(np.count_nonzero(np.isnan(sat_table[unique_filter])))
             filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 
@@ -5115,24 +5135,20 @@ def _main_sc_lightcurve(directory,
             fig = axis_limits_multiband_gui(app_sat_dict, 
                               colour_indices_dict, 
                               sat_auxiliary_table, 
-                              limiting_mag_dict,
                               filters_to_plot, 
                               indices_to_plot, 
                               aux_data_to_plot,
                               save_loc)
-            # plot_light_curve_multiband(app_sat_dict, 
-            #                            colour_indices_dict, 
-            #                            sat_auxiliary_table, 
-            #                            app_limiting_mag_dict, 
-            #                            filters_to_plot, 
-            #                            indices_to_plot, 
-            #                            aux_data_to_plot,
-            #                            save_loc)
     else:
         sat_dict = None
         app_sat_dict = None
         aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc)
+        axis_limits_singleband_gui(sats_table,  
+                                   uncertainty_table,
+                                   sat_auxiliary_table, 
+                                   aux_data_to_plot,
+                                   save_loc)
+        # plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc)
     return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
         
 
