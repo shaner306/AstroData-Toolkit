@@ -3735,7 +3735,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         filter_col = np.empty((filecount, 1), dtype=object)
         data = np.empty((filecount, num_sats))
         data.fill(np.nan)
-        auxiliary_data = np.empty((filecount, 4))
+        auxiliary_data = np.empty((filecount, 3))
         auxiliary_data.fill(np.nan)
 
         for i, name in enumerate(names[2:]):
@@ -3820,7 +3820,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         date_table = Table(names=[names[0]], data=date_col)
         filter_table = Table(names=[names[1]], data=filter_col)
         data_table = Table(names=names[2:], data=data)
-        auxiliary_column_names = ["FWHM", "Airmass", "BSB", "Limiting Magnitude"]
+        auxiliary_column_names = ["FWHM", "Airmass", "BSB"]
         ausiliary_columns = Table(names=auxiliary_column_names, data=auxiliary_data)
         sats_table = hstack([date_table, filter_table, data_table], join_type='exact')
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
@@ -3930,7 +3930,6 @@ def check_if_sat(sat_information,
                  fwhm_arcsec, 
                  airmass, 
                  bsb, 
-                 limiting_mag, 
                  max_distance_from_sat=20):
     for obj_index in range(len(sat_x_array)):
         obj_x = sat_x_array[obj_index]
@@ -3946,7 +3945,6 @@ def check_if_sat(sat_information,
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
     sat_information.sat_auxiliary_table[index][3] = airmass
     sat_information.sat_auxiliary_table[index][4] = bsb
-    sat_information.sat_auxiliary_table[index][5] = limiting_mag
     print(sat_information.sats_table[index])
     return sat_information
 
@@ -4060,26 +4058,11 @@ def change_sat_positions(filenames,
             except TypeError:
                 print("No satellites detected.")
                 continue
-            # bkg, bkg_std = calculate_img_bkg(imgdata)
-            # irafsources = detecting_stars(imgdata, bkg, bkg_std)
-            # if not irafsources:
-            #     sat_information.num_nans[:] = 0
-            #     continue
-            # plot_detected_sats(filename,
-            #                    plot_results, 
-            #                    imgdata, 
-            #                    irafsources, 
-            #                    sat_information, 
-            #                    max_distance_from_sat=max_distance_from_sat, 
-            #                    norm=LogNorm())
-            # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
             bkg = np.median(bkg_trm)
             bsb = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
-            limiting_mag = calculate_limiting_magnitude(bkg, hdr, exptime, fwhm, gb_final_transforms)
             fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
             airmass = get_image_airmass(hdr)
             photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
-            # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
             sat_information = check_if_sat(sat_information, 
@@ -4091,7 +4074,6 @@ def change_sat_positions(filenames,
                                            fwhm_arcsec,
                                            airmass,
                                            bsb,
-                                           limiting_mag,
                                            max_distance_from_sat=max_distance_from_sat)
         sat_information.num_nans[sat_checked_mask] = 0
     change_sat_positions_bool = False
@@ -4447,6 +4429,7 @@ def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliar
         axs.set_ylabel("Instrumental Magnitude")
         plt.tight_layout()
     return fig, axs
+
 
 def axis_limits_singleband_gui(sats_table, 
                                uncertainty_table,
@@ -5070,11 +5053,9 @@ def _main_sc_lightcurve(directory,
         bkg = np.median(bkg_trm)
         bsb = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms,
                                         focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ')
-        limiting_mag = calculate_limiting_magnitude(bkg, hdr, exptime, fwhm, gb_final_transforms)
         fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
         airmass = get_image_airmass(hdr)
         photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
-        # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
         instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
         sat_information = check_if_sat(sat_information, 
@@ -5086,7 +5067,6 @@ def _main_sc_lightcurve(directory,
                                        fwhm_arcsec,
                                        airmass,
                                        bsb,
-                                       limiting_mag,
                                        max_distance_from_sat=max_distance_from_sat)
         change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
                                                                                filenum, 
