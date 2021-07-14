@@ -14,10 +14,10 @@ import os
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
 
-# transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
-# gb_final_transforms = ascii.read(transforms_file)
+transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
+gb_final_transforms = ascii.read(transforms_file)
 # gb_final_transforms.pprint_all()
-gb_final_transforms = None
+# gb_final_transforms = None
 
 temp_dir = 'tmp'
 # save_loc = 'Outputs'
