@@ -55,6 +55,9 @@ import scipy
 # from scipy.optimize import curve_fit
 
 
+plt.rcParams.update({"text.usetex": False})
+
+
 # def linear_func(x, m, b):
 #     y = (m * x) + b
 #     return y
@@ -4474,6 +4477,13 @@ def axis_limits_singleband_gui(sats_table,
         fig.set_size_inches(7.5, 9.5)
         fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
+    try:
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif" : ["Computer Modern Roman"]})
+    except Exception:
+        pass
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat in sats_table.columns[2:]:
         fig_list = [None]
@@ -4575,6 +4585,13 @@ def axis_limits_multiband_gui(app_sat_dict,
         fig.set_size_inches(7.5, 9.5)
         fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
+    try:
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif" : ["Computer Modern Roman"]})
+    except Exception:
+        pass
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat, sat_table in app_sat_dict.items():
         fig_list = [None]
