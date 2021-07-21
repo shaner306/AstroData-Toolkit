@@ -464,19 +464,21 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             f.Declination = f.targetDeclination
                             f.RightAscension = f.targetRightAscension 
                            
-                            #x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+                            x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
                             # yBin = 4.33562092816E-004*3600;
                             # xBin =  4.33131246330E-004*3600; 
                             # f.ArcsecperPixelHoriz  = 4.556
                             # f.ArcsecperPixelVert =  4.556
-                            if sb==1:
-                                yBin = 4.33562092816E-004*3600*2 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                                xBin =  4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                            else:
-                                yBin = 4.33562092816E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                                xBin =  4.33131246330E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                            f.ArcsecperPixelHoriz  = xBin    #%CCD Pixel scale on CD
-                            f.ArcsecperPixelVert = yBin
+                            # if sb==1:
+                            #     yBin = 4.33562092816E-004*3600*2 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            #     xBin =  4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            # else:
+                            #     yBin = 4.33562092816E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            #     xBin =  4.33131246330E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                            # f.ArcsecperPixelHoriz  = xBin    #%CCD Pixel scale on CD
+                            # f.ArcsecperPixelVert = yBin
+                            f.ArcsecperPixelHoriz  = x_arcsecperpixel    #%CCD Pixel scale on CD
+                            f.ArcsecperPixelVert = y_arcsecperpixel
                             #print(f.ArcsecperPixelVert)
                             
                             "Pinpoint Solve Inputs"

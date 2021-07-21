@@ -5356,8 +5356,10 @@ def calc_ArcsecPerPixel(header):
    ypix_size=header['XPIXSZ']
    xbin=header['XPIXSZ']
    ybin=header['XPIXSZ']
-   x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
-   y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
+   x_arcsecperpixel = 206.2648*((xpix_size)/ (focal_Length))
+   y_arcsecperpixel = 206.2648*((ypix_size)/ (focal_Length))
+   # x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
+   # y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
    
    return x_arcsecperpixel, y_arcsecperpixel
 
