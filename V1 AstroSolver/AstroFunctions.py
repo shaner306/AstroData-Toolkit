@@ -4645,9 +4645,13 @@ def axis_limits_multiband_gui(app_sat_dict,
     return
 
 
-def save_interpolated_light_curve(sat_dict, save_loc):
-    for sat, sat_table in sat_dict.items():
-        ascii.write(sat_table, output=f"{save_loc}/{sat}.csv", format='csv')
+def save_interpolated_light_curve(sat_dict, save_loc, suffix=None):
+    if not suffix:
+        for sat, sat_table in sat_dict.items():
+            ascii.write(sat_table, output=f"{save_loc}/{sat}_{suffix}.csv", format='csv')
+    else:
+        for sat, sat_table in sat_dict.items():
+            ascii.write(sat_table, output=f"{save_loc}/{sat}.csv", format='csv')
 
 
 def _main_gb_transform_calc(directory, 
@@ -4785,7 +4789,7 @@ def _main_gb_transform_calc(directory,
         'Z_f': '%0.3f',
         'Z_f_sigma': '%0.3f'
         }
-        ascii.write(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.csv", format='csv')
+        ascii.write(gb_final_transforms, f"{os.path.join(save_loc, '_gb_final_transforms')}.csv", format='csv')
         write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
         formats = {
         'exptime': '%0.3f',
@@ -5109,6 +5113,7 @@ def _main_sc_lightcurve(directory,
             save_interpolated_light_curve(sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
+            save_interpolated_light_curve(colour_indices_dict, save_loc, suffix="Colour Indices")
             filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 
@@ -5125,6 +5130,7 @@ def _main_sc_lightcurve(directory,
             save_interpolated_light_curve(app_sat_dict, save_loc)
             all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
+            save_interpolated_light_curve(colour_indices_dict, save_loc, suffix="Colour Indices")
             filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
                                                                                         num_filters, 
                                                                                         all_indices_formatted, 

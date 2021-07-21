@@ -441,7 +441,7 @@ Created on Mon May 31 12:35:34 2021
 @author: jmwawrow
 """
 
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb):
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor):
         f = pinpoint_init()
         filepathall = getFileList(inbox)
         file_suffix=".fits"
@@ -485,6 +485,7 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             #TODO Add Inputs for pinpoint solving to GUI
                             f.Catalog = 11
                             f.CatalogPath = catloc
+                            f.UseSExtractor = use_sextractor
                             #print(f.CatalogPath)
                             f.CatalogMaximumMagnitude = max_mag
                             #print(f.CatalogMaximumMagnitude)
@@ -504,6 +505,7 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             f.FindImageStars()
                             #print(f.ImageStars.Count)
                             f.Solve()
+                            f.UpdateFITS()
                             #print( f.MatchedStars.count)
                             #f.FindImageStars()
                             #print(f.ImageStars)
@@ -546,7 +548,7 @@ def Ground_based_transforms(directory, ref_stars_file):
     lon_key='SITELONG'
     elev_key='SITEELEV'
     name_key='Name'
-    ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
+    # ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
     save_loc = os.path.join(directory, 'Outputs')
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
