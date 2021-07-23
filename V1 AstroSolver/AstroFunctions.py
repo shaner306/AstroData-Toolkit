@@ -4680,6 +4680,7 @@ def _main_gb_transform_calc(directory,
         for filename in filenames:
             if filename.endswith(file_suffix):
                 filepath = os.path.join(dirpath, filename)
+                print(filepath)
                 hdr, imgdata = read_fits_file(filepath)
                 exptime = hdr[exposure_key]
                 bkg, bkg_std = calculate_img_bkg(imgdata)

@@ -212,7 +212,8 @@ def Gui ():
                         Main.Ground_based_transforms(image_dir,refstar_dir)
                         print (image_dir,refstar_dir)
                         window.close()
-                    except:
+                    except Exception as e:
+                        print(e)
                         print("Input Error. Please See Instructions")
                         #window.update()
                 else:
