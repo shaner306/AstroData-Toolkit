@@ -11,10 +11,12 @@ import os
 
 # directory = 'D:\\Transfer to mac\\2021-03-10 - Calibrated\\Intelsat 10-02 Post Eclipse\\LIGHT\\B_lim'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\Test'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
+directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Sats\Intelsat 10-02\corrected_lights'
 
-transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
+# transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
+transforms_file = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Stars\corrected_lights\Outputs\_gb_final_transforms.csv'
 gb_final_transforms = ascii.read(transforms_file)
 # gb_final_transforms.pprint_all()
 # gb_final_transforms = None
