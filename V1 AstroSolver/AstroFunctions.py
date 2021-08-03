@@ -4721,6 +4721,11 @@ def _main_gb_transform_calc(directory,
                     
                     field = get_field_name(matched_stars, name_key=name_key)
                     
+                    try:
+                        len(matched_stars.img_instr_mag)
+                    except TypeError:
+                        print("Only 1 reference star detected in the image.")
+                        continue
                     
                     if np.isnan(matched_stars.ref_star[colour_index]).any():
                         no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
@@ -4737,31 +4742,30 @@ def _main_gb_transform_calc(directory,
                             img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
                             img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
                             )
-                    try:
-                        len(matched_stars.img_instr_mag)
-                    except TypeError:
-                        print("Only 1 reference star detected in the image.")
-                        continue
+                    
                     auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns, 
                                                                        filename, 
                                                                        exptime, 
                                                                        fwhm, 
                                                                        fwhm_std, 
                                                                        matched_stars)
-                    if not save_plots:
-                        c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
-                                                                                                           instr_filter, 
-                                                                                                           colour_index, 
-                                                                                                           plot_results=plot_results)
-                    else:
-                        unique_id = filename
-                        c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
-                                                                                                           instr_filter, 
-                                                                                                           colour_index, 
-                                                                                                           plot_results=plot_results,
-                                                                                                           save_plots=save_plots,
-                                                                                                           save_loc=save_loc,
-                                                                                                           unique_id=unique_id)
+                    try:
+                        if not save_plots:
+                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
+                                                                                                               instr_filter, 
+                                                                                                               colour_index, 
+                                                                                                               plot_results=plot_results)
+                        else:
+                            unique_id = filename
+                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
+                                                                                                               instr_filter, 
+                                                                                                               colour_index, 
+                                                                                                               plot_results=plot_results,
+                                                                                                               save_plots=save_plots,
+                                                                                                               save_loc=save_loc,
+                                                                                                               unique_id=unique_id)
+                    except Exception:
+                        continue
                     gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
                                                                                    field,
                                                                                    c_fci,
