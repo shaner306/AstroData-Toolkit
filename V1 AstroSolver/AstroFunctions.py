@@ -2495,6 +2495,8 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     filtered_data = np.ma.masked_array(y, mask=mask)
     c_fci = fitted_line.slope.value
     zprime_f = fitted_line.intercept.value
+    if c_fci == 1 and zprime_f == 0:
+        return
     cov = fit.fit_info['param_cov']
     if cov is None:
         c_fci_sigma = 0.0
@@ -2694,7 +2696,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         sigma[sigma == 0] = max(sigma)
         # sigma = current_filter['C_fCI_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-        fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+        if np.sum(np.abs(sigma)) == 0:
+            fitted_line_c, mask = or_fit(line_init, x, y)
+        else:
+            fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
         filtered_data_c = np.ma.masked_array(y, mask=mask)
         kprimeprime_fci = fitted_line_c.slope.value
         t_fci = fitted_line_c.intercept.value
@@ -2719,7 +2724,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         sigma[sigma == 0] = max(sigma)
         # sigma = current_filter['Zprime_f_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-        fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+        if np.sum(np.abs(sigma)) == 0:
+            fitted_line_z, mask = or_fit(line_init, x, y)
+        else:
+            fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
         filtered_data_z = np.ma.masked_array(y, mask=mask)
         kprime_f = fitted_line_z.slope.value
         zprime_f = fitted_line_z.intercept.value
