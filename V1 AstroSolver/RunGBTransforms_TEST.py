@@ -13,6 +13,29 @@ subfolder_list = [
     '2021-03-20 - unprocessed'
     ]
 
+subfolder_list = [
+    '2020 10 23 - 2x2 - unprocessed', 
+    '2020 10 31 - 2x2 - unprocessed', 
+    '2020 11 04 - 2x2 - unprocessed', 
+    '2020 11 10 - 2x2 - unprocessed', 
+    '2020 11 21 - 2x2 - unprocessed', 
+    '2020 11 30 - 2x2 - unprocessed', 
+    '2020-12-12 - unprocessed', 
+    '2020-12-24 - unprocessed', 
+    '2020-12-25 - unprocessed', 
+    '2020-12-28 - unprocessed', 
+    '2021-02-07 - unprocessed', 
+    '2021-03-10 - unprocessed', 
+    '2021-03-20 - unprocessed', 
+    '2021-03-21 - unprocessed', 
+    '2021-03-22 - unprocessed', 
+    '2021-03-23 - unprocessed', 
+    '2021-03-31 - unprocessed', 
+    '2021-04-21 - unprocessed', 
+    '2021-04-24 - unprocessed', 
+    '2021-04-25 - unprocessed'
+    ]
+
 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
 
@@ -38,5 +61,5 @@ for subfolder in subfolder_list:
                                                              transform_index_list=transform_index_list,
                                                              save_loc=save_loc,
                                                              unique_id=unique_id)
-    sb_final_transform_table.pprint(max_lines=40)
+    # sb_final_transform_table.pprint(max_lines=40)
     ascii.write(sb_final_transform_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')

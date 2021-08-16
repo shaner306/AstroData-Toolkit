@@ -1224,6 +1224,10 @@ def init_large_table_columns():
     V_R_apparents = []
     V_I_apparents = []
     V_sigma_apparents = []
+    B_V_sigma_apparents = []
+    U_B_sigma_apparents = []
+    V_R_sigma_apparents = []
+    V_I_sigma_apparents = []
     img_star_airmass = []
     # X_rounded = []
     large_table_columns = namedtuple('large_table_columns',
@@ -1246,6 +1250,10 @@ def init_large_table_columns():
                                       'V_R_apparents',
                                       'V_I_apparents',
                                       'V_sigma_apparents',
+                                      'B_V_sigma_apparents',
+                                      'U_B_sigma_apparents',
+                                      'V_R_sigma_apparents',
+                                      'V_I_sigma_apparents',
                                       'img_star_airmass',
                                       # 'X_rounded'
                                       ])
@@ -1268,6 +1276,10 @@ def init_large_table_columns():
                                V_R_apparents, 
                                V_I_apparents, 
                                V_sigma_apparents, 
+                               B_V_sigma_apparents, 
+                               U_B_sigma_apparents, 
+                               V_R_sigma_apparents, 
+                               V_I_sigma_apparents, 
                                img_star_airmass, 
                                # X_rounded
                                )
@@ -1438,12 +1450,20 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
             updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['(V-R)'])
             updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['(V-I)'])
             updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['V_sigma'])
+            updated_large_table_columns.B_V_sigma_apparents.extend(matched_stars.ref_star['(B-V)_sigma'])
+            updated_large_table_columns.U_B_sigma_apparents.extend(matched_stars.ref_star['(U-B)_sigma'])
+            updated_large_table_columns.V_R_sigma_apparents.extend(matched_stars.ref_star['(V-R)_sigma'])
+            updated_large_table_columns.V_I_sigma_apparents.extend(matched_stars.ref_star['(V-I)_sigma'])
         except KeyError:
             updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['B-V'])
             updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['U-B'])
             updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['V-R'])
             updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['V-I'])
             updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_sigma_apparents.extend(matched_stars.ref_star['e_B-V'])
+            updated_large_table_columns.U_B_sigma_apparents.extend(matched_stars.ref_star['e_U-B'])
+            updated_large_table_columns.V_R_sigma_apparents.extend(matched_stars.ref_star['e_V-R'])
+            updated_large_table_columns.V_I_sigma_apparents.extend(matched_stars.ref_star['e_V-I'])
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.extend(matched_stars.img_star_airmass)
@@ -1476,12 +1496,20 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
             updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['(V-R)'])
             updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['(V-I)'])
             updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['V_sigma'])
+            updated_large_table_columns.B_V_sigma_apparents.append(matched_stars.ref_star['(B-V)_sigma'])
+            updated_large_table_columns.U_B_sigma_apparents.append(matched_stars.ref_star['(U-B)_sigma'])
+            updated_large_table_columns.V_R_sigma_apparents.append(matched_stars.ref_star['(V-R)_sigma'])
+            updated_large_table_columns.V_I_sigma_apparents.append(matched_stars.ref_star['(V-I)_sigma'])
         except KeyError:
             updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['B-V'])
             updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['U-B'])
             updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['V-R'])
             updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['V-I'])
             updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_sigma_apparents.append(matched_stars.ref_star['e_B-V'])
+            updated_large_table_columns.U_B_sigma_apparents.append(matched_stars.ref_star['e_U-B'])
+            updated_large_table_columns.V_R_sigma_apparents.append(matched_stars.ref_star['e_V-R'])
+            updated_large_table_columns.V_I_sigma_apparents.append(matched_stars.ref_star['e_V-I'])
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.append(matched_stars.img_star_airmass)
@@ -1610,6 +1638,10 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_R_apparents, 
                 large_table_columns.V_I_apparents, 
                 large_table_columns.V_sigma_apparents, 
+                large_table_columns.B_V_sigma_apparents, 
+                large_table_columns.U_B_sigma_apparents, 
+                large_table_columns.V_R_sigma_apparents, 
+                large_table_columns.V_I_sigma_apparents, 
                 large_table_columns.img_star_airmass, 
                 # large_table_columns.X_rounded
                 ],
@@ -1628,11 +1660,15 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'mag_instrumental_sigma',
                 'filter',
                 'V_ref',
-                '(B-V)',
-                '(U-B)',
-                '(V-R)',
-                '(V-I)',
+                'B-V',
+                'U-B',
+                'V-R',
+                'V-I',
                 'V_sigma',
+                'e_B-V',
+                'e_U-B',
+                'e_V-R',
+                'e_V-I',
                 'X',
                 # 'X_rounded'
                 ]
@@ -1658,7 +1694,11 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.U_B_apparents, 
                 large_table_columns.V_R_apparents, 
                 large_table_columns.V_I_apparents, 
-                large_table_columns.V_sigma_apparents,
+                large_table_columns.V_sigma_apparents, 
+                large_table_columns.B_V_sigma_apparents, 
+                large_table_columns.U_B_sigma_apparents, 
+                large_table_columns.V_R_sigma_apparents, 
+                large_table_columns.V_I_sigma_apparents
                 ],
             names=[
                 'Field',
@@ -1680,6 +1720,10 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 '(V-R)',
                 '(V-I)',
                 'V_sigma',
+                '(B-V)_sigma',
+                '(U-B)_sigma',
+                '(V-R)_sigma',
+                '(V-I)_sigma',
                 ]
             )
     return large_stars_table
@@ -1807,15 +1851,23 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             'Field',
             'Name',
             'V_ref',
-            '(B-V)',
-            '(U-B)',
-            '(V-R)',
-            '(V-I)',
-            'V_sigma'
+            'B-V',
+            'U-B',
+            'V-R',
+            'V-I',
+            'V_sigma',
+            'e_B-V',
+            'e_U-B',
+            'e_V-R',
+            'e_V-I',
             ],
         data=[
             np.empty(N, dtype=object),
             np.empty(N, dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
             nan_array,
             nan_array,
             nan_array,
@@ -1892,19 +1944,23 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             stars_table.add_row(stars_table_nan_array)
             stars_table['Field'][i] = current_star_table['Field'][0]
             stars_table['V_ref'][i] = current_star_table['V_ref'][0]
-            stars_table['(B-V)'][i] = current_star_table['(B-V)'][0]
-            stars_table['(U-B)'][i] = current_star_table['(U-B)'][0]
-            stars_table['(V-R)'][i] = current_star_table['(V-R)'][0]
-            stars_table['(V-I)'][i] = current_star_table['(V-I)'][0]
+            stars_table['B-V'][i] = current_star_table['B-V'][0]
+            stars_table['U-B'][i] = current_star_table['U-B'][0]
+            stars_table['V-R'][i] = current_star_table['V-R'][0]
+            stars_table['V-I'][i] = current_star_table['V-I'][0]
             stars_table['V_sigma'][i] = current_star_table['V_sigma'][0]
+            stars_table['e_B-V'][i] = current_star_table['e_B-V'][0]
+            stars_table['e_U-B'][i] = current_star_table['e_U-B'][0]
+            stars_table['e_V-R'][i] = current_star_table['e_V-R'][0]
+            stars_table['e_V-I'][i] = current_star_table['e_V-I'][0]
             stars_table['Name'][i] = star
             list_of_airmasses = list(g)
             mask = np.in1d(current_star_table['X'], list_of_airmasses)
             # print(mask)
             current_star_airmass_table = current_star_table[mask]
-            print(current_star_airmass_table)
+            # print(current_star_airmass_table)
             # print(np.array(current_star_table['X']))
-            print(list_of_airmasses)
+            # print(list_of_airmasses)
             unique_filters = table.unique(current_star_airmass_table, keys='filter')
             for unique_filter in unique_filters['filter']:
                 mask = ((current_star_airmass_table['filter'] == unique_filter))
@@ -1928,7 +1984,216 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 stars_table[X_std_column][i] = std_X
             i += 1 
     stars_table.remove_row(-1)
-    return stars_table
+    # print(different_filter_list)
+    return stars_table, different_filter_list
+
+
+def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc, plot_results=False, save_plots=False):
+    gb_transform_table_columns = init_gb_transform_table_columns_AVG()
+    for different_filter in different_filter_list:
+        # sigma_column = f'{different_filter}_sigma'
+        X_column = f'X_{different_filter}'
+        X_std_column = f'X_{different_filter}_sigma'
+        stars_table.sort(X_column)
+        for k, g in groupby(np.array(stars_table[X_column][~np.isnan(stars_table[X_column])]), key=Delta(0.05)):
+            list_of_airmasses = list(g)
+            mask = np.in1d(stars_table[X_column], list_of_airmasses)
+            current_airmass_table = stars_table[mask]
+            avg_airmass = np.average(current_airmass_table[X_column], weights=current_airmass_table[X_std_column])
+            unique_id = f"airmsass_{avg_airmass:0.3f}"
+            # current_airmass_table.pprint(max_width=-1)
+            # app_mag, app_mag_sigma, app_filter, colour_index = get_app_mag_and_index_AVG(current_airmass_table, different_filter)
+            colour_indices = get_all_colour_indices(different_filter)
+            for colour_index in colour_indices:
+                try:
+                    c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms_AVG(current_airmass_table, 
+                                                                                                           different_filter, 
+                                                                                                           colour_index,
+                                                                                                           plot_results=plot_results, 
+                                                                                                           save_plots=save_plots, 
+                                                                                                           unique_id=unique_id,
+                                                                                                           save_loc=save_loc)
+                except TypeError:
+                    print(f"Only 1 star at airmass: {avg_airmass:0.3f}.")
+                    continue
+                gb_transform_table_columns = update_gb_transform_table_columns_AVG(gb_transform_table_columns,
+                                                                                  c_fci,
+                                                                                  c_fci_sigma,
+                                                                                  zprime_f,
+                                                                                  zprime_f_sigma,
+                                                                                  different_filter,
+                                                                                  colour_index,
+                                                                                  avg_airmass)
+    gb_transform_table = create_gb_transform_table_AVG(gb_transform_table_columns)
+    return gb_transform_table
+
+
+def init_gb_transform_table_columns_AVG():
+    c_fci = []
+    c_fci_simga = []
+    zprime_f = []
+    zprime_f_sigma = []
+    instr_filter = []
+    colour_index = []
+    airmass = []
+    gb_transform_table_columns = namedtuple('gb_transform_table_columns', 
+                                            ['c_fci',
+                                             'c_fci_sigma',
+                                             'zprime_f',
+                                             'zprime_f_sigma',
+                                             'instr_filter',
+                                             'colour_index',
+                                             'airmass'])
+    return gb_transform_table_columns(c_fci, 
+                                      c_fci_simga,
+                                      zprime_f, 
+                                      zprime_f_sigma, 
+                                      instr_filter, 
+                                      colour_index, 
+                                      airmass)
+
+
+def get_app_mag_and_index_AVG(stars_table, instr_filter):
+    if instr_filter == 'b':
+        colour_index = 'B-V'
+        app_filter = 'B'
+        app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
+            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+        # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_index = 'B-V'
+        app_filter = 'V'
+        app_mag = np.array(stars_table['V_ref'])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma']))
+        # app_mag_sigma = np.array(ref_star['e_V'])
+    elif instr_filter == 'r':
+        colour_index = 'V-R'
+        app_filter = 'R'
+        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
+            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+        # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
+    elif instr_filter == 'i':
+        colour_index = 'V-I'
+        app_filter = 'I'
+        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
+            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+        # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
+    else:
+        colour_index = None
+        app_filter = None
+        app_mag = None
+        app_mag_sigma = None
+    return app_mag, app_mag_sigma, app_filter, colour_index
+
+
+def update_gb_transform_table_columns_AVG(gb_transform_table_columns,
+                                      c_fci,
+                                      c_fci_sigma,
+                                      zprime_f,
+                                      zprime_f_sigma,
+                                      instr_filter,
+                                      colour_index,
+                                      avg_airmass):
+    updated_gb_transform_table_columns = gb_transform_table_columns
+    updated_gb_transform_table_columns.c_fci.append(c_fci)
+    updated_gb_transform_table_columns.c_fci_sigma.append(c_fci_sigma)
+    updated_gb_transform_table_columns.zprime_f.append(zprime_f)
+    updated_gb_transform_table_columns.zprime_f_sigma.append(zprime_f_sigma)
+    updated_gb_transform_table_columns.instr_filter.append(instr_filter)
+    updated_gb_transform_table_columns.colour_index.append(colour_index)
+    # avg_airmass = get_avg_airmass(altazpositions)
+    updated_gb_transform_table_columns.airmass.append(avg_airmass)
+    return updated_gb_transform_table_columns
+
+
+def create_gb_transform_table_AVG(gb_transform_table_columns):
+    gb_transform_table = Table(
+        names=[
+            'C_fCI',
+            'C_fCI_sigma',
+            'Zprime_f',
+            'Zprime_f_sigma',
+            'filter',
+            'CI',
+            'X'
+            ],
+        data=[
+            gb_transform_table_columns.c_fci,
+            gb_transform_table_columns.c_fci_sigma,
+            gb_transform_table_columns.zprime_f,
+            gb_transform_table_columns.zprime_f_sigma,
+            gb_transform_table_columns.instr_filter,
+            gb_transform_table_columns.colour_index,
+            gb_transform_table_columns.airmass
+            ]
+        )
+    return gb_transform_table
+
+
+def ground_based_first_order_transforms_AVG(stars_table, instr_filter, colour_index,
+                                        plot_results=False, save_plots=False, **kwargs):
+    try:
+        len(stars_table)
+    except TypeError:
+        return
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index_AVG(stars_table, instr_filter)
+    sigma_column = f'{instr_filter}_sigma'
+    max_instr_filter_sigma = max(stars_table[sigma_column])
+    err_sum = app_mag_sigma + np.nan_to_num(stars_table[sigma_column], nan=max_instr_filter_sigma)
+    err_sum = np.array(err_sum)
+    err_sum[err_sum == 0] = max(err_sum)
+    x = stars_table[colour_index][~np.isnan(stars_table[colour_index])]
+    y = app_mag[~np.isnan(stars_table[colour_index])] - stars_table[instr_filter][~np.isnan(stars_table[colour_index])]
+    fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+    # print(len(x))
+    # print(len(y))
+    # print(stars_table[colour_index])
+    if len(x) > 1 and len(y) > 1:
+        fitted_line, mask = or_fit(line_init, x, y, weights=1.0/(err_sum[~np.isnan(stars_table[colour_index])]))
+    else:
+        return
+    filtered_data = np.ma.masked_array(y, mask=mask)
+    c_fci = fitted_line.slope.value
+    zprime_f = fitted_line.intercept.value
+    if c_fci == 1 and zprime_f == 0:
+        return
+    cov = fit.fit_info['param_cov']
+    if cov is None:
+        c_fci_sigma = 0.0
+        zprime_f_sigma = 0.0
+    else:
+        c_fci_sigma = sqrt(cov[0][0])
+        zprime_f_sigma = sqrt(cov[1][1])
+    if plot_results:
+        # print(min(stars_table[colour_index]))
+        # print(max(stars_table[colour_index]))
+        index_plot = np.arange(start=min(stars_table[colour_index][~np.isnan(stars_table[colour_index])]), 
+                               stop=max(stars_table[colour_index][~np.isnan(stars_table[colour_index])])+0.01, 
+                               step=0.01)
+        plt.errorbar(x, y, yerr=err_sum[~np.isnan(stars_table[colour_index])], color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
+                 label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
+        # plt.plot(index_plot, c_fci * index_plot + zprime_f, 
+        #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
+        plt.ylabel(f"{app_filter}-{instr_filter}")
+        plt.xlabel(f"{colour_index}")
+        plt.legend()
+        plt.title(f"C and Z' Coefficient Calculations for {colour_index}")
+        # if not field:
+        #     plt.title(f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
+        # else:
+        #     plt.title(f"{field}: ({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
+        if save_plots:
+            unique_id = kwargs.get('unique_id')
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'CZprime{colour_index}_{unique_id}')}.png"
+            plt.savefig(save_loc)
+        plt.show()
+        plt.close()
+    return c_fci, c_fci_sigma, zprime_f, zprime_f_sigma
 
 
 def group_each_star(large_stars_table, ground_based=False, keys='Name'):
@@ -5290,9 +5555,17 @@ def _main_gb_transform_calc_TEST(directory,
                                                                  ground_based=True, 
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    stars_table = group_each_star_GB(large_stars_table)
-    stars_table.pprint(max_lines=-1, max_width=400)
+    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    stars_table.pprint(max_lines=30, max_width=200)
     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    gb_transform_table = calc_gb_first_transforms_AVG(stars_table, different_filter_list, 
+                                                      save_loc, plot_results=plot_results, save_plots=save_plots)
+    gb_transform_table.pprint(max_lines=30, max_width=-1)
+    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
+                                                               plot_results=plot_results, 
+                                                               save_plots=save_plots,
+                                                               save_loc=save_loc)
+    gb_final_transforms.pprint_all()
     return large_stars_table
     sb_final_transform_columns = init_sb_final_transform_columns()
     if save_plots:
