@@ -13,13 +13,43 @@ import os
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
-directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Sats\Intelsat 10-02\corrected_lights'
+# directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Sats\Intelsat 10-02\corrected_lights'
 
 # transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
 transforms_file = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Stars\corrected_lights\Outputs\_gb_final_transforms.csv'
 gb_final_transforms = ascii.read(transforms_file)
 # gb_final_transforms.pprint_all()
 # gb_final_transforms = None
+
+subfolder_list = [
+    '2020-12-12 - unprocessed', 
+    '2020-12-24 - unprocessed', 
+    '2020-12-25 - unprocessed', 
+    '2020-12-28 - unprocessed', 
+    '2021-03-10 - unprocessed', 
+    '2021-03-20 - unprocessed', 
+    '2021-03-21 - unprocessed', 
+    '2021-03-22 - unprocessed', 
+    '2021-03-31 - unprocessed', 
+    '2021-04-21 - unprocessed', 
+    '2021-04-24 - unprocessed', 
+    '2021-04-25 - unprocessed'
+    ]
+# Subfolders with bad/without transforms:
+# subfolder_list = [
+#     '2020 11 04 - 2x2 - unprocessed',
+#     '2020 11 10 - 2x2 - unprocessed',
+#     '2020 11 21 - 2x2 - unprocessed',
+#     '2020 11 30 - 2x2 - unprocessed',
+#     '2021-02-07 - unprocessed',
+#     '2021-03-09 - unprocessed',
+#     '2021-03-23 - unprocessed'
+#     ]
+# 2x2 binned with good transforms:
+# subfolder_list = [
+#     '2020 10 23 - 2x2 - unprocessed', 
+#     '2020 10 31 - 2x2 - unprocessed'
+#     ]
 
 temp_dir = 'tmp'
 # save_loc = 'Outputs'
@@ -30,17 +60,22 @@ size = 20
 max_num_nan = 5
 plot_results = 0
 
-save_loc = os.path.join(directory, 'Outputs')
-sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table = astro._main_sc_lightcurve(directory, 
-                                                                          gb_final_transforms=gb_final_transforms,
-                                                                          temp_dir=temp_dir, 
-                                                                          save_loc=save_loc,
-                                                                          file_suffix=file_suffix,
-                                                                          ecct_cut=ecct_cut,
-                                                                          max_distance_from_sat=max_distance_from_sat, 
-                                                                          size=size, 
-                                                                          max_num_nan=max_num_nan, 
-                                                                          plot_results=plot_results)
+for subfolder in reversed(subfolder_list):
+    print(subfolder)
+    directory = f'F:\\Intelsat 10-02\\{subfolder}\\Intelsat 10-02\\corrected_lights'
+    transforms_file = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights\\Outputs_NEW\\_gb_final_transforms.csv'
+    gb_final_transforms = ascii.read(transforms_file)
+    save_loc = os.path.join(directory, 'Outputs_NEW')
+    sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table = astro._main_sc_lightcurve(directory, 
+                                                                              gb_final_transforms=gb_final_transforms,
+                                                                              temp_dir=temp_dir, 
+                                                                              save_loc=save_loc,
+                                                                              file_suffix=file_suffix,
+                                                                              ecct_cut=ecct_cut,
+                                                                              max_distance_from_sat=max_distance_from_sat, 
+                                                                              size=size, 
+                                                                              max_num_nan=max_num_nan, 
+                                                                              plot_results=plot_results)
 
 # print(sat_dict)
 # sat_auxiliary_table.pprint_all()

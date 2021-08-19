@@ -9,28 +9,34 @@ import AstroFunctions as astro
 import os
 from astropy.io import ascii
 
-subfolder_list = [
-    '2021-03-20 - unprocessed'
-    ]
+# subfolder_list = [
+#     '2021-03-20 - unprocessed'
+#     ]
+
+# subfolder_list = [
+#     '2020 10 23 - 2x2 - unprocessed', 
+#     '2020 10 31 - 2x2 - unprocessed', 
+#     '2020 11 04 - 2x2 - unprocessed', 
+#     '2020 11 10 - 2x2 - unprocessed', 
+#     '2020 11 21 - 2x2 - unprocessed', 
+#     '2020 11 30 - 2x2 - unprocessed', 
+#     '2020-12-12 - unprocessed', 
+#     '2020-12-24 - unprocessed', 
+#     '2020-12-25 - unprocessed', 
+#     '2020-12-28 - unprocessed', 
+#     '2021-02-07 - unprocessed', 
+#     '2021-03-10 - unprocessed', 
+#     '2021-03-20 - unprocessed', 
+#     '2021-03-21 - unprocessed', 
+#     '2021-03-22 - unprocessed', 
+#     '2021-03-23 - unprocessed', 
+#     '2021-03-31 - unprocessed', 
+#     '2021-04-21 - unprocessed', 
+#     '2021-04-24 - unprocessed', 
+#     '2021-04-25 - unprocessed'
+#     ]
 
 subfolder_list = [
-    '2020 10 23 - 2x2 - unprocessed', 
-    '2020 10 31 - 2x2 - unprocessed', 
-    '2020 11 04 - 2x2 - unprocessed', 
-    '2020 11 10 - 2x2 - unprocessed', 
-    '2020 11 21 - 2x2 - unprocessed', 
-    '2020 11 30 - 2x2 - unprocessed', 
-    '2020-12-12 - unprocessed', 
-    '2020-12-24 - unprocessed', 
-    '2020-12-25 - unprocessed', 
-    '2020-12-28 - unprocessed', 
-    '2021-02-07 - unprocessed', 
-    '2021-03-10 - unprocessed', 
-    '2021-03-20 - unprocessed', 
-    '2021-03-21 - unprocessed', 
-    '2021-03-22 - unprocessed', 
-    '2021-03-23 - unprocessed', 
-    '2021-03-31 - unprocessed', 
     '2021-04-21 - unprocessed', 
     '2021-04-24 - unprocessed', 
     '2021-04-25 - unprocessed'
@@ -44,12 +50,12 @@ save_plots = True
 file_suffix = ".fits"
 exposure_key = 'EXPTIME'
 name_key = 'Name'
-transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
 
 for subfolder in subfolder_list:
+    print(subfolder)
     unique_id = subfolder
     directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-    save_loc = os.path.join(directory, 'Outputs_TEST')
+    save_loc = os.path.join(directory, 'Outputs_NEW')
     
     sb_final_transform_table = astro._main_gb_transform_calc_TEST(directory, 
                                                              ref_stars_file, 
@@ -58,7 +64,6 @@ for subfolder in subfolder_list:
                                                              file_suffix=file_suffix, 
                                                              exposure_key=exposure_key,  
                                                              name_key=name_key,
-                                                             transform_index_list=transform_index_list,
                                                              save_loc=save_loc,
                                                              unique_id=unique_id)
     # sb_final_transform_table.pprint(max_lines=40)
