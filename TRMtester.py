@@ -214,7 +214,7 @@ im_mean = mean(bg_rem)
 
 im_rms=np.std(fitsdata)
 im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
-low_clip = 56
+low_clip = 110
 high_clip = 161
 
 binary_image = np.zeros((imagesizeX,imagesizeY))
@@ -326,8 +326,8 @@ for j in range(num_valid_sources):
                     #print(C)
                     fun = lambda a: sum((S - (C/((1+(r**2)/(a[0]**2))**1.5)))**2)
                     aguess = 1
-                    a = scipy.optimize.fmin(func=fun, x0=aguess,disp=0)
-                    #print(a)
+                    a = scipy.optimize.fmin(func=fun, x0=aguess)
+                    print(a)
                     
                     #%b holds [alpha Beta] moffat parameters
                     
@@ -430,7 +430,7 @@ avg_pix_frac = pix_frac/star_count
 moffat_avg = moffat_avg/count
 gauss_avg = gauss_avg/count
 FWHM= 2*gauss_avg*0.7664
-
+print("FWMM: " + str(FWHM))
 STARS.close()
 
 
