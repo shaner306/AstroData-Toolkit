@@ -243,9 +243,13 @@ def read_fits_file(filepath):
         Data from the fits file.
 
     """
-    with fits.open(filepath) as hdul:
+    with fits.open(filepath, memmap=False) as hdul:
         hdr = hdul[0].header
         imgdata = hdul[0].data
+    # hdul = fits.open(filepath)
+    # hdr = hdul[0].header
+    # imgdata = hdul[0].data
+    # hdul.close()
     return hdr, imgdata
 
 def get_instr_filter_name(hdr, filter_key='FILTER'):
@@ -3824,8 +3828,11 @@ def copy_and_rename(directory,
     for dirpth, _, files in os.walk(directory):
         for file in files:
             if file.endswith(file_suffix):
-                with fits.open(os.path.join(dirpth, file)) as image:
-                    hdr = image[0].header
+                image = fits.open(os.path.join(dirpth, file))
+                hdr = image[0].header
+                image.close()
+                # with fits.open(os.path.join(dirpth, file)) as image:
+                #     hdr = image[0].header
                 t = Time(hdr[time_key], format='fits', scale='utc')
                 try:
                     filter_name = hdr[filter_key]
@@ -4258,9 +4265,6 @@ def TRM_sat_detection(filepath,
     return sat_x, sat_y, bkg.background, FWHM
 
 
-
-
-
 def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
     """
     Initialize the names and locations of the satellites to create a light curve for.
@@ -4300,38 +4304,51 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         global content
         content = entry.get()
         root.destroy()
+    def onclick(event, sat_locs):
+        # global num_sat_event
+        sat_locs.append([event.xdata, event.ydata])
     # global set_sat_positions_bool
     while set_sat_positions_bool:
         # global sat_locs
         sat_locs = []
-        global num_sat_event
-        num_sat_event = 0
-        def onclick(event):
-            global num_sat_event
-            sat_locs.append([event.xdata, event.ydata])
+        # global num_sat_event
+        # num_sat_event = 0
             # return satloc
         # mbox('Information',
-        #      'Please select the positions of the satellites on the following image. Press any key when finished.',
-        #      0)
+        #       'Please select the positions of the satellites on the following image. Press any key when finished.',
+        #       0)
         # cv.namedWindow('TestImage')
         # cv.setMouseCallback('TestImage', set_sat_position)
         # logdata = cv.normalize(imgdata, None, alpha=0, beta=5, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
         # cv.imshow('TestImage', logdata)
         # cv.waitKey(0)
         # cv.destroyAllWindows()
-        fig = Figure()
-        ax = fig.add_subplot()
-        root = tk.Tk()
-        ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
-        canvas = FigureCanvasTkAgg(fig, master=root)
-        canvas.draw()
-        toolbar = NavigationToolbar2Tk(canvas, root)
-        toolbar.update()
-        canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-        canvas.mpl_connect('button_press_event', onclick)
-        root.update()
-        root.focus_force()
-        root.mainloop()
+        try:
+            fig = Figure()
+            ax = fig.add_subplot()
+            root = tk.Tk()
+            ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
+            canvas = FigureCanvasTkAgg(fig, master=root)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, root)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            canvas.mpl_connect('button_press_event', lambda event: onclick(event, sat_locs))
+            root.update()
+            root.mainloop()
+        except ValueError:
+            fig = Figure()
+            ax = fig.add_subplot()
+            root = tk.Tk()
+            ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+            canvas = FigureCanvasTkAgg(fig, master=root)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, root)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+            canvas.mpl_connect('button_press_event', lambda event: onclick(event, sat_locs))
+            root.update()
+            root.mainloop()
         sat_locs = np.array(sat_locs)
         print(sat_locs)
         num_sats = len(sat_locs)
@@ -4348,34 +4365,64 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         auxiliary_data.fill(np.nan)
 
         for i, name in enumerate(names[2:]):
-            fig = Figure()
-            ax = fig.add_subplot()
-            ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
-            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
-                                               h=max_distance_from_sat * 2)
-            sat_aperture.plot(axes=ax, color='r', lw=1.5, alpha=0.5)
-            root = tk.Tk()
-            root.title("Set Satellite Position")
-            img_frame = tk.Frame(root)
-            img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-            input_frame = tk.Frame(root)
-            input_frame.pack(side=tk.RIGHT)
-            label = tk.Label(input_frame, text='Enter Satellite')
-            label.pack()
-            entry = tk.Entry(input_frame)
-            entry.bind("<Return>", return_entry)
-            entry.pack(padx=5)
-            button = tk.Button(input_frame, text="OK", command=return_entry)
-            button.pack()
-            canvas = FigureCanvasTkAgg(fig, master=img_frame)
-            canvas.draw()
-            toolbar = NavigationToolbar2Tk(canvas, img_frame)
-            toolbar.update()
-            canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-            root.update()
-            root.focus_force()
-            entry.focus_set()
-            root.mainloop()
+            try:
+                fig = Figure()
+                ax = fig.add_subplot()
+                ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
+                sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                                   h=max_distance_from_sat * 2)
+                sat_aperture.plot(axes=ax, color='r', lw=1.5, alpha=0.5)
+                root = tk.Tk()
+                root.title("Set Satellite Position")
+                img_frame = tk.Frame(root)
+                img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                input_frame = tk.Frame(root)
+                input_frame.pack(side=tk.RIGHT)
+                label = tk.Label(input_frame, text='Enter Satellite')
+                label.pack()
+                entry = tk.Entry(input_frame)
+                entry.bind("<Return>", return_entry)
+                entry.pack(padx=5)
+                button = tk.Button(input_frame, text="OK", command=return_entry)
+                button.pack()
+                canvas = FigureCanvasTkAgg(fig, master=img_frame)
+                canvas.draw()
+                toolbar = NavigationToolbar2Tk(canvas, img_frame)
+                toolbar.update()
+                canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                root.update()
+                root.focus_force()
+                entry.focus_set()
+                root.mainloop()
+            except ValueError:
+                fig = Figure()
+                ax = fig.add_subplot()
+                ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+                sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                                   h=max_distance_from_sat * 2)
+                sat_aperture.plot(axes=ax, color='r', lw=1.5, alpha=0.5)
+                root = tk.Tk()
+                root.title("Set Satellite Position")
+                img_frame = tk.Frame(root)
+                img_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                input_frame = tk.Frame(root)
+                input_frame.pack(side=tk.RIGHT)
+                label = tk.Label(input_frame, text='Enter Satellite')
+                label.pack()
+                entry = tk.Entry(input_frame)
+                entry.bind("<Return>", return_entry)
+                entry.pack(padx=5)
+                button = tk.Button(input_frame, text="OK", command=return_entry)
+                button.pack()
+                canvas = FigureCanvasTkAgg(fig, master=img_frame)
+                canvas.draw()
+                toolbar = NavigationToolbar2Tk(canvas, img_frame)
+                toolbar.update()
+                canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                root.update()
+                root.focus_force()
+                entry.focus_set()
+                root.mainloop()
             names[i + 2] = content
             print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
         print(names)
@@ -4398,22 +4445,40 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         no_btn.pack(anchor=tk.W, padx=5)
         closebutton = tk.Button(input_frame, text='OK', command=window.destroy)
         closebutton.pack()
-        fig = Figure()
-        ax = fig.add_subplot()
-        ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
-        for i in range(0, num_sats):
-            sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
-                                               h=max_distance_from_sat * 2)
-            sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
-            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
-                                          label=names[i + 2]))
-        fig.legend(handles=legend_elements, framealpha=1)
-        canvas = FigureCanvasTkAgg(fig, master=img_frame)
-        canvas.draw()
-        toolbar = NavigationToolbar2Tk(canvas, img_frame)
-        toolbar.update()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        window.mainloop()
+        try:
+            fig = Figure()
+            ax = fig.add_subplot()
+            ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+            for i in range(0, num_sats):
+                sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                                   h=max_distance_from_sat * 2)
+                sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+                legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                              label=names[i + 2]))
+            fig.legend(handles=legend_elements, framealpha=1)
+            canvas = FigureCanvasTkAgg(fig, master=img_frame)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, img_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+            window.mainloop()
+        except ValueError:
+            fig = Figure()
+            ax = fig.add_subplot()
+            ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+            for i in range(0, num_sats):
+                sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
+                                                   h=max_distance_from_sat * 2)
+                sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+                legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                              label=names[i + 2]))
+            fig.legend(handles=legend_elements, framealpha=1)
+            canvas = FigureCanvasTkAgg(fig, master=img_frame)
+            canvas.draw()
+            toolbar = NavigationToolbar2Tk(canvas, img_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+            window.mainloop()
         # Have a way for the user to confirm the satellite locations. If it is wrong, then decide whether to change
         # set_sat_positions to True/False or change_sat_positions
         if yes_no.get() == 1:
@@ -4586,6 +4651,9 @@ def change_sat_positions(filenames,
     # Display filenames[filenum - num_nan]
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+    def onclick(event, sat_locs, index):
+        # global num_sat_event
+        sat_locs[index] = [event.xdata, event.ydata]
     def change_sat_position(event, x, y, flags, params):
         global sat_locs
         if event == cv.EVENT_LBUTTONDOWN:
@@ -4593,9 +4661,13 @@ def change_sat_positions(filenames,
             cv.destroyAllWindows()
     print(filenames[filenum - num_nan])
     # sat_checked = np.zeros(num_sats, dtype=IntVar())
-    with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}") as image:
+    with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}", memmap=False) as image:
         hdr = image[0].header
         imgdata = image[0].data
+    # image = fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}")
+    # hdr = image[0].header
+    # imgdata = image[0].data
+    # image.close()
     root = tk.Tk()
     root.title("Current satellite positions")
     input_frame = tk.Frame(root)
@@ -4614,25 +4686,46 @@ def change_sat_positions(filenames,
     checkbutton.grid(row=sat_information.num_sats+2, sticky=tk.W, padx=5)
     closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
     closebutton.grid(row=sat_information.num_sats+3)
-    legend_elements = []
-    fig = Figure()
-    ax = fig.add_subplot()
-    ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
-    cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
-    colours = [cmap(i) for i in range(0, sat_information.num_sats)]
-    for i in range(0, sat_information.num_sats):
-        sat_aperture = RectangularAperture(sat_locs[i], w=max_distance_from_sat * 2,
-                                           h=max_distance_from_sat * 2)
-        sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
-        legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
-                                      label=sat_information.sat_names[i]))
-    fig.legend(handles=legend_elements, framealpha=1)
-    canvas = FigureCanvasTkAgg(fig, master=img_frame)
-    canvas.draw()
-    toolbar = NavigationToolbar2Tk(canvas, img_frame)
-    toolbar.update()
-    canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-    root.mainloop()
+    try:
+        legend_elements = []
+        fig = Figure()
+        ax = fig.add_subplot()
+        ax.imshow(imgdata, cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        colours = [cmap(i) for i in range(0, sat_information.num_sats)]
+        for i in range(0, sat_information.num_sats):
+            sat_aperture = RectangularAperture(sat_information.sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                          label=sat_information.sat_names[i]))
+        fig.legend(handles=legend_elements, framealpha=1)
+        canvas = FigureCanvasTkAgg(fig, master=img_frame)
+        canvas.draw()
+        toolbar = NavigationToolbar2Tk(canvas, img_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        root.mainloop()
+    except ValueError:
+        legend_elements = []
+        fig = Figure()
+        ax = fig.add_subplot()
+        ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        colours = [cmap(i) for i in range(0, sat_information.num_sats)]
+        for i in range(0, sat_information.num_sats):
+            sat_aperture = RectangularAperture(sat_information.sat_locs[i], w=max_distance_from_sat * 2,
+                                               h=max_distance_from_sat * 2)
+            sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
+                                          label=sat_information.sat_names[i]))
+        fig.legend(handles=legend_elements, framealpha=1)
+        canvas = FigureCanvasTkAgg(fig, master=img_frame)
+        canvas.draw()
+        toolbar = NavigationToolbar2Tk(canvas, img_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        root.mainloop()
     if none_select.get() == 1:
         none_sats = True
     elif none_select.get() == 0:
@@ -4645,15 +4738,43 @@ def change_sat_positions(filenames,
         for sat in sat_information.sat_names[sat_checked_mask]:
             print(sat)
             index = np.where(sat_information.sat_names == sat)
-            mbox('Information',
-                 f'Please select the new position of {sat} on the following image.',
-                 0)
-            cv.namedWindow('TestImage')
-            cv.setMouseCallback('TestImage', change_sat_position, index)
-            logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
-            cv.imshow('TestImage', logdata)
-            cv.waitKey(0)
-        print(sat_locs)
+            try:
+                fig = Figure()
+                ax = fig.add_subplot()
+                root = tk.Tk()
+                ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+                canvas = FigureCanvasTkAgg(fig, master=root)
+                canvas.draw()
+                toolbar = NavigationToolbar2Tk(canvas, root)
+                toolbar.update()
+                canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                canvas.mpl_connect('button_press_event', lambda event: onclick(event, sat_information.sat_locs, index))
+                root.update()
+                # root.focus_force()
+                root.mainloop()
+            except ValueError:
+                fig = Figure()
+                ax = fig.add_subplot()
+                root = tk.Tk()
+                ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
+                canvas = FigureCanvasTkAgg(fig, master=root)
+                canvas.draw()
+                toolbar = NavigationToolbar2Tk(canvas, root)
+                toolbar.update()
+                canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+                canvas.mpl_connect('button_press_event', lambda event: onclick(event, sat_information.sat_locs, index))
+                root.update()
+                # root.focus_force()
+                root.mainloop()
+            # mbox('Information',
+            #       f'Please select the new position of {sat} on the following image.',
+            #       0)
+            # cv.namedWindow('TestImage')
+            # cv.setMouseCallback('TestImage', change_sat_position, index)
+            # logdata = cv.normalize(imgdata, None, alpha=0, beta=10, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F)
+            # cv.imshow('TestImage', logdata)
+            # cv.waitKey(0)
+        print(sat_information.sat_locs)
         # If some selection is none
         # none_sats = True
         for reversing_index in range(1, num_nan+1):
@@ -4728,9 +4849,12 @@ def interpolate_sats(sats_table, uncertainty_table, unique_filters):
         for unique_filter in unique_filters:
             mask = sats_table['Filter'] == unique_filter
             filter_all_sats_table = sats_table[mask]
-            filter_interpolated = np.interp(times_list, 
-                                            filter_all_sats_table['Time (JD)'][~np.isnan(filter_all_sats_table[sat])],
-                                            filter_all_sats_table[sat][~np.isnan(filter_all_sats_table[sat])])
+            try:
+                filter_interpolated = np.interp(times_list, 
+                                                filter_all_sats_table['Time (JD)'][~np.isnan(filter_all_sats_table[sat])],
+                                                filter_all_sats_table[sat][~np.isnan(filter_all_sats_table[sat])])
+            except ValueError:
+                continue
             filter_interpolated[np.isnan(sats_table[sat])] = np.nan
             sat_dict[sat][unique_filter] = filter_interpolated
             # Uncertainty interpolation
@@ -5773,6 +5897,8 @@ def _main_sc_lightcurve(directory,
                                            file_suffix=file_suffix, 
                                            temp_dir=temp_dir, 
                                            debugging=True)
+    # remove_temp_dir(temp_dir=temp_dir)
+    # return
     set_sat_positions_bool = True
     change_sat_positions_bool = False
     num_nan = 0
@@ -5801,6 +5927,8 @@ def _main_sc_lightcurve(directory,
             sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath, ecct_cut=ecct_cut)
         except TypeError:
             print("No satellites detected.")
+            continue
+        if fwhm < 0:
             continue
         # bkg, bkg_std = calculate_img_bkg(imgdata)
         # irafsources = detecting_stars(imgdata, bkg, bkg_std)
@@ -5837,7 +5965,12 @@ def _main_sc_lightcurve(directory,
                                                                                filenum, 
                                                                                change_sat_positions_bool, 
                                                                                max_num_nan=max_num_nan)
+        # del hdr
+        # del imgdata
+    # try:
     remove_temp_dir(temp_dir=temp_dir)
+    # except PermissionError as e:
+    #     print(e)
     if not os.path.exists(save_loc):
             os.mkdir(save_loc)
     sats_table = sat_information.sats_table
