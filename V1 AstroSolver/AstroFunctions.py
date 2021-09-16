@@ -3698,7 +3698,7 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_fil
 
     """
     # If there is only 1 entry per filter per source, assume that they are averages and don't need any interpolation.
-    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
+    app_mag_first_columns = Table(stars_table['Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma'])
     colour_index, ci = get_colour_index_lower(instr_filter)
     instr_mag = stars_table[instr_filter]
     airmass = stars_table[f'X_{instr_filter}']
@@ -3713,8 +3713,11 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_fil
     lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
     app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
     app_mag_filter = instr_filter.upper()
+    instr_filter_sigma = f"{instr_filter}_sigma"
+    app_filter_sigma = f"{app_mag_filter}_sigma"
     app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
-    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column])
+    app_mag_sigma_column = Table(names=[app_filter_sigma], data=[stars_table[instr_filter_sigma]])
+    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column, app_mag_sigma_column])
     return app_mag_table
 
 
@@ -5650,6 +5653,177 @@ def _main_gb_transform_calc(directory,
     # plt.close()
     return gb_final_transforms, auxiliary_data_table
 
+
+def verify_gb_transforms(directory, 
+                         ref_stars_file, 
+                         gb_final_transforms,
+                         plot_results=False, 
+                         save_plots=False,
+                         file_suffix=".fits", 
+                         exposure_key='EXPTIME',  
+                         name_key='Name',
+                         **kwargs):
+    # TODO: Docstring.
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+    
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
+        unique_id = kwargs.get('unique_id')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                try:
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
+                except AttributeError as e:
+                    print(e)
+                    continue
+                matched_stars = find_ref_stars(reference_stars, 
+                                                     ref_star_positions,
+                                                     skypositions,
+                                                     instr_mags,
+                                                     instr_mags_sigma,
+                                                     fluxes,
+                                                     ground_based=True,
+                                                     altazpositions=altazpositions)
+                if not matched_stars:
+                    continue
+                                
+                large_table_columns = update_large_table_columns(large_table_columns, 
+                                                                 matched_stars, 
+                                                                 hdr, 
+                                                                 exptime, 
+                                                                 ground_based=True, 
+                                                                 name_key=name_key)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    stars_table.pprint(max_lines=30, max_width=200)
+    
+    # instr_filters = ['b', 'v', 'r', 'i']
+    app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma', 'e_B-V', 'e_U-B', 'e_V-R', 'e_V-I'])
+    for instr_filter in different_filter_list:
+        app_mag_filter = instr_filter.upper()
+        app_filter_sigma = f"{app_mag_filter}_sigma"
+        app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+        app_mag_table = hstack([app_mag_table, app_mag_table_filter[app_mag_filter, app_filter_sigma]])
+    
+    app_mag_table.pprint(max_lines=30, max_width=200)
+    
+    import matplotlib.pyplot as plt
+    # import matplotlib
+    # matplotlib.use('TkAgg')
+    for instr_filter in different_filter_list:
+        app_filter = instr_filter.upper()
+        try:
+            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index_AVG(app_mag_table, instr_filter)
+        except KeyError:
+            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index(app_mag_table, instr_filter)
+        app_filter_sigma = f"{app_filter}_sigma"
+        x = ref_app_mag
+        x_err = ref_app_mag_sigma
+        y = app_mag_table[app_filter]
+        # y_err = app_mag_table[app_filter_sigma]
+        max_y_err = max(app_mag_table[app_filter_sigma])
+        print(max_y_err)
+        y_err = np.nan_to_num(app_mag_table[app_filter_sigma], nan=max_y_err)
+        y_err = np.array(y_err)
+        y_err[y_err == 0] = max_y_err
+        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+        try:
+            fitted_line, mask = or_fit(line_init, x, y, weights=1.0/y_err)
+            filtered_data = np.ma.masked_array(y, mask=mask)
+            m = fitted_line.slope.value
+            b = fitted_line.intercept.value
+            if m == 1 and b == 0:
+                fitted_line, mask = or_fit(line_init, x, y)
+                filtered_data = np.ma.masked_array(y, mask=mask)
+                m = fitted_line.slope.value
+                b = fitted_line.intercept.value
+        except TypeError:
+            continue
+        plt.errorbar(x, y, yerr=y_err, fmt='o', fillstyle='none', capsize=0, label="Clipped Data")
+        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(x, m*x+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+        plt.plot(x, x, '-', label='y=x')
+        plt.title('Calculated Magnitude vs. Reference Magnitude')
+        plt.ylabel(f"{app_filter} (Calculated)")
+        plt.xlabel(f"{app_filter} (Reference)")
+        plt.legend()
+        if save_plots:
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'{app_filter}_CalcVsRefMag')}.png"
+            plt.savefig(save_loc)
+        if plot_results:
+            plt.show(block=True)
+        plt.close()
+        
+        
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('B (calculated)')
+    # plt.xlabel('B (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
+    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('V (calculated)')
+    # plt.xlabel('V (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
+    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('R (calculated)')
+    # plt.xlabel('R (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
+    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
+    #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], 
+    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-I)'])+b, 
+    #           '-', label=f'y={m:.3f}x+{b:.3f}')
+    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['V_ref'] - app_mag_table['(V-I)'], '-', label='y=x')
+    # plt.title('Calculated Magnitude vs. Reference Magnitude')
+    # plt.ylabel('I (calculated)')
+    # plt.xlabel('I (Reference)')
+    # plt.legend()
+    # plt.show(block=True)
+    # plt.close()
+    return app_mag_table
 
 def _main_gb_transform_calc_TEST(directory, 
                             ref_stars_file, 
