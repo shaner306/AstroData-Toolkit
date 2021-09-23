@@ -1973,15 +1973,27 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 mags_std_numpy = np.array(current_star_filter_table['mag_instrumental_sigma'])
                 mags_weights = 1 / (mags_std_numpy ** 2)
                 # mean_mag = mags_numpy.mean()
-                mean_mag = np.average(mags_numpy, weights=mags_weights)
-                std_mag = mags_numpy.std()
+                masked_mags = sigma_clip(mags_numpy)
+                sig_clip_mask = np.ma.getmask(masked_mags)
+                # print(sig_clip_mask)
+                # if len(mags_numpy) != len(masked_mags):
+                #     print(mags_numpy)
+                #     print(masked_mags)
+                if np.all(sig_clip_mask):
+                    continue
+                mean_mag = np.average(mags_numpy[~sig_clip_mask], weights=mags_weights[~sig_clip_mask])
+                std_mag = mags_numpy[~sig_clip_mask].std()
+                # mean_mag = np.average(mags_numpy, weights=mags_weights)
+                # std_mag = mags_numpy.std()
                 filter_column = unique_filter.lower()
                 sigma_column = f'{filter_column}_sigma'
                 stars_table[filter_column][i] = mean_mag
                 stars_table[sigma_column][i] = std_mag
                 X_numpy = np.array(current_star_filter_table['X'])
-                mean_X = X_numpy.mean()
-                std_X = X_numpy.std()
+                mean_X = X_numpy[~sig_clip_mask].mean()
+                std_X = X_numpy[~sig_clip_mask].std()
+                # mean_X = X_numpy.mean()
+                # std_X = X_numpy.std()
                 X_column = f'X_{filter_column}'
                 X_std_column = f'X_{filter_column}_sigma'
                 stars_table[X_column][i] = mean_X
@@ -2196,7 +2208,7 @@ def ground_based_first_order_transforms_AVG(stars_table, instr_filter, colour_in
         #     plt.title(f"{field}: ({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         if save_plots:
             unique_id = kwargs.get('unique_id')
-            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'CZprime{colour_index}_{unique_id}')}.png"
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'CZprime{app_filter}-{colour_index}_{unique_id}')}.png"
             plt.savefig(save_loc)
         plt.show()
         plt.close()
@@ -3170,7 +3182,7 @@ def remove_large_airmass(gb_transform_table, max_airmass=2.0):
                 The mean airmass for all sources in the image.
 
     """
-    gb_transform_table = gb_transform_table[gb_transform_table['X'] <= 2.0]
+    gb_transform_table = gb_transform_table[gb_transform_table['X'] <= max_airmass]
     return gb_transform_table
 
 
@@ -5511,7 +5523,7 @@ def _main_gb_transform_calc(directory,
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
     auxiliary_data_table = create_auxiliary_data_table(auxiliary_data_columns)
     if remove_large_airmass_bool:
-        gb_transform_table = remove_large_airmass(gb_transform_table)
+        gb_transform_table = remove_large_airmass(gb_transform_table, 3.0)
     if save_plots:
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
                                                                    plot_results=plot_results, 
@@ -5713,6 +5725,7 @@ def verify_gb_transforms(directory,
                                                                  ground_based=True, 
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
     
@@ -5747,15 +5760,19 @@ def verify_gb_transforms(directory,
         y_err[y_err == 0] = max_y_err
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         try:
-            fitted_line, mask = or_fit(line_init, x, y, weights=1.0/y_err)
+            fitted_line, mask = or_fit(line_init, x, y)
             filtered_data = np.ma.masked_array(y, mask=mask)
             m = fitted_line.slope.value
             b = fitted_line.intercept.value
-            if m == 1 and b == 0:
-                fitted_line, mask = or_fit(line_init, x, y)
-                filtered_data = np.ma.masked_array(y, mask=mask)
-                m = fitted_line.slope.value
-                b = fitted_line.intercept.value
+            # fitted_line, mask = or_fit(line_init, x, y, weights=1.0/y_err)
+            # filtered_data = np.ma.masked_array(y, mask=mask)
+            # m = fitted_line.slope.value
+            # b = fitted_line.intercept.value
+            # if m == 1 and b == 0:
+            #     fitted_line, mask = or_fit(line_init, x, y)
+            #     filtered_data = np.ma.masked_array(y, mask=mask)
+            #     m = fitted_line.slope.value
+            #     b = fitted_line.intercept.value
         except TypeError:
             continue
         plt.errorbar(x, y, yerr=y_err, fmt='o', fillstyle='none', capsize=0, label="Clipped Data")
@@ -5834,6 +5851,7 @@ def _main_gb_transform_calc_TEST(directory,
                             name_key='Name',
                             **kwargs):
     # TODO: Docstring.
+    # TODO: Fix errors when save_plots = False.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
     
@@ -5883,9 +5901,11 @@ def _main_gb_transform_calc_TEST(directory,
                                                                  ground_based=True, 
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
-    ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    if save_plots:
+        ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
     gb_transform_table = calc_gb_first_transforms_AVG(stars_table, different_filter_list, 
                                                       save_loc, plot_results=plot_results, save_plots=save_plots)
     gb_transform_table.pprint(max_lines=30, max_width=-1)
@@ -5910,6 +5930,7 @@ def _main_gb_transform_calc_TEST(directory,
         'Z_f_sigma': '%0.3f'
         }
         ascii.write(gb_final_transforms, f"{os.path.join(save_loc, '_gb_final_transforms')}.csv", format='csv')
+        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     return large_stars_table
     # sb_final_transform_columns = init_sb_final_transform_columns()
     # if save_plots:
@@ -5956,6 +5977,73 @@ def _main_gb_transform_calc_TEST(directory,
     #     write_table_to_latex(sb_final_transform_table, f"{os.path.join(save_loc, f'{unique_id}_transform_table')}.txt",
     #                          formats=formats)
     # return sb_final_transform_table
+
+
+def _main_gb_transform_calc_Warner(directory, 
+                            ref_stars_file, 
+                            plot_results=False, 
+                            save_plots=False,
+                            file_suffix=".fits", 
+                            exposure_key='EXPTIME',  
+                            name_key='Name',
+                            **kwargs):
+    # TODO: Docstring.
+    # TODO: Fix errors when save_plots = False.
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+    
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
+        unique_id = kwargs.get('unique_id')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
+    
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            if filename.endswith(file_suffix):
+                filepath = os.path.join(dirpath, filename)
+                hdr, imgdata = read_fits_file(filepath)
+                exptime = hdr[exposure_key]
+                bkg, bkg_std = calculate_img_bkg(imgdata)
+                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+                if not irafsources:
+                    continue
+                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+                fluxes = np.array(photometry_result['flux_fit'])
+                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+                wcs = WCS(hdr)
+                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+                try:
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
+                except AttributeError as e:
+                    print(e)
+                    continue
+                matched_stars = find_ref_stars(reference_stars, 
+                                                     ref_star_positions,
+                                                     skypositions,
+                                                     instr_mags,
+                                                     instr_mags_sigma,
+                                                     fluxes,
+                                                     ground_based=True,
+                                                     altazpositions=altazpositions)
+                if not matched_stars:
+                    continue
+                                
+                large_table_columns = update_large_table_columns(large_table_columns, 
+                                                                 matched_stars, 
+                                                                 hdr, 
+                                                                 exptime, 
+                                                                 ground_based=True, 
+                                                                 name_key=name_key)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
+    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    stars_table.pprint(max_lines=30, max_width=200)
+    if save_plots:
+        ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    return large_stars_table
 
 
 def _main_sb_transform_calc(directory, 

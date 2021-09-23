@@ -36,14 +36,15 @@ from astropy.io import ascii
 #     '2021-04-25 - unprocessed'
 #     ]
 
-subfolder_list = [
-    '2021-04-21 - unprocessed', 
-    '2021-04-24 - unprocessed', 
-    '2021-04-25 - unprocessed'
-    ]
+# subfolder_list = [
+#     '2021-04-21 - unprocessed', 
+#     '2021-04-24 - unprocessed', 
+#     '2021-04-25 - unprocessed'
+#     ]
 
 
 ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
+# ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 
 plot_results = True
 save_plots = True
@@ -51,20 +52,22 @@ file_suffix = ".fits"
 exposure_key = 'EXPTIME'
 name_key = 'Name'
 
-for subfolder in subfolder_list:
-    print(subfolder)
-    unique_id = subfolder
-    directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-    save_loc = os.path.join(directory, 'Outputs_NEW')
-    
-    sb_final_transform_table = astro._main_gb_transform_calc_TEST(directory, 
-                                                             ref_stars_file, 
-                                                             plot_results=plot_results, 
-                                                             save_plots=save_plots,
-                                                             file_suffix=file_suffix, 
-                                                             exposure_key=exposure_key,  
-                                                             name_key=name_key,
-                                                             save_loc=save_loc,
-                                                             unique_id=unique_id)
-    # sb_final_transform_table.pprint(max_lines=40)
-    ascii.write(sb_final_transform_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
+# for subfolder in subfolder_list:
+subfolder = '2021-09-17'
+print(subfolder)
+unique_id = subfolder
+# directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
+save_loc = os.path.join(directory, 'Outputs_NEW_NoLargeAirmass')
+
+sb_final_transform_table = astro._main_gb_transform_calc_TEST(directory, 
+                                                         ref_stars_file, 
+                                                         plot_results=plot_results, 
+                                                         save_plots=save_plots,
+                                                         file_suffix=file_suffix, 
+                                                         exposure_key=exposure_key,  
+                                                         name_key=name_key,
+                                                         save_loc=save_loc,
+                                                         unique_id=unique_id)
+# sb_final_transform_table.pprint(max_lines=40)
+ascii.write(sb_final_transform_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
