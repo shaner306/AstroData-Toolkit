@@ -18,7 +18,7 @@ from astropy.table import Table, QTable, hstack
 from astropy.time import Time
 import astropy.units as u
 from astropy.wcs import WCS
-from collections import namedtuple
+from collections import namedtuple, Counter
 import ctypes
 import cv2 as cv
 from itertools import permutations, groupby
@@ -30,6 +30,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from photutils.aperture import RectangularAperture
 from matplotlib.colors import LogNorm
+import matplotlib.cm as cm
 from matplotlib.lines import Line2D
 import matplotlib.dates as mdates
 from matplotlib.ticker import FormatStrFormatter
@@ -63,7 +64,7 @@ plt.rcParams.update({"text.usetex": False})
 #     return y
 
 
-def init_linear_fitting(niter=3, sigma=3.0):
+def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
     """
     Initilize the parameters needed to make a linear fit.
 
@@ -86,7 +87,7 @@ def init_linear_fitting(niter=3, sigma=3.0):
     """
     fit = LevMarLSQFitter(calc_uncertainties=True)
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
-    line_init = Linear1D()
+    line_init = Linear1D(slope=slope, intercept=intercept)
     return fit, or_fit, line_init
 
 def BackgroundIteration(image, tolerance):       
@@ -5979,6 +5980,167 @@ def _main_gb_transform_calc_TEST(directory,
     # return sb_final_transform_table
 
 
+def calculate_slopes_Warner(stars_table, different_filter_list):            
+    stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(stars_table)
+    slope_filters = [f"slope_{different_filter}" for different_filter in different_filter_list]
+    intercept_filters = [f"intercept_{different_filter}" for different_filter in different_filter_list]
+    slope_filters_sigma = [f"slope_{different_filter}_sigma" for different_filter in different_filter_list]
+    intercept_filters_sigma = [f"intercept_{different_filter}_sigma" for different_filter in different_filter_list]
+    nan_array = np.empty(len(multiple_stars))
+    nan_array.fill(np.nan)
+    data_filter_table = [nan_array for different_filter in different_filter_list]
+    star_index_columns = [
+        'Field',
+        'Name',
+        'V_ref',
+        'B-V',
+        'U-B',
+        'V-R',
+        'V-I',
+        'V_sigma',
+        'e_B-V',
+        'e_U-B',
+        'e_V-R',
+        'e_V-I'
+        ]
+    star_index_table = Table(
+        names=star_index_columns,
+        data=[
+            np.empty(len(multiple_stars), dtype=object),
+            np.empty(len(multiple_stars), dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+            ]
+        )
+    slope_table = Table(names=slope_filters, data=data_filter_table)
+    intercept_table = Table(names=intercept_filters, data=data_filter_table)
+    slope_sigma_table = Table(names=slope_filters_sigma, data=data_filter_table)
+    intercept_sigma_table = Table(names=intercept_filters_sigma, data=data_filter_table)
+    slopes_table = hstack([star_index_table, slope_table, intercept_table, slope_sigma_table, intercept_sigma_table])
+    colors = cm.rainbow(np.linspace(0, 1, len(multiple_stars)))
+    for unique_filter in different_filter_list:
+        # current_filter = stars_table[unique_filter]
+        x_current_filter = f"X_{unique_filter}"
+        # unique_stars = table.unique(current_filter, keys='Name')
+        # colors = cm.rainbow(np.linspace(0, 1, len(multiple_stars)))
+        for i, unique_star in enumerate(multiple_stars):
+            # print(current_filter)
+            star_mask = stars_table['Name'] == unique_star
+            current_star = stars_table[star_mask]
+            # print(current_star[star_index_columns][0])
+            # print(current_star[star_index_columns])
+            for field in star_index_columns:
+                slopes_table[field][i] = current_star[field][0]
+            # slopes_table[star_index_columns][i] = list(current_star[star_index_columns][0])
+            # print(unique_filter)
+            # print(current_star)
+            try:
+                X_plot = np.arange(start=min(current_star[x_current_filter])-0.02, stop=max(current_star[x_current_filter])+0.02, step=0.01)
+            except ValueError:
+                slopes_table[f"slope_{unique_filter}"][i] = np.nan
+                slopes_table[f"intercept_{unique_filter}"][i] = np.nan
+                slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
+                slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+                continue
+            # m, b = np.polyfit(current_star[x_current_filter], current_star[unique_filter], 1)
+            fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+            try:
+                fitted_line, mask = or_fit(line_init, current_star[x_current_filter], current_star[unique_filter])
+            except TypeError:
+                # print(current_star[x_current_filter])
+                # print(current_star[unique_filter])
+                slopes_table[f"slope_{unique_filter}"][i] = np.nan
+                slopes_table[f"intercept_{unique_filter}"][i] = np.nan
+                slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
+                slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+                continue
+            filtered_data = np.ma.masked_array(current_star[unique_filter], mask=mask)
+            m = fitted_line.slope.value
+            b = fitted_line.intercept.value
+            cov = fit.fit_info['param_cov']
+            try:
+                m_sigma = sqrt(cov[0][0])
+                b_sigma = sqrt(cov[1][1])
+            except TypeError:
+                m_sigma = np.nan
+                b_sigma = np.nan
+            plt.plot(current_star[x_current_filter], current_star[unique_filter], 'o', fillstyle='none', color=colors[i], label="Clipped Data")
+            plt.plot(current_star[x_current_filter], filtered_data, 'o', color=colors[i], label="Fitted Data")
+            # plt.scatter(current_star[x_current_filter], current_star[unique_filter], color=colors[i], label=unique_star)
+            plt.plot(X_plot, m*X_plot+b, color=colors[i])
+            slopes_table[f"slope_{unique_filter}"][i] = m
+            slopes_table[f"intercept_{unique_filter}"][i] = b
+            slopes_table[f"slope_{unique_filter}_sigma"][i] = m_sigma
+            slopes_table[f"intercept_{unique_filter}_sigma"][i] = b_sigma
+        # plt.plot(current_filter['X'], current_filter['mag_instrumental'], 'o')
+        plt.xlabel('X')
+        plt.ylabel(unique_filter.lower())
+        plt.ylim([min(stars_table[unique_filter])*1.05, max(stars_table[unique_filter])*0.95])
+        plt.gca().invert_yaxis()
+        # plt.title(unique_field)
+        # plt.legend()
+        plt.show()
+        plt.close()
+    # Column names to keep.
+    # 'Field','Name','V_ref','B-V','U-B','V-R','V-I','V_sigma','e_B-V','e_U-B','e_V-R','e_V-I'
+    # print(stars_for_second_order_extinction.columns)
+    # slopes_table.pprint(max_lines=-1, max_width=250)
+    return slopes_table
+
+
+def get_stars_with_multiple_observations(stars_table):
+    list_of_stars = stars_table['Name']
+    count_of_stars = Counter(list_of_stars)
+    multiple_stars = [star for star in count_of_stars if count_of_stars[star] > 1]
+    mask = np.in1d(np.array(stars_table['Name']), np.array(multiple_stars))
+    stars_for_second_order_extinction = stars_table[list(mask)]
+    # stars_for_second_order_extinction.pprint(max_lines=-1, max_width=-1)
+    return stars_for_second_order_extinction, multiple_stars
+
+
+def second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, **kwargs):
+    for different_filter in different_filter_list:
+        colour_indices = get_all_colour_indices(different_filter)
+        for colour_index in colour_indices:
+            ci_plot = np.arange(min(slopes_table[colour_index])-0.1, max(slopes_table[colour_index])+0.1, step=0.01)
+            # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
+            fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
+            try:
+                fitted_line, mask = or_fit(line_init, slopes_table[colour_index], slopes_table[f"slope_{different_filter}"])
+            except TypeError:
+                # print(current_star[x_current_filter])
+                # print(current_star[unique_filter])
+                # slopes_table[f"slope_{unique_filter}"][i] = np.nan
+                # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
+                # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
+                # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+                continue
+            filtered_data = np.ma.masked_array(slopes_table[f"slope_{different_filter}"], mask=mask)
+            m = fitted_line.slope.value
+            b = fitted_line.intercept.value
+            # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
+            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none', label="Clipped Data")
+            plt.plot(slopes_table[colour_index], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(ci_plot, m*ci_plot+b, '-', label=f"k''={m:0.3f}, k'={b:0.3f}")
+            plt.ylabel(different_filter)
+            plt.xlabel(colour_index)
+            plt.title(f"Second Order extinction ({different_filter} v. {colour_index})")
+            plt.legend()
+            if save_plots:
+                save_loc = f"{os.path.join(kwargs.get('save_loc'), f'SecondOrderExtinction{different_filter}{colour_index}')}.png"
+                plt.savefig(save_loc)
+            plt.show()
+            plt.close()
+
+
 def _main_gb_transform_calc_Warner(directory, 
                             ref_stars_file, 
                             plot_results=False, 
@@ -6040,9 +6202,14 @@ def _main_gb_transform_calc_Warner(directory,
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
-    stars_table.pprint(max_lines=30, max_width=200)
-    if save_plots:
-        ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    stars_table.pprint(max_lines=-1, max_width=250)
+    # if save_plots:
+    #     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    # unique_stars = table.unique(stars_table, keys='Name')
+    # list_of_stars = list(unique_stars['Name'])
+    # print(list_of_stars)
+    slopes_table = calculate_slopes_Warner(stars_table, different_filter_list)
+    second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
     return large_stars_table
 
 
