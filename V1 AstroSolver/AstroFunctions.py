@@ -6107,25 +6107,49 @@ def get_stars_with_multiple_observations(stars_table):
 
 
 def second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, **kwargs):
+    filter_column = []
+    CI_column = []
+    k_primeprime_column = []
+    k_prime_column = []
+    k_primeprime_sigma_column = []
+    k_prime_sigma_column = []
     for different_filter in different_filter_list:
         colour_indices = get_all_colour_indices(different_filter)
         for colour_index in colour_indices:
+            filter_column.append(different_filter)
+            CI_column.append(colour_index)
             ci_plot = np.arange(min(slopes_table[colour_index])-0.1, max(slopes_table[colour_index])+0.1, step=0.01)
             # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
             try:
                 fitted_line, mask = or_fit(line_init, slopes_table[colour_index], slopes_table[f"slope_{different_filter}"])
-            except TypeError:
+            except TypeError as e:
                 # print(current_star[x_current_filter])
                 # print(current_star[unique_filter])
                 # slopes_table[f"slope_{unique_filter}"][i] = np.nan
                 # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
                 # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
                 # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+                k_primeprime_column.append(np.nan)
+                k_prime_column.append(np.nan)
+                k_primeprime_sigma_column.append(np.nan)
+                k_prime_sigma_column.append(np.nan)
+                print(e)
                 continue
             filtered_data = np.ma.masked_array(slopes_table[f"slope_{different_filter}"], mask=mask)
             m = fitted_line.slope.value
             b = fitted_line.intercept.value
+            cov = fit.fit_info['param_cov']
+            try:
+                m_sigma = sqrt(cov[0][0])
+                b_sigma = sqrt(cov[1][1])
+            except TypeError:
+                m_sigma = np.nan
+                b_sigma = np.nan
+            k_primeprime_column.append(m)
+            k_prime_column.append(b)
+            k_primeprime_sigma_column.append(m_sigma)
+            k_prime_sigma_column.append(b_sigma)
             # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
             plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none', label="Clipped Data")
             plt.plot(slopes_table[colour_index], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
@@ -6139,6 +6163,81 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
+    # print(filter_column)
+    # print(CI_column)
+    # print(k_primeprime_column)
+    # print(k_prime_column)
+    # print(k_primeprime_sigma_column)
+    # print(k_prime_sigma_column)
+    extinction_table_Warner = Table(
+        names=[
+            'filter',
+            'CI',
+            'k\'\'',
+            'k\'',
+            'k\'\'_sigma',
+            'k\'_sigma'
+            ],
+        data=[
+            filter_column,
+            CI_column,
+            k_primeprime_column,
+            k_prime_column,
+            k_primeprime_sigma_column,
+            k_prime_sigma_column
+            ])
+    return extinction_table_Warner
+
+
+def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list):
+    # m_0 = m - k'_f * X - k''_fCI * X * CI
+    nan_array = np.empty(len(stars_table))
+    nan_array.fill(np.nan)
+    exoatmospheric_table = Table(
+        names=[
+            'Name',
+            'b B-V',
+            'g B-V',
+            'g V-R',
+            'g V-I',
+            'r V-R'
+            ],
+        data=[
+            np.empty(len(stars_table), dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+            ])
+    i = 0
+    for star in stars_table:
+        exoatmospheric_table['Name'][i] = star['Name']
+        for different_filter in different_filter_list:
+            colour_indices = get_all_colour_indices(different_filter)
+            x_column_name = f"X_{different_filter}"
+            for colour_index in colour_indices:
+                mask = ((extinction_table_Warner['filter'] == different_filter) & (extinction_table_Warner['CI'] == colour_index))
+                row_of_extinctions = extinction_table_Warner[mask]
+                # if len(row_of_transforms) == 0 and instr_filter == 'v':
+                #     instr_filter = 'g'
+                #     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+                #     row_of_transforms = gb_final_transforms[mask]
+                instr_mag = star[different_filter]
+                X = star[x_column_name]
+                CI = star[colour_index]
+                k_primeprime = row_of_extinctions['k\'\'']
+                k_prime = row_of_extinctions['k\'']
+                exoatmospheric_mag = float(instr_mag - (k_prime * X) - (k_primeprime * X * CI))
+                exoatmospheric_table[f"{different_filter} {colour_index}"][i] = exoatmospheric_mag
+                # if different_filter == 'g':
+                #     print(f"Instrumental mag for {different_filter} and {colour_index}:")
+                #     print(f"{instr_mag:0.3f}")
+                #     print(f"Exoatmospheric mag for {different_filter} and {colour_index}:")
+                #     print(f"{exoatmospheric_mag:0.3f}")
+        i += 1
+    exoatmospheric_table.pprint(max_lines=-1, max_width=250)
+                
 
 
 def _main_gb_transform_calc_Warner(directory, 
@@ -6209,7 +6308,9 @@ def _main_gb_transform_calc_Warner(directory,
     # list_of_stars = list(unique_stars['Name'])
     # print(list_of_stars)
     slopes_table = calculate_slopes_Warner(stars_table, different_filter_list)
-    second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
+    extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
+    extinction_table_Warner.pprint(max_lines=-1, max_width=-1)
+    exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
     return large_stars_table
 
 
