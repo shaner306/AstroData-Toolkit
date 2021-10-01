@@ -6173,17 +6173,17 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
         names=[
             'filter',
             'CI',
-            'k\'\'',
-            'k\'',
-            'k\'\'_sigma',
-            'k\'_sigma'
+            'k\'\'_fCI',
+            'k\'\'_fCI_sigma',
+            'k\'_f',
+            'k\'_f_sigma'
             ],
         data=[
             filter_column,
             CI_column,
             k_primeprime_column,
-            k_prime_column,
             k_primeprime_sigma_column,
+            k_prime_column,
             k_prime_sigma_column
             ])
     return extinction_table_Warner
@@ -6264,8 +6264,8 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
                 instr_mag = star[different_filter]
                 X = star[x_column_name]
                 CI = star[colour_index]
-                k_primeprime = row_of_extinctions['k\'\'']
-                k_prime = row_of_extinctions['k\'']
+                k_primeprime = row_of_extinctions['k\'\'_fCI']
+                k_prime = row_of_extinctions['k\'_f']
                 exoatmospheric_mag = float(instr_mag - (k_prime * X) - (k_primeprime * X * CI))
                 exoatmospheric_table[f"{different_filter} {colour_index}"][i] = exoatmospheric_mag
                 # if different_filter == 'g':
@@ -6278,7 +6278,24 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
     return exoatmospheric_table
 
 
-def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list):
+def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner):
+    nan_array = np.empty(len(extinction_table_Warner))
+    nan_array.fill(np.nan)
+    transform_zp_table = Table(
+        names=[
+            'T_fCI',
+            'T_fCI_sigma',
+            'Z_f',
+            'Z_f_sigma'
+            ],
+        data=[
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+            ])
+    Warner_final_transform_table = hstack([extinction_table_Warner, transform_zp_table])
+    # print(Warner_final_transform_table)
     for different_filter in different_filter_list:
         try:
             app_mag, app_mag_sigma, app_mag_filter, _ = get_app_mag_and_index(exoatmospheric_table, different_filter)
@@ -6317,6 +6334,13 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             except TypeError:
                 t_fci_sigma = np.nan
                 z_f_sigma = np.nan
+            
+            mask = ((Warner_final_transform_table['filter'] == different_filter) & (Warner_final_transform_table['CI'] == colour_index))
+            # current_filter_index = Warner_final_transform_table[mask]
+            Warner_final_transform_table["T_fCI"][mask] = t_fci
+            Warner_final_transform_table["T_fCI_sigma"][mask] = t_fci_sigma
+            Warner_final_transform_table["Z_f"][mask] = z_f
+            Warner_final_transform_table["Z_f_sigma"][mask] = z_f_sigma
             plt.plot(x, y, 'o', fillstyle='none', label="Clipped Data")
             plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(ci_plot, t_fci*ci_plot+z_f, '-', label=f"t_fci={t_fci:0.3f}, ZP_f={z_f:0.3f}")
@@ -6329,7 +6353,12 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             #     plt.savefig(save_loc)
             plt.show()
             plt.close()
-            
+    return Warner_final_transform_table
+
+
+def apply_transforms_Warner(stars_table, Warner_final_transform_table, different_filter_list):
+    exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, Warner_final_transform_table, different_filter_list)
+    
 
 
 def _main_gb_transform_calc_Warner(directory, 
@@ -6403,7 +6432,9 @@ def _main_gb_transform_calc_Warner(directory,
     extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
     extinction_table_Warner.pprint(max_lines=-1, max_width=-1)
     exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
-    colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list)
+    Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner)
+    Warner_final_transform_table.pprint(max_lines=-1, max_width=250)
+    ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
     return large_stars_table
 
 

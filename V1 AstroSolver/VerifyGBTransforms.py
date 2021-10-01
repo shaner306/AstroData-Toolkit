@@ -70,9 +70,10 @@ name_key = 'Name'
 #     print(subfolder)
 # directory = f"F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights"
 directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Verification'
-save_loc = os.path.join(directory, 'Outputs', 'VERIFICATION')
+save_loc = os.path.join(directory, 'Outputs_TESTING', 'VERIFICATION')
 # transforms_file = f"F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights\\Outputs\\_gb_final_transforms.csv"
-transforms_file = "C:\\Users\\jmwawrow\\Documents\\DRDC_Code\\Intelsat 10-02\\2021-09-17\\corrected_lights\\Calculation\\Outputs\\_gb_final_transforms.csv"
+transforms_file = "C:\\Users\\jmwawrow\\Documents\\DRDC_Code\\Intelsat 10-02\\2021-09-17\\corrected_lights\\Calculation\\Outputs_TESTING\\_gb_final_transforms.csv"
+# transforms_file = "C:\\Users\\jmwawrow\\Documents\\DRDC_Code\\Intelsat 10-02\\2021-09-17\\corrected_lights\\Calculation\\Outputs\\_gb_final_transforms.csv"
 gb_final_transforms = ascii.read(transforms_file)
 app_mag_table = astro.verify_gb_transforms(directory, 
                                             ref_stars_file, 
