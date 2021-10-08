@@ -5980,7 +5980,7 @@ def _main_gb_transform_calc_TEST(directory,
     # return sb_final_transform_table
 
 
-def calculate_slopes_Warner(stars_table, different_filter_list):            
+def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):            
     stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(stars_table)
     slope_filters = [f"slope_{different_filter}" for different_filter in different_filter_list]
     intercept_filters = [f"intercept_{different_filter}" for different_filter in different_filter_list]
@@ -6043,7 +6043,9 @@ def calculate_slopes_Warner(stars_table, different_filter_list):
             # print(unique_filter)
             # print(current_star)
             try:
-                X_plot = np.arange(start=min(current_star[x_current_filter])-0.02, stop=max(current_star[x_current_filter])+0.02, step=0.01)
+                X_plot = np.arange(start=min(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])-0.02, 
+                                   stop=max(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])+0.02, 
+                                   step=0.01)
             except ValueError:
                 slopes_table[f"slope_{unique_filter}"][i] = np.nan
                 slopes_table[f"intercept_{unique_filter}"][i] = np.nan
@@ -6083,10 +6085,14 @@ def calculate_slopes_Warner(stars_table, different_filter_list):
         # plt.plot(current_filter['X'], current_filter['mag_instrumental'], 'o')
         plt.xlabel('X')
         plt.ylabel(unique_filter.lower())
-        plt.ylim([min(stars_table[unique_filter])*1.05, max(stars_table[unique_filter])*0.95])
+        plt.ylim([min(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])])*1.05, 
+                  max(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])])*0.95])
         plt.gca().invert_yaxis()
         # plt.title(unique_field)
         # plt.legend()
+        if save_plots:
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'Slopes{unique_filter}')}.png"
+            plt.savefig(save_loc)
         plt.show()
         plt.close()
     # Column names to keep.
@@ -6118,6 +6124,7 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
         for colour_index in colour_indices:
             filter_column.append(different_filter)
             CI_column.append(colour_index)
+            # print(slopes_table[colour_index])
             ci_plot = np.arange(min(slopes_table[colour_index])-0.1, max(slopes_table[colour_index])+0.1, step=0.01)
             # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
@@ -6274,11 +6281,11 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
                 #     print(f"Exoatmospheric mag for {different_filter} and {colour_index}:")
                 #     print(f"{exoatmospheric_mag:0.3f}")
         i += 1
-    exoatmospheric_table.pprint(max_lines=-1, max_width=250)
+    # exoatmospheric_table.pprint(max_lines=-1, max_width=250)
     return exoatmospheric_table
 
 
-def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner):
+def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner, save_plots, **kwargs):
     nan_array = np.empty(len(extinction_table_Warner))
     nan_array.fill(np.nan)
     transform_zp_table = Table(
@@ -6348,17 +6355,271 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             plt.xlabel(colour_index)
             plt.title(f"Colour Transform and Zero Point ({different_filter} v. {colour_index})")
             plt.legend()
-            # if save_plots:
-            #     save_loc = f"{os.path.join(kwargs.get('save_loc'), f'SecondOrderExtinction{different_filter}{colour_index}')}.png"
-            #     plt.savefig(save_loc)
+            if save_plots:
+                save_loc = f"{os.path.join(kwargs.get('save_loc'), f'ColourTransformZeroPoint{different_filter}{colour_index}')}.png"
+                plt.savefig(save_loc)
             plt.show()
             plt.close()
     return Warner_final_transform_table
 
 
-def apply_transforms_Warner(stars_table, Warner_final_transform_table, different_filter_list):
-    exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, Warner_final_transform_table, different_filter_list)
-    
+def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, different_filter_list, save_plots, **kwargs):
+    # exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, Warner_final_transform_table, different_filter_list)
+    # exoatmospheric_table.pprint(max_lines=-1, max_width=-1)
+    instr_ci_list = []
+    app_ci_list = []
+    t_ci = []
+    t_ci_sigma = []
+    zp_ci = []
+    zp_ci_sigma = []
+    for different_filter in different_filter_list:
+        colour_index, ci = get_colour_index_lower(different_filter)
+        try:
+            ci0_index, _ = get_colour_index_lower(ci[0])
+            ci1_index, _ = get_colour_index_lower(ci[1])
+            positive_instr_mag = exoatmospheric_table[f"{ci[0]} {ci0_index}"]
+            negative_instr_mag = exoatmospheric_table[f"{ci[1]} {ci1_index}"]
+            table_ci = ci
+        except KeyError:
+            table_ci = ci.replace('v', 'g')
+            ci0_index, _ = get_colour_index_lower(ci[0])
+            ci1_index, _ = get_colour_index_lower(ci[1])
+            positive_instr_mag = exoatmospheric_table[f"{table_ci[0]} {ci0_index}"]
+            negative_instr_mag = exoatmospheric_table[f"{table_ci[1]} {ci1_index}"]
+        instr_colour_index_mags = positive_instr_mag - negative_instr_mag
+        standard_colour_index_mags = exoatmospheric_table[colour_index]
+        # plt.plot(instr_colour_index_mags, standard_colour_index_mags, 'o')
+        plt.plot(instr_colour_index_mags, standard_colour_index_mags, 'o', fillstyle='none', label="Clipped Data")
+        # m, b = np.polyfit(instr_colour_index_mags, standard_colour_index_mags, 1)
+        fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5, slope=1)
+        try:
+            fitted_line, mask = or_fit(line_init, instr_colour_index_mags, standard_colour_index_mags)
+        except TypeError as e:
+            print(e)
+            continue
+        filtered_data = np.ma.masked_array(standard_colour_index_mags, mask=mask)
+        plt.plot(instr_colour_index_mags, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        m = fitted_line.slope.value
+        b = fitted_line.intercept.value
+        cov = fit.fit_info['param_cov']
+        try:
+            m_sigma = sqrt(cov[0][0])
+            b_sigma = sqrt(cov[1][1])
+        except TypeError:
+            m_sigma = np.nan
+            b_sigma = np.nan
+        if not (colour_index in app_ci_list and table_ci in instr_ci_list):
+            app_ci_list.append(colour_index)
+            instr_ci_list.append(table_ci)
+            t_ci.append(m)
+            t_ci_sigma.append(m_sigma)
+            zp_ci.append(b)
+            zp_ci_sigma.append(b_sigma)
+        plt.plot(instr_colour_index_mags, m*instr_colour_index_mags+b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
+        plt.ylabel(colour_index)
+        plt.xlabel(f"{table_ci[0]}-{table_ci[1]}")
+        plt.title("Hidden Transform")
+        plt.legend()
+        if save_plots:
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'HiddenTransform{colour_index}')}.png"
+            plt.savefig(save_loc)
+        plt.show()
+        plt.close()
+    hidden_transform_table = Table(
+        names=[
+            "Apparent CI",
+            "Instrumental CI",
+            "T_CI",
+            "T_CI_sigma",
+            "ZP_CI",
+            "ZP_CI_sigma"
+            ],
+        data=[
+            app_ci_list,
+            instr_ci_list,
+            t_ci,
+            t_ci_sigma,
+            zp_ci,
+            zp_ci_sigma
+            ]
+        )
+    return hidden_transform_table
+
+
+def calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_filter):
+    colour_index, ci = get_colour_index_lower(different_filter)
+    try:
+        ci0_index, _ = get_colour_index_lower(ci[0])
+        ci1_index, _ = get_colour_index_lower(ci[1])
+        positive_instr_mag = stars_table[ci[0]]
+        negative_instr_mag = stars_table[ci[1]]
+        table_ci = ci
+    except KeyError:
+        table_ci = ci.replace('v', 'g')
+        ci0_index, _ = get_colour_index_lower(ci[0])
+        ci1_index, _ = get_colour_index_lower(ci[1])
+        positive_instr_mag = stars_table[table_ci[0]]
+        negative_instr_mag = stars_table[table_ci[1]]
+    instr_colour_index_mags = positive_instr_mag - negative_instr_mag
+    mask = ((hidden_transform_table['Apparent CI'] == colour_index) & (hidden_transform_table['Instrumental CI'] == table_ci))
+    row_of_hidden_transforms = hidden_transform_table[mask]
+    t_ci = row_of_hidden_transforms["T_CI"]
+    zp_ci = row_of_hidden_transforms["ZP_CI"]
+    CI = t_ci * instr_colour_index_mags + zp_ci
+    return CI
+
+
+def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidden_transform_table, different_filter_list):
+    # m_0 = m - k'_f * X - k''_fCI * X * CI
+    nan_array = np.empty(len(stars_table))
+    nan_array.fill(np.nan)
+    star_index_columns = [
+        'Field',
+        'Name',
+        'V_ref',
+        'B-V',
+        'U-B',
+        'V-R',
+        'V-I',
+        'V_sigma',
+        'e_B-V',
+        'e_U-B',
+        'e_V-R',
+        'e_V-I'
+        ]
+    exoatmospheric_table_verify = Table(
+        names=[
+            'Field',
+            'Name',
+            'V_ref',
+            'B-V',
+            'U-B',
+            'V-R',
+            'V-I',
+            'V_sigma',
+            'e_B-V',
+            'e_U-B',
+            'e_V-R',
+            'e_V-I',
+            'b',
+            'g',
+            'r'
+            ],
+        data=[
+            np.empty(len(stars_table), dtype=object),
+            np.empty(len(stars_table), dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+            ])
+    i = 0
+    for star in stars_table:
+        for field in star_index_columns:
+            exoatmospheric_table_verify[field][i] = star[field]
+        # exoatmospheric_table['Name'][i] = star['Name']
+        for different_filter in different_filter_list:
+            colour_indices = get_all_colour_indices(different_filter)
+            colour_index, _ = get_colour_index_lower(different_filter)
+            x_column_name = f"X_{different_filter}"
+            # for colour_index in colour_indices:
+            mask = ((extinction_table_Warner['filter'] == different_filter) & (extinction_table_Warner['CI'] == colour_index))
+            row_of_extinctions = extinction_table_Warner[mask]
+            # if len(row_of_transforms) == 0 and instr_filter == 'v':
+            #     instr_filter = 'g'
+            #     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+            #     row_of_transforms = gb_final_transforms[mask]
+            instr_mag = star[different_filter]
+            X = star[x_column_name]
+            CI = calculate_standard_CI_Warner(star, hidden_transform_table, different_filter)
+            # print(CI)
+            # CI = np.array(CI)
+            # print(CI)
+            # CI = star[colour_index]
+            k_primeprime = row_of_extinctions['k\'\'_fCI']
+            k_prime = row_of_extinctions['k\'_f']
+            try:
+                exoatmospheric_mag = float(instr_mag - (k_prime * X) - (k_primeprime * X * CI))
+            except TypeError:
+                continue
+            exoatmospheric_table_verify[different_filter][i] = exoatmospheric_mag
+            # if different_filter == 'g':
+            #     print(f"Instrumental mag for {different_filter} and {colour_index}:")
+            #     print(f"{instr_mag:0.3f}")
+            #     print(f"Exoatmospheric mag for {different_filter} and {colour_index}:")
+            #     print(f"{exoatmospheric_mag:0.3f}")
+        i += 1
+    # exoatmospheric_table.pprint(max_lines=-1, max_width=250)
+    return exoatmospheric_table_verify
+
+
+def apply_transforms_Warner(stars_table, 
+                            exoatmospheric_table_verify, 
+                            Warner_final_transform_table, 
+                            hidden_transform_table, 
+                            different_filter_list,
+                            save_plots,
+                            **kwargs):
+    for different_filter in different_filter_list:
+        app_mag, app_mag_sigma, app_filter, colour_index = get_app_mag_and_index_AVG(stars_table, different_filter)
+        app_mag_filter = different_filter.upper()
+        CI = calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_filter)
+        exoatmospheric_mag = exoatmospheric_table_verify[different_filter]
+        mask = ((Warner_final_transform_table['filter'] == different_filter) & (Warner_final_transform_table['CI'] == colour_index))
+        row_of_extinctions = Warner_final_transform_table[mask]
+        t_fci = float(row_of_extinctions["T_fCI"])
+        z_f = float(row_of_extinctions["Z_f"])
+        # print(exoatmospheric_mag)
+        # print(CI)
+        # print(z_f)
+        app_mag_calculated = exoatmospheric_mag + (t_fci * CI) + z_f
+        fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5, slope=1, intercept=0)
+        try:
+            fitted_line, mask = or_fit(line_init, app_mag, app_mag_calculated)
+        except TypeError as e:
+            print(e)
+            continue
+        filtered_data = np.ma.masked_array(app_mag_calculated, mask=mask)
+        plt.plot(app_mag, app_mag_calculated, 'o', fillstyle='none', label="Clipped Data")
+        plt.plot(app_mag, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        m = fitted_line.slope.value
+        b = fitted_line.intercept.value
+        cov = fit.fit_info['param_cov']
+        try:
+            m_sigma = sqrt(cov[0][0])
+            b_sigma = sqrt(cov[1][1])
+        except TypeError:
+            m_sigma = np.nan
+            b_sigma = np.nan
+        # if not (colour_index in app_ci_list and table_ci in instr_ci_list):
+        #     app_ci_list.append(colour_index)
+        #     instr_ci_list.append(table_ci)
+        #     t_ci.append(m)
+        #     t_ci_sigma.append(m_sigma)
+        #     zp_ci.append(b)
+        #     zp_ci_sigma.append(b_sigma)
+        plt.plot(app_mag, m*app_mag+b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
+        plt.plot(app_mag, app_mag, label=f"y=x")
+        plt.ylabel(f"{app_mag_filter} (Calculated)")
+        plt.xlabel(f"{app_filter} (Reference)")
+        plt.title("Calculated Magnitude vs. Reference Magnitude")
+        plt.legend()
+        if save_plots:
+            if not os.path.exists(os.path.join(kwargs.get('save_loc'), 'VERIFICATION')):
+                os.mkdir(os.path.join(kwargs.get('save_loc'), 'VERIFICATION'))
+            save_loc = f"{os.path.join(kwargs.get('save_loc'), 'VERIFICATION', f'{app_mag_filter}_CalcVsRefMag')}.png"
+            plt.savefig(save_loc)
+        plt.show()
+        plt.close()
 
 
 def _main_gb_transform_calc_Warner(directory, 
@@ -6428,13 +6689,17 @@ def _main_gb_transform_calc_Warner(directory,
     # unique_stars = table.unique(stars_table, keys='Name')
     # list_of_stars = list(unique_stars['Name'])
     # print(list_of_stars)
-    slopes_table = calculate_slopes_Warner(stars_table, different_filter_list)
+    slopes_table = calculate_slopes_Warner(stars_table, different_filter_list, save_plots, save_loc=save_loc)
     extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
     extinction_table_Warner.pprint(max_lines=-1, max_width=-1)
     exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
-    Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner)
+    Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner, save_plots, save_loc=save_loc)
     Warner_final_transform_table.pprint(max_lines=-1, max_width=250)
+    hidden_transform_table = hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, different_filter_list, save_plots, save_loc=save_loc)
+    exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidden_transform_table, different_filter_list)
+    apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table, hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
+    ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
 
 
