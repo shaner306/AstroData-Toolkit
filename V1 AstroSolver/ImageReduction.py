@@ -263,7 +263,7 @@ def create_master_flat(all_fits, master_dir):
 
     # flat_mask = all_fits.summary['imagetyp'] == 'FLAT'
     # For ORC GBO
-    flat_mask = all_fits.summary['imagetyp'] == 'Flat Frame'
+    flat_mask = all_fits.summary['imagetyp'] == 'Flat Field'
     flat_filters = set(all_fits.summary['filter'][flat_mask])
 
     for frame_filter in sorted(flat_filters):
@@ -272,7 +272,7 @@ def create_master_flat(all_fits, master_dir):
         #                                             include_path = True
         #                                             )
         # For ORC GBO
-        flats_to_combine = all_fits.files_filtered(imagetyp = 'Flat Frame',
+        flats_to_combine = all_fits.files_filtered(imagetyp = 'Flat Field',
                                                     filter = frame_filter,
                                                     include_path = True
                                                     )
@@ -391,7 +391,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
         
                 print('Saving ',file_name)
         except Exception as e:
-            # print(e)
+            print(e)
             pass
 
 

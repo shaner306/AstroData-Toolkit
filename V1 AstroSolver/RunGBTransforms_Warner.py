@@ -7,8 +7,17 @@ Created on Fri Sep 24 11:26:24 2021
 import AstroFunctions as astro
 import os
 from astropy.io import ascii
+import warnings
+warnings.filterwarnings('ignore')
+# from astropy.wcs import FITSFixedWarning
+# warnings.filterwarnings('default', category=FITSFixedWarning)
+warnings.filterwarnings('default', category=UserWarning)
+import time
+from datetime import timedelta
+start_time = time.time()
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
+ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 # ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 
 plot_results = True
@@ -41,12 +50,14 @@ name_key = 'Name'
 #     ]
 
 # for subfolder in subfolder_list:
-subfolder = '2021-09-17'
+subfolder = '2021-04-21'
 print(subfolder)
 unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
-save_loc = os.path.join(directory, 'Outputs_Warner')
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
+# directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
+directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\No Flats\Plate Solved\corrected_lights'
+save_loc = os.path.join(directory, 'Outputs_Warner_MostStars')
 # try:
 large_stars_table = astro._main_gb_transform_calc_Warner(directory, 
                                                          ref_stars_file, 
@@ -57,6 +68,10 @@ large_stars_table = astro._main_gb_transform_calc_Warner(directory,
                                                          name_key=name_key,
                                                          save_loc=save_loc,
                                                          unique_id=unique_id)
-# except ValueError:
-#     print('No stars at multiple airmasses.')
-#     continue
+end_time = time.time()
+# except Exception as e:
+#     print(e)
+#     print('Excepted here.')
+#     end_time = time.time()
+elapsed_time = end_time - start_time
+print(f'Time to run: {str(timedelta(seconds = elapsed_time))}')

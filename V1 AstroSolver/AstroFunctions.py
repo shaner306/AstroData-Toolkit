@@ -53,7 +53,16 @@ import pandas as pd
 import numpy
 from skimage import measure
 import scipy
+from tqdm import tqdm
+from warnings import warn
 # from scipy.optimize import curve_fit
+
+from astropy.utils import iers
+# If you are working offline, set the following to False.
+# In that case, it will use the International Earth Rotation and Reference Systems (IERS) data
+# that was included with the astropy release installed on the system. That may not be as accurate
+# for times that are more recent thatn the astropy release date.
+iers.conf.auto_download = True
 
 # Testing Github Desktop functionality.
 
@@ -336,7 +345,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=sigma*bkg_std, fwhm=fwhm)
+    iraffind = IRAFStarFinder(threshold=sigma*bkg_std, fwhm=fwhm, brightest=200)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -750,7 +759,10 @@ def calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms=N
     bsb_units = u.Magnitude(bkg_flux_per_area)
     instr_bsb = bsb_units.value
     if not gb_final_transforms:
-        bsb = instr_bsb
+        if 'ZMAG' in hdr.keys():
+            bsb = instr_bsb + hdr['ZMAG']
+        else:
+            bsb = instr_bsb
     else:
         instr_filter = get_instr_filter_name(hdr, filter_key)
         if instr_filter == 'v' or instr_filter =='g':
@@ -857,7 +869,7 @@ def find_ref_stars(reference_stars,
     idx, sep2d, _ = match_coordinates_sky(skypositions, ref_star_positions)
     img_star_index = np.where(sep2d < max_ref_sep)
     if len(img_star_index[0]) == 0:
-        print("No reference star detected in the image.")
+        warn("No reference star detected in the image.")
         return
     elif len(img_star_index[0]) == 1:
         img_star_index = int(img_star_index[0])
@@ -5982,6 +5994,102 @@ def _main_gb_transform_calc_TEST(directory,
     # return sb_final_transform_table
 
 
+def init_star_aux_table_columns():
+    filenames = []
+    times = []
+    filters = []
+    fwhms = []
+    fwhm_sigma = []
+    num_sources = []
+    background_sky_brightness = []
+    background_sky_brightness_sigma = []
+    azimuth = []
+    elevation = []
+    airmass = []
+    star_aux_table_columns = namedtuple('sat_aux_table_columns', 
+                                       ['filenames',
+                                        'times',
+                                        'filters',
+                                        'fwhms',
+                                        'fwhm_sigma',
+                                        'num_sources',
+                                        'background_sky_brightness',
+                                        'background_sky_brightness_sigma',
+                                        'azimuth',
+                                        'elevation',
+                                        'airmass'])
+    return star_aux_table_columns(filenames,
+                                 times,
+                                 filters,
+                                 fwhms,
+                                 fwhm_sigma,
+                                 num_sources,
+                                 background_sky_brightness,
+                                 background_sky_brightness_sigma,
+                                 azimuth,
+                                 elevation,
+                                 airmass)
+
+
+def update_star_aux_columns(star_aux_table_columns,
+                            filename,
+                            time,
+                            img_filter,
+                            fwhm,
+                            fwhm_sigma,
+                            num_sources,
+                            background_sky_brightness,
+                            background_sky_brightness_sigma,
+                            azimuth,
+                            elevation,
+                            airmass):
+    updated_star_aux_table_columns = star_aux_table_columns
+    updated_star_aux_table_columns.filenames.append(filename)
+    updated_star_aux_table_columns.times.append(time)
+    updated_star_aux_table_columns.filters.append(img_filter)
+    updated_star_aux_table_columns.fwhms.append(fwhm)
+    updated_star_aux_table_columns.fwhm_sigma.append(fwhm_sigma)
+    updated_star_aux_table_columns.num_sources.append(num_sources)
+    updated_star_aux_table_columns.background_sky_brightness.append(background_sky_brightness)
+    updated_star_aux_table_columns.background_sky_brightness_sigma.append(background_sky_brightness_sigma)
+    updated_star_aux_table_columns.azimuth.append(azimuth)
+    updated_star_aux_table_columns.elevation.append(elevation)
+    updated_star_aux_table_columns.airmass.append(airmass)
+    return updated_star_aux_table_columns
+
+
+def create_star_aux_table(star_aux_table_columns):
+    star_aux_table = Table(
+        names=[
+            'filename',
+            'Time (JD)',
+            'filter',
+            'FWHM',
+            'FWHM_sigma',
+            'Number of Sources',
+            'BSB',
+            'BSB_sigma',
+            'Azimuth',
+            'Elevation',
+            'X'
+            ],
+        data=[
+            star_aux_table_columns.filenames,
+            star_aux_table_columns.times,
+            star_aux_table_columns.filters,
+            star_aux_table_columns.fwhms,
+            star_aux_table_columns.fwhm_sigma,
+            star_aux_table_columns.num_sources,
+            star_aux_table_columns.background_sky_brightness,
+            star_aux_table_columns.background_sky_brightness_sigma,
+            star_aux_table_columns.azimuth,
+            star_aux_table_columns.elevation,
+            star_aux_table_columns.airmass
+            ]
+        )
+    return star_aux_table
+
+
 def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):            
     stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(stars_table)
     slope_filters = [f"slope_{different_filter}" for different_filter in different_filter_list]
@@ -6044,6 +6152,9 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             # slopes_table[star_index_columns][i] = list(current_star[star_index_columns][0])
             # print(unique_filter)
             # print(current_star)
+            x_nan_indices = np.isnan(current_star[x_current_filter])
+            y_nan_indices = np.isnan(current_star[unique_filter])
+            nan_indices = (x_nan_indices | y_nan_indices)
             try:
                 X_plot = np.arange(start=min(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])-0.02, 
                                    stop=max(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])+0.02, 
@@ -6057,7 +6168,8 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             # m, b = np.polyfit(current_star[x_current_filter], current_star[unique_filter], 1)
             fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
             try:
-                fitted_line, mask = or_fit(line_init, current_star[x_current_filter], current_star[unique_filter])
+                fitted_line, mask = or_fit(line_init, current_star[x_current_filter][~nan_indices], 
+                                           current_star[unique_filter][~nan_indices])
             except TypeError:
                 # print(current_star[x_current_filter])
                 # print(current_star[unique_filter])
@@ -6066,7 +6178,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
                 slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
                 slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
                 continue
-            filtered_data = np.ma.masked_array(current_star[unique_filter], mask=mask)
+            filtered_data = np.ma.masked_array(current_star[unique_filter][~nan_indices], mask=mask)
             m = fitted_line.slope.value
             b = fitted_line.intercept.value
             cov = fit.fit_info['param_cov']
@@ -6077,7 +6189,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
                 m_sigma = np.nan
                 b_sigma = np.nan
             plt.plot(current_star[x_current_filter], current_star[unique_filter], 'o', fillstyle='none', color=colors[i], label="Clipped Data")
-            plt.plot(current_star[x_current_filter], filtered_data, 'o', color=colors[i], label="Fitted Data")
+            plt.plot(current_star[x_current_filter][~nan_indices], filtered_data, 'o', color=colors[i], label="Fitted Data")
             # plt.scatter(current_star[x_current_filter], current_star[unique_filter], color=colors[i], label=unique_star)
             plt.plot(X_plot, m*X_plot+b, color=colors[i])
             slopes_table[f"slope_{unique_filter}"][i] = m
@@ -6124,28 +6236,35 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
     for different_filter in different_filter_list:
         colour_indices = get_all_colour_indices(different_filter)
         for colour_index in colour_indices:
+            # print(different_filter)
+            # print(colour_index)
+            # print(slopes_table.pprint_all())
             filter_column.append(different_filter)
             CI_column.append(colour_index)
             # print(slopes_table[colour_index])
             ci_plot = np.arange(min(slopes_table[colour_index])-0.1, max(slopes_table[colour_index])+0.1, step=0.01)
             # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
-            try:
-                fitted_line, mask = or_fit(line_init, slopes_table[colour_index], slopes_table[f"slope_{different_filter}"])
-            except TypeError as e:
-                # print(current_star[x_current_filter])
-                # print(current_star[unique_filter])
-                # slopes_table[f"slope_{unique_filter}"][i] = np.nan
-                # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
-                # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
-                # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
-                k_primeprime_column.append(np.nan)
-                k_prime_column.append(np.nan)
-                k_primeprime_sigma_column.append(np.nan)
-                k_prime_sigma_column.append(np.nan)
-                print(e)
-                continue
-            filtered_data = np.ma.masked_array(slopes_table[f"slope_{different_filter}"], mask=mask)
+            # try:
+            x_nan_indices = np.isnan(slopes_table[colour_index])
+            y_nan_indices = np.isnan(slopes_table[f"slope_{different_filter}"])
+            nan_indices = (x_nan_indices | y_nan_indices)
+            fitted_line, mask = or_fit(line_init, slopes_table[colour_index][~nan_indices], 
+                                           slopes_table[f"slope_{different_filter}"][~nan_indices])
+            # except TypeError as e:
+            #     # print(current_star[x_current_filter])
+            #     # print(current_star[unique_filter])
+            #     # slopes_table[f"slope_{unique_filter}"][i] = np.nan
+            #     # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
+            #     # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
+            #     # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+            #     k_primeprime_column.append(np.nan)
+            #     k_prime_column.append(np.nan)
+            #     k_primeprime_sigma_column.append(np.nan)
+            #     k_prime_sigma_column.append(np.nan)
+            #     print(e)
+            #     continue
+            filtered_data = np.ma.masked_array(slopes_table[f"slope_{different_filter}"][~nan_indices], mask=mask)
             m = fitted_line.slope.value
             b = fitted_line.intercept.value
             cov = fit.fit_info['param_cov']
@@ -6161,7 +6280,7 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             k_prime_sigma_column.append(b_sigma)
             # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
             plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none', label="Clipped Data")
-            plt.plot(slopes_table[colour_index], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(slopes_table[colour_index][~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(ci_plot, m*ci_plot+b, '-', label=f"k''={m:0.3f}, k'={b:0.3f}")
             plt.ylabel(different_filter)
             plt.xlabel(colour_index)
@@ -6318,22 +6437,27 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             y = app_mag - exoatmospheric_mag
             x = exoatmospheric_table[colour_index]
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5)
-            try:
-                fitted_line, mask = or_fit(line_init, x, y)
-            except TypeError as e:
-                # print(current_star[x_current_filter])
-                # print(current_star[unique_filter])
-                # slopes_table[f"slope_{unique_filter}"][i] = np.nan
-                # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
-                # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
-                # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
-                # k_primeprime_column.append(np.nan)
-                # k_prime_column.append(np.nan)
-                # k_primeprime_sigma_column.append(np.nan)
-                # k_prime_sigma_column.append(np.nan)
-                print(e)
-                continue
-            filtered_data = np.ma.masked_array(y, mask=mask)
+            # print(x)
+            # print(y)
+            # try:
+            x_nan_indices = np.isnan(x)
+            y_nan_indices = np.isnan(y)
+            nan_indices = (x_nan_indices | y_nan_indices)
+            fitted_line, mask = or_fit(line_init, x[~nan_indices], y[~nan_indices])
+            # except TypeError as e:
+            #     # print(current_star[x_current_filter])
+            #     # print(current_star[unique_filter])
+            #     # slopes_table[f"slope_{unique_filter}"][i] = np.nan
+            #     # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
+            #     # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
+            #     # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
+            #     # k_primeprime_column.append(np.nan)
+            #     # k_prime_column.append(np.nan)
+            #     # k_primeprime_sigma_column.append(np.nan)
+            #     # k_prime_sigma_column.append(np.nan)
+            #     print(e)
+            #     continue
+            filtered_data = np.ma.masked_array(y[~nan_indices], mask=mask)
             t_fci = fitted_line.slope.value
             z_f = fitted_line.intercept.value
             cov = fit.fit_info['param_cov']
@@ -6351,7 +6475,7 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             Warner_final_transform_table["Z_f"][mask] = z_f
             Warner_final_transform_table["Z_f_sigma"][mask] = z_f_sigma
             plt.plot(x, y, 'o', fillstyle='none', label="Clipped Data")
-            plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(x[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(ci_plot, t_fci*ci_plot+z_f, '-', label=f"t_fci={t_fci:0.3f}, ZP_f={z_f:0.3f}")
             plt.ylabel(f"{app_mag_filter} - {different_filter}")
             plt.xlabel(colour_index)
@@ -6394,13 +6518,17 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
         plt.plot(instr_colour_index_mags, standard_colour_index_mags, 'o', fillstyle='none', label="Clipped Data")
         # m, b = np.polyfit(instr_colour_index_mags, standard_colour_index_mags, 1)
         fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5, slope=1)
-        try:
-            fitted_line, mask = or_fit(line_init, instr_colour_index_mags, standard_colour_index_mags)
-        except TypeError as e:
-            print(e)
-            continue
-        filtered_data = np.ma.masked_array(standard_colour_index_mags, mask=mask)
-        plt.plot(instr_colour_index_mags, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        # try:
+        x_nan_indices = np.isnan(instr_colour_index_mags)
+        y_nan_indices = np.isnan(standard_colour_index_mags)
+        nan_indices = (x_nan_indices | y_nan_indices)
+        fitted_line, mask = or_fit(line_init, instr_colour_index_mags[~nan_indices], 
+                                   standard_colour_index_mags[~nan_indices])
+        # except TypeError as e:
+        #     print(e)
+        #     continue
+        filtered_data = np.ma.masked_array(standard_colour_index_mags[~nan_indices], mask=mask)
+        plt.plot(instr_colour_index_mags[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
         m = fitted_line.slope.value
         b = fitted_line.intercept.value
         cov = fit.fit_info['param_cov']
@@ -6585,14 +6713,17 @@ def apply_transforms_Warner(stars_table,
         # print(z_f)
         app_mag_calculated = exoatmospheric_mag + (t_fci * CI) + z_f
         fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5, slope=1, intercept=0)
-        try:
-            fitted_line, mask = or_fit(line_init, app_mag, app_mag_calculated)
-        except TypeError as e:
-            print(e)
-            continue
-        filtered_data = np.ma.masked_array(app_mag_calculated, mask=mask)
+        # try:
+        x_nan_indices = np.isnan(app_mag)
+        y_nan_indices = np.isnan(app_mag_calculated)
+        nan_indices = (x_nan_indices | y_nan_indices)
+        fitted_line, mask = or_fit(line_init, app_mag[~nan_indices], app_mag_calculated[~nan_indices])
+        # except TypeError as e:
+        #     print(e)
+        #     continue
+        filtered_data = np.ma.masked_array(app_mag_calculated[~nan_indices], mask=mask)
         plt.plot(app_mag, app_mag_calculated, 'o', fillstyle='none', label="Clipped Data")
-        plt.plot(app_mag, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(app_mag[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
         m = fitted_line.slope.value
         b = fitted_line.intercept.value
         cov = fit.fit_info['param_cov']
@@ -6636,52 +6767,95 @@ def _main_gb_transform_calc_Warner(directory,
     # TODO: Fix errors when save_plots = False.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
+    star_aux_table_columns = init_star_aux_table_columns()
     
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
+            
+    filecount = 0
+    file_paths = []
+    file_names = []
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                file_paths.append(os.path.join(dirpth, file))
+                file_names.append(file)
+    #             filecount += 1
+    # filenames = sorted(os.listdir(temp_dir))
     
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith(file_suffix):
-                filepath = os.path.join(dirpath, filename)
-                hdr, imgdata = read_fits_file(filepath)
-                exptime = hdr[exposure_key]
-                bkg, bkg_std = calculate_img_bkg(imgdata)
-                irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-                if not irafsources:
-                    continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-                fluxes = np.array(photometry_result['flux_fit'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-                wcs = WCS(hdr)
-                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
-                except AttributeError as e:
-                    print(e)
-                    continue
-                matched_stars = find_ref_stars(reference_stars, 
-                                                     ref_star_positions,
-                                                     skypositions,
-                                                     instr_mags,
-                                                     instr_mags_sigma,
-                                                     fluxes,
-                                                     ground_based=True,
-                                                     altazpositions=altazpositions)
-                if not matched_stars:
-                    continue
-                                
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                 matched_stars, 
-                                                                 hdr, 
-                                                                 exptime, 
-                                                                 ground_based=True, 
-                                                                 name_key=name_key)
+    
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in tqdm(filenames):
+    #         if filename.endswith(file_suffix):
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in filenames:
+    #         if filename.endswith(file_suffix):
+    #             filepath = os.path.join(dirpath, filename)
+    
+    for file_num, filepath in enumerate(tqdm(file_paths)):
+        hdr, imgdata = read_fits_file(filepath)
+        exptime = hdr[exposure_key]
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if not irafsources:
+            continue
+        num_sources = len(irafsources)
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+        fluxes = np.array(photometry_result['flux_fit'])
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        wcs = WCS(hdr)
+        skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+        try:
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L', elev_key='OBSGEO-H')
+        except AttributeError as e:
+            print(e)
+            continue
+        fwhms_arcsec, fwhm_arcsec, fwhms_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+        time = t.jd
+        # time = hdr['DATE-OBS']
+        img_filter = hdr['FILTER']
+        background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime)
+        background_sky_brightness_sigma = np.nan
+        azimuth = np.mean(altazpositions.az)
+        elevation = np.mean(altazpositions.alt)
+        airmass = np.mean(altazpositions.secz)
+        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
+                                                         file_names[file_num], 
+                                                         time, 
+                                                         img_filter, 
+                                                         fwhm_arcsec, 
+                                                         fwhms_arcsec_std, 
+                                                         num_sources,
+                                                         background_sky_brightness, 
+                                                         background_sky_brightness_sigma, 
+                                                         azimuth, 
+                                                         elevation, 
+                                                         airmass)
+        matched_stars = find_ref_stars(reference_stars, 
+                                             ref_star_positions,
+                                             skypositions,
+                                             instr_mags,
+                                             instr_mags_sigma,
+                                             fluxes,
+                                             ground_based=True,
+                                             altazpositions=altazpositions)
+        if not matched_stars:
+            continue
+                        
+        large_table_columns = update_large_table_columns(large_table_columns, 
+                                                         matched_stars, 
+                                                         hdr, 
+                                                         exptime, 
+                                                         ground_based=True, 
+                                                         name_key=name_key)
+    star_aux_table = create_star_aux_table(star_aux_table_columns)
+    ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
@@ -6703,6 +6877,87 @@ def _main_gb_transform_calc_Warner(directory,
     ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
     ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
+
+
+def _sky_survey_calc(directory, 
+                     plot_results=False, 
+                     save_plots=False,
+                     file_suffix=".fits", 
+                     exposure_key='EXPTIME',  
+                     gb_final_transforms=None,
+                     **kwargs):
+    # TODO: Docstring.
+    # TODO: Fix errors when save_plots = False.
+    # large_table_columns = init_large_table_columns()
+    star_aux_table_columns = init_star_aux_table_columns()
+    
+    filecount = 0
+    file_paths = []
+    file_names = []
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                file_paths.append(os.path.join(dirpth, file))
+                file_names.append(file)
+    #             filecount += 1
+    # filenames = sorted(os.listdir(temp_dir))
+    
+    save_loc = kwargs.get('save_loc')
+    if not os.path.exists(save_loc):
+        os.mkdir(save_loc)
+    
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in tqdm(filenames):
+    #         if filename.endswith(file_suffix):
+    for file_num, filepath in enumerate(tqdm(file_paths, ascii=True)):
+        # filepath = os.path.join(dirpath, filename)
+        hdr, imgdata = read_fits_file(filepath)
+        exptime = hdr[exposure_key]
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if not irafsources:
+            print("Could not detect sources.")
+            continue
+        num_sources = len(irafsources)
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+        # fluxes = np.array(photometry_result['flux_fit'])
+        # instr_mags = calculate_magnitudes(photometry_result, exptime)
+        # instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        # wcs = WCS(hdr)
+        # skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+        # try:
+        #     altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
+        # except AttributeError as e:
+        #     print(e)
+        #     continue
+        fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+        time = t.jd
+        # time = hdr['DATE-OBS']
+        img_filter = hdr['FILTER']
+        background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
+        background_sky_brightness_sigma = np.nan
+        azimuth = hdr['CENTAZ']
+        elevation = hdr['CENTALT']
+        airmass = hdr['AIRMASS']
+        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
+                                                         file_names[file_num], 
+                                                         time, 
+                                                         img_filter, 
+                                                         fwhm_arcsec, 
+                                                         fwhm_arcsec_std, 
+                                                         num_sources,
+                                                         background_sky_brightness, 
+                                                         background_sky_brightness_sigma, 
+                                                         azimuth, 
+                                                         elevation, 
+                                                         airmass)
+    star_aux_table = create_star_aux_table(star_aux_table_columns)
+    ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+    return star_aux_table
+
+
 
 
 def _main_sb_transform_calc(directory, 
