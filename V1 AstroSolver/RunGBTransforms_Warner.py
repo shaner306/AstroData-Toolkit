@@ -56,8 +56,8 @@ unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\No Flats\Plate Solved\corrected_lights'
-save_loc = os.path.join(directory, 'Outputs_Warner_MostStars')
+directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights'
+save_loc = os.path.join(directory, 'Outputs_Warner_FewerStars')
 # try:
 large_stars_table = astro._main_gb_transform_calc_Warner(directory, 
                                                          ref_stars_file, 

@@ -6909,14 +6909,39 @@ def _sky_survey_calc(directory,
     # for dirpath, dirnames, filenames in os.walk(directory):
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
-    for file_num, filepath in enumerate(tqdm(file_paths, ascii=True)):
+    for file_num, filepath in enumerate(tqdm(file_paths)):
         # filepath = os.path.join(dirpath, filename)
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = calculate_img_bkg(imgdata)
+        # print(bkg)
         irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
-            print("Could not detect sources.")
+            warn("Could not detect sources.")
+            fwhm_arcsec = np.nan
+            fwhm_arcsec_std = np.nan
+            num_sources = 0
+            t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+            time = t.jd
+            # time = hdr['DATE-OBS']
+            img_filter = hdr['FILTER']
+            background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
+            background_sky_brightness_sigma = np.nan
+            azimuth = hdr['CENTAZ']
+            elevation = hdr['CENTALT']
+            airmass = hdr['AIRMASS']
+            star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
+                                                             file_names[file_num], 
+                                                             time, 
+                                                             img_filter, 
+                                                             fwhm_arcsec, 
+                                                             fwhm_arcsec_std, 
+                                                             num_sources,
+                                                             background_sky_brightness, 
+                                                             background_sky_brightness_sigma, 
+                                                             azimuth, 
+                                                             elevation, 
+                                                             airmass)
             continue
         num_sources = len(irafsources)
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)

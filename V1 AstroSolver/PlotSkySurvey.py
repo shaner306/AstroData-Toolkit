@@ -15,13 +15,13 @@ import numpy as np
 from astropy.time import Time
 import matplotlib.dates as mdates
 
-survey_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\No Flats\Plate Solved\corrected_lights\Outputs_SkySurvey\auxiliary_table_AllStars_PinPointZp.csv"
+survey_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_SkySurvey\auxiliary_table.csv"
 # survey_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Sky Survey\Automated Pointing Run 004\Outputs_SkySurvey\auxiliary_table.csv"
 star_aux_table = ascii.read(survey_file)
 
-theta = star_aux_table['Azimuth']
-r = 90 - star_aux_table['Elevation']
-z = star_aux_table['BSB']
+theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
+r = 90 - star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
+z = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
 fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
 ax.set_theta_zero_location("N")
 custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list("",
@@ -44,7 +44,7 @@ ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=custom_
 rlabels = ax.get_ymajorticklabels()
 for label in rlabels:
 	label.set_color('black')
-# plt.savefig(r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\No Flats\Plate Solved\corrected_lights\Outputs_SkySurvey\BSB_plot')
+plt.savefig(r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_SkySurvey\BSB_plot')
 plt.show()
 plt.close()
 

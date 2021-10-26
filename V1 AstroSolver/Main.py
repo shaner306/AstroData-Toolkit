@@ -673,7 +673,6 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,create_maste
     all_fits = ImageFileCollection(filenames = results)
     print('Files sorted into ImageFileCollection object')
     
-    
     # %% Image Reduction 
     if run_master_bias == True:
         print('\n')

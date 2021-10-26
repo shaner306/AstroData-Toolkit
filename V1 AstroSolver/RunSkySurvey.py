@@ -14,8 +14,9 @@ import numpy as np
 import os
 import warnings
 warnings.filterwarnings('ignore')
+warnings.filterwarnings('default', category=UserWarning)
 
-directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\No Flats\Plate Solved\corrected_lights'
+directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 21\2021 10 21 - Automated Pointing Run'
 plot_results = True
 save_plots = True
 file_suffix = ".fits"

@@ -340,7 +340,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
     # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='flat', combined=True)}
     # For ORC GBO
     master_darks = {ccd.header['EXPTIME']: ccd for ccd in master_files.ccds(imagetyp='Dark Frame', combined=True)}
-    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
+    # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
+    # For 8" Celestron
+    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Field', combined=True)}
 
     # There is only one bias frame, so no need to set up a dictionary.
     # master_bias = [ccd for ccd in master_files.ccds(imagetyp='bias', combined=True)][0]
@@ -378,15 +380,27 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
                 closest_dark = find_nearest_dark_exposure(reduced, master_darks.keys())
         
                 reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
-                                             exposure_time='exptime', exposure_unit=u.second,
-                                             scale=True)
+                                              exposure_time='exptime', exposure_unit=u.second,
+                                              scale=True)
+                
+                # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
         
-                # good_flat = master_flats[reduced.header['filter']]
-                # reduced = ccdp.flat_correct(reduced, good_flat)
+                # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
+                #                              exposure_time='exptime', exposure_unit=u.second,
+                #                              scale=True)
+        
+                good_flat = master_flats[reduced.header['filter']]
+                reduced = ccdp.flat_correct(reduced, good_flat)
         
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
-                reduced.write(corrected_light_dir + '\\' + file_name)
+                try:
+                    reduced.write(corrected_light_dir + '\\' + file_name)
+                except OSError:
+                    file_name = file_name[:-5]
+                    print(file_name)
+                    file_name = file_name + "1.fits"
+                    reduced.write(corrected_light_dir + '\\' + file_name)
         
         
                 print('Saving ',file_name)
