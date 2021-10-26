@@ -386,8 +386,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
                 # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
         
                 # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
-                #                              exposure_time='exptime', exposure_unit=u.second,
-                #                              scale=True)
+                #                               exposure_time='exptime', exposure_unit=u.second,
+                #                               scale=True)
         
                 good_flat = master_flats[reduced.header['filter']]
                 reduced = ccdp.flat_correct(reduced, good_flat)

@@ -44,7 +44,7 @@ ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=custom_
 rlabels = ax.get_ymajorticklabels()
 for label in rlabels:
 	label.set_color('black')
-plt.savefig(r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_SkySurvey\BSB_plot')
+# plt.savefig(r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_SkySurvey\BSB_plot')
 plt.show()
 plt.close()
 
