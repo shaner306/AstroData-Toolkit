@@ -6885,6 +6885,9 @@ def _sky_survey_calc(directory,
                      file_suffix=".fits", 
                      exposure_key='EXPTIME',  
                      gb_final_transforms=None,
+                     lat_key='SITELAT', 
+                     lon_key='SITELONG', 
+                     elev_key='SITEELEV',
                      **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
@@ -6949,13 +6952,23 @@ def _sky_survey_calc(directory,
         # fluxes = np.array(photometry_result['flux_fit'])
         # instr_mags = calculate_magnitudes(photometry_result, exptime)
         # instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-        # wcs = WCS(hdr)
-        # skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-        # try:
-        #     altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
-        # except AttributeError as e:
-        #     print(e)
-        #     continue
+        try:
+            wcs = WCS(hdr)
+            skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+            try:
+                altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key, elev_key=elev_key)
+                azimuth = np.mean(altazpositions.az)
+                elevation = np.mean(altazpositions.alt)
+                airmass = np.mean(altazpositions.secz)
+            except AttributeError as e:
+                azimuth = hdr['CENTAZ']
+                elevation = hdr['CENTALT']
+                airmass = hdr['AIRMASS']
+                # continue
+        except Exception:
+            azimuth = hdr['CENTAZ']
+            elevation = hdr['CENTALT']
+            airmass = hdr['AIRMASS']
         fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
@@ -6963,9 +6976,9 @@ def _sky_survey_calc(directory,
         img_filter = hdr['FILTER']
         background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
         background_sky_brightness_sigma = np.nan
-        azimuth = hdr['CENTAZ']
-        elevation = hdr['CENTALT']
-        airmass = hdr['AIRMASS']
+        # azimuth = hdr['CENTAZ']
+        # elevation = hdr['CENTALT']
+        # airmass = hdr['AIRMASS']
         star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
                                                          file_names[file_num], 
                                                          time, 
