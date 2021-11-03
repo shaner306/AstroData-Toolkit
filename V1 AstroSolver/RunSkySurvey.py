@@ -16,7 +16,7 @@ import warnings
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('default', category=UserWarning)
 
-directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights'
+directory = r'C:\Users\jack.wawrow\Documents\Suffield\2021 10 21\2021 10 21 - Automated Pointing Run\Plate Solved\auto_pointng_run_corrected_lights'
 plot_results = True
 save_plots = True
 file_suffix = ".fits"
@@ -24,9 +24,9 @@ exposure_key = 'EXPTIME'
 lat_key = 'OBSGEO-B', 
 lon_key = 'OBSGEO-L', 
 elev_key = 'OBSGEO-H',
-transforms_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_Warner_FewerStars\_gb_final_transforms.csv"
-gb_final_transforms = ascii.read(transforms_file)
-# gb_final_transforms = None
+# transforms_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_Warner_FewerStars\_gb_final_transforms.csv"
+# gb_final_transforms = ascii.read(transforms_file)
+gb_final_transforms = None
 save_loc = os.path.join(directory, 'Outputs_SkySurvey')
 
 
