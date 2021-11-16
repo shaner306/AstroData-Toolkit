@@ -774,6 +774,14 @@ def calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms=N
     return bsb
 
 
+def calculate_BSB_sigma(bkg, bkg_std, exptime):
+    fluxes = normalize_flux_by_time(bkg, exptime)
+    flux_uncs = normalize_flux_by_time(bkg_std, exptime)
+    snr = (fluxes / flux_uncs).value
+    instr_mags_sigma = 1.0857 / np.sqrt(snr)
+    return instr_mags_sigma
+
+
 def calculate_limiting_magnitude(bkg, hdr, exptime, fwhm, gb_final_transforms=None,
                                  focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ',
                                  filter_key='Filter'):
@@ -5998,8 +6006,10 @@ def init_star_aux_table_columns():
     filenames = []
     times = []
     filters = []
-    fwhms = []
-    fwhm_sigma = []
+    fwhms_pixels = []
+    fwhm_pixels_sigma = []
+    fwhms_arcsec = []
+    fwhm_arcsec_sigma = []
     num_sources = []
     background_sky_brightness = []
     background_sky_brightness_sigma = []
@@ -6010,8 +6020,10 @@ def init_star_aux_table_columns():
                                        ['filenames',
                                         'times',
                                         'filters',
-                                        'fwhms',
-                                        'fwhm_sigma',
+                                        'fwhms_pixels',
+                                        'fwhm_pixels_sigma',
+                                        'fwhms_arcsec',
+                                        'fwhm_arcsec_sigma',
                                         'num_sources',
                                         'background_sky_brightness',
                                         'background_sky_brightness_sigma',
@@ -6021,8 +6033,10 @@ def init_star_aux_table_columns():
     return star_aux_table_columns(filenames,
                                  times,
                                  filters,
-                                 fwhms,
-                                 fwhm_sigma,
+                                 fwhms_pixels,
+                                 fwhm_pixels_sigma,
+                                 fwhms_arcsec,
+                                 fwhm_arcsec_sigma,
                                  num_sources,
                                  background_sky_brightness,
                                  background_sky_brightness_sigma,
@@ -6037,6 +6051,8 @@ def update_star_aux_columns(star_aux_table_columns,
                             img_filter,
                             fwhm,
                             fwhm_sigma,
+                            fwhm_arcsec,
+                            fwhm_arcsec_sigma,
                             num_sources,
                             background_sky_brightness,
                             background_sky_brightness_sigma,
@@ -6047,8 +6063,10 @@ def update_star_aux_columns(star_aux_table_columns,
     updated_star_aux_table_columns.filenames.append(filename)
     updated_star_aux_table_columns.times.append(time)
     updated_star_aux_table_columns.filters.append(img_filter)
-    updated_star_aux_table_columns.fwhms.append(fwhm)
-    updated_star_aux_table_columns.fwhm_sigma.append(fwhm_sigma)
+    updated_star_aux_table_columns.fwhms_pixels.append(fwhm)
+    updated_star_aux_table_columns.fwhm_pixels_sigma.append(fwhm_sigma)
+    updated_star_aux_table_columns.fwhms_arcsec.append(fwhm_arcsec)
+    updated_star_aux_table_columns.fwhm_arcsec_sigma.append(fwhm_arcsec_sigma)
     updated_star_aux_table_columns.num_sources.append(num_sources)
     updated_star_aux_table_columns.background_sky_brightness.append(background_sky_brightness)
     updated_star_aux_table_columns.background_sky_brightness_sigma.append(background_sky_brightness_sigma)
@@ -6064,8 +6082,10 @@ def create_star_aux_table(star_aux_table_columns):
             'filename',
             'Time (JD)',
             'filter',
-            'FWHM',
-            'FWHM_sigma',
+            'FWHM_pixel',
+            'FWHM_pixel_sigma',
+            'FWHM_arcsec',
+            'FWHM_arcsec_sigma',
             'Number of Sources',
             'BSB',
             'BSB_sigma',
@@ -6077,8 +6097,10 @@ def create_star_aux_table(star_aux_table_columns):
             star_aux_table_columns.filenames,
             star_aux_table_columns.times,
             star_aux_table_columns.filters,
-            star_aux_table_columns.fwhms,
-            star_aux_table_columns.fwhm_sigma,
+            star_aux_table_columns.fwhms_pixels,
+            star_aux_table_columns.fwhm_pixels_sigma,
+            star_aux_table_columns.fwhms_arcsec,
+            star_aux_table_columns.fwhm_arcsec_sigma,
             star_aux_table_columns.num_sources,
             star_aux_table_columns.background_sky_brightness,
             star_aux_table_columns.background_sky_brightness_sigma,
@@ -6821,7 +6843,7 @@ def _main_gb_transform_calc_Warner(directory,
         # time = hdr['DATE-OBS']
         img_filter = hdr['FILTER']
         background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime)
-        background_sky_brightness_sigma = np.nan
+        background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
@@ -6829,6 +6851,8 @@ def _main_gb_transform_calc_Warner(directory,
                                                          file_names[file_num], 
                                                          time, 
                                                          img_filter, 
+                                                         fwhm, 
+                                                         fwhm_std,
                                                          fwhm_arcsec, 
                                                          fwhms_arcsec_std, 
                                                          num_sources,
@@ -6921,6 +6945,8 @@ def _sky_survey_calc(directory,
         irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
             warn("Could not detect sources.")
+            fwhm = np.nan
+            fwhm_std = np.nan
             fwhm_arcsec = np.nan
             fwhm_arcsec_std = np.nan
             num_sources = 0
@@ -6929,7 +6955,7 @@ def _sky_survey_calc(directory,
             # time = hdr['DATE-OBS']
             img_filter = hdr['FILTER']
             background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
-            background_sky_brightness_sigma = np.nan
+            background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
             azimuth = hdr['CENTAZ']
             elevation = hdr['CENTALT']
             airmass = hdr['AIRMASS']
@@ -6937,6 +6963,8 @@ def _sky_survey_calc(directory,
                                                              file_names[file_num], 
                                                              time, 
                                                              img_filter, 
+                                                             fwhm, 
+                                                             fwhm_std, 
                                                              fwhm_arcsec, 
                                                              fwhm_arcsec_std, 
                                                              num_sources,
@@ -6975,7 +7003,7 @@ def _sky_survey_calc(directory,
         # time = hdr['DATE-OBS']
         img_filter = hdr['FILTER']
         background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
-        background_sky_brightness_sigma = np.nan
+        background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
         # azimuth = hdr['CENTAZ']
         # elevation = hdr['CENTALT']
         # airmass = hdr['AIRMASS']
@@ -6983,6 +7011,8 @@ def _sky_survey_calc(directory,
                                                          file_names[file_num], 
                                                          time, 
                                                          img_filter, 
+                                                         fwhm, 
+                                                         fwhm_std, 
                                                          fwhm_arcsec, 
                                                          fwhm_arcsec_std, 
                                                          num_sources,
