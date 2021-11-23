@@ -15,7 +15,7 @@ import numpy as np
 from astropy.time import Time
 import matplotlib.dates as mdates
 
-survey_file = r"G:\Suffield\2021 10 26 - ZWO with C14\Sky Survey\2021 10 26 - Pointing Run 1\Plate Solved\corrected_lights\Outputs_SkySurvey\auxiliary_table.csv"
+survey_file = r"C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\corrected_lights\Outputs_SkySurvey\auxiliary_table.csv"
 # survey_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Sky Survey\Automated Pointing Run 004\Outputs_SkySurvey\auxiliary_table.csv"
 star_aux_table = ascii.read(survey_file)
 
@@ -44,7 +44,7 @@ ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=plt.get
 rlabels = ax.get_ymajorticklabels()
 for label in rlabels:
 	label.set_color('black')
-# plt.savefig(r'G:\Suffield\2021 10 26 - ZWO with C14\Sky Survey\2021 10 26 - Pointing Run 1\Plate Solved\corrected_lights\Outputs_SkySurvey\BSB_plot')
+plt.savefig(r'C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\corrected_lights\Outputs_SkySurvey\BSB_plot_BW')
 plt.show()
 plt.close()
 

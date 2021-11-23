@@ -6956,9 +6956,12 @@ def _sky_survey_calc(directory,
             img_filter = hdr['FILTER']
             background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms)
             background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
-            azimuth = hdr['CENTAZ']
-            elevation = hdr['CENTALT']
-            airmass = hdr['AIRMASS']
+            try:
+                azimuth = hdr['CENTAZ']
+                elevation = hdr['CENTALT']
+                airmass = hdr['AIRMASS']
+            except KeyError:
+                continue
             star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
                                                              file_names[file_num], 
                                                              time, 
@@ -6994,9 +6997,13 @@ def _sky_survey_calc(directory,
                 airmass = hdr['AIRMASS']
                 # continue
         except Exception:
-            azimuth = hdr['CENTAZ']
-            elevation = hdr['CENTALT']
-            airmass = hdr['AIRMASS']
+            # TODO: change to an if/else statement.
+            try:
+                azimuth = hdr['CENTAZ']
+                elevation = hdr['CENTALT']
+                airmass = hdr['AIRMASS']
+            except KeyError:
+                continue
         fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
