@@ -39,7 +39,8 @@ def Gui ():
             [sg.T("Maximum Mag.:"),sg.T("     "), sg.InputText('13', size=(5,5), key="-IN51-"), sg.T("Sigma Above Mean:  "), sg.InputText('3.0', size=(5,5), key="-IN52-")],      
             [sg.T("Max Solve Time (sec):"), sg.InputText('60', size=(5,5),key="-IN56-"), sg.T("Max Match Residual:"), sg.InputText('1.5', size=(5,5), key="-IN53-")],
             [sg.T("Catalog Expansion:"),sg.T(""), sg.InputText('0.8', size=(5,5),key="-IN55-"), sg.T("Catalog:"), sg.T("            "), sg.InputText('UCAC4', size=(7,5), disabled=True,  key="-IN54-")],
-            [sg.T("Use SExtractor?       "), sg.Radio('Yes', "RADIO2", default=False, key="-IN57-"), sg.T(" "), sg.Radio('No', "RADIO2", default=True, key="-IN58-")]
+            [sg.T("Use SExtractor?       "), sg.Radio('Yes', "RADIO2", default=False, key="-IN57-"), sg.T(" "), sg.Radio('No', "RADIO2", default=True, key="-IN58-")],
+            [sg.T("All Sky Solve?          "), sg.Radio('Yes', "RADIO4", default=False, key="-IN59-"), sg.T(" "), sg.Radio('No', "RADIO4", default=True, key="-IN60-")]
             ]   
     
     column1 = [[sg.Text('Analysis Parameters', background_color='#F7F3EC', justification='center', size=(30, 1))],
@@ -185,10 +186,14 @@ def Gui ():
                     use_sextractor = True
                 else:
                     use_sextractor = False
+                if values["-IN59-"] == True:
+                    all_sky_solve = True
+                else:
+                    all_sky_solve = False
                 
                 #try:
                     
-                Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog,sb, use_sextractor)
+                Main.pinpoint_solve(image_dir, catalog_dir, max_mag, sigma, catalog_exp, match_residual, max_solve_time, catalog,sb, use_sextractor, all_sky_solve)
                 #print ("Reducing Images ---- Started")
                 window.close()
                 # except:
