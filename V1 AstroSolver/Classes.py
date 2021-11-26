@@ -15,21 +15,16 @@ from skimage import measure, filters
 import datetime
 import astropy
 from astropy.stats import SigmaClip
-
-
-
 from photutils.background import SExtractorBackground
 from photutils.background import MeanBackground
 from photutils.background import Background2D
 from photutils.background import ModeEstimatorBackground
 from photutils.background import MedianBackground
 import astropy.units as u
-
 from matplotlib import pyplot as plt
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
-
 import re
 import AstroFunctions as astro
 import ImageReduction as IR

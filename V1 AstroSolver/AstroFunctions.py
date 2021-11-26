@@ -8,56 +8,56 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
+import ctypes
+import math
+import os
+import re
+import tkinter as tk
+from collections import namedtuple, Counter
+from itertools import permutations, groupby
+from math import sqrt, atan, pi
+from shutil import copy2, rmtree
+from warnings import warn
+
+import astropy.units as u
+import cv2 as cv
+import matplotlib.cm as cm
+import matplotlib.dates as mdates
+import numpy
+import numpy as np
+import pandas as pd
+import scipy
+import win32com
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval
 from astropy.modeling.models import Linear1D
+from astropy.stats import SigmaClip
 from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
 from astropy.time import Time
-import astropy.units as u
+from astropy.utils import iers
 from astropy.wcs import WCS
-from collections import namedtuple, Counter
-import ctypes
-import cv2 as cv
-from itertools import permutations, groupby
-from math import sqrt, atan, pi
-from matplotlib import gridspec
 from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from photutils.aperture import RectangularAperture
 from matplotlib.colors import LogNorm
-import matplotlib.cm as cm
+from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-import matplotlib.dates as mdates
 from matplotlib.ticker import FormatStrFormatter
+from photutils.aperture import RectangularAperture
+from photutils.background import Background2D
+from photutils.background import MeanBackground
+from photutils.background import MedianBackground
+from photutils.background import SExtractorBackground
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
-import numpy as np
-import tkinter as tk
-import re
-import os
-from shutil import copy2, rmtree
-import math
-import win32com
-from astropy.stats import SigmaClip
-from photutils.background import SExtractorBackground
-from photutils.background import MeanBackground
-from photutils.background import Background2D
-from photutils.background import ModeEstimatorBackground
-from photutils.background import MedianBackground
-import pandas as pd
-import numpy
 from skimage import measure
-import scipy
 from tqdm import tqdm
-from warnings import warn
+
 # from scipy.optimize import curve_fit
 
-from astropy.utils import iers
 # If you are working offline, set the following to False.
 # In that case, it will use the International Earth Rotation and Reference Systems (IERS) data
 # that was included with the astropy release installed on the system. That may not be as accurate
@@ -101,114 +101,113 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
     line_init = Linear1D(slope=slope, intercept=intercept)
     return fit, or_fit, line_init
 
-def BackgroundIteration(image, tolerance):       
+
+def BackgroundIteration(image, tolerance):
     old_mean = 1e9
-    old_rms   = 1e9
-    
+    old_rms = 1e9
+
     new_mean = 2e9
     new_rms = 2e9
-    
+
     while abs(new_rms - old_rms) > (tolerance * old_rms):
         old_mean = float(new_mean)
         old_rms = float(new_rms)
-        #image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
-    	
+        # image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
+
         if (np.size(image) == 0):
             new_mean = 0
             new_rms = 2e9
             break
-      
-            
-       	new_mean = mean(image)
-       	new_rms   = numpy.std(image)
-        retval = [new_mean, new_rms]
-       	return new_mean, new_rms
-    
-    
-def myclip(x1,lo,hi):
-        vector = np.vectorize(np.float)
-        x= vector(x1)
-        
-        float(hi)
-        float(lo)
-        #print(x)
-        #print(hi)
-        #print(lo)
 
-       	y = (x * np.any(x<= hi)) + ((hi) * np.any(x> hi))
-       	y = (y * np.any(y>lo)) + ((lo) * np.any(y<=lo))
-        return y
+        new_mean = mean(image)
+        new_rms = numpy.std(image)
+        retval = [new_mean, new_rms]
+        return new_mean, new_rms
+
+
+def myclip(x1, lo, hi):
+    vector = np.vectorize(np.float)
+    x = vector(x1)
+
+    float(hi)
+    float(lo)
+
+    y = (x * np.any(x <= hi)) + ((hi) * np.any(x > hi))
+    y = (y * np.any(y > lo)) + ((lo) * np.any(y <= lo))
+    return y
+
+
 def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
-      
     num_elem_x = mask_x.size
     num_elem_y = mask_y.size
     sum1 = 0
-    pix_flux = np.zeros((num_elem_x))    
+    pix_flux = np.zeros((num_elem_x))
     for i in range(num_elem_x):
         x_pix = mask_x[i]
         y_pix = mask_y[i]
-        
+
         sum1 = sum1 + flux_image[x_pix, y_pix]
         pix_flux[i] = flux_image[x_pix, y_pix]
-    
+
     object_flux = sum1
     max_pixel_flux = max(pix_flux)
     return object_flux, max_pixel_flux
+
+
 def MomentCalculation(xmask, ymask, xc, yc, p, q):
-        num_pix = xmask.size
-        mom = sum((xmask - xc)**p * (ymask - yc)**q) / num_pix
-        moment=mom
-        return moment
+    num_pix = xmask.size
+    mom = sum((xmask - xc) ** p * (ymask - yc) ** q) / num_pix
+    moment = mom
+    return moment
+
 
 def EccentricityCalculation(m11, m02, m20):
-    eccent = numpy.sqrt((m20 - m02)**2 + (4*m11**2))/ (m20+m02)
+    eccent = numpy.sqrt((m20 - m02) ** 2 + (4 * m11 ** 2)) / (m20 + m02)
     return eccent
 
+
 def Compact(num_pix, m02, m20):
-    compact = (num_pix/(m02 + m20))
+    compact = (num_pix / (m02 + m20))
     return compact
 
+
 def WeightedCentroid(mask_x, mask_y, flux_image):
-  
     num_elem_x = mask_x.size
     num_elem_y = mask_y.size
     x_wt_sum = 0
     y_wt_sum = 0
     flux_sum = 0
-    #print("2")
+    # print("2")
     if num_elem_x != num_elem_y:
         object_flux = -999
-        #print("3")
+        # print("3")
         return
     else:
-      for i in range(num_elem_x):
-                       
-                x_pix = mask_x[i]
-                y_pix = mask_y[i]
-                
-                x_wt_sum =x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
-                y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
-                flux_sum = flux_sum + flux_image[x_pix, y_pix]
-            
+        for i in range(num_elem_x):
+            x_pix = mask_x[i]
+            y_pix = mask_y[i]
+
+            x_wt_sum = x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
+            y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
+            flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
     x_centroid = x_wt_sum / flux_sum
     y_centroid = y_wt_sum / flux_sum
-    
-    
+
     x_var_sum = 0
     y_var_sum = 0
     flux_sum = 0
-    #print("2")
+    # print("2")
     for i in range(num_elem_x):
-                   
-            x_pix = mask_x[i]
-            y_pix = mask_y[i]
-            
-            x_var_sum =x_var_sum + ((x_pix-x_centroid)**2 * flux_image[x_pix, y_pix])
-            y_var_sum = y_var_sum + ((y_pix-y_centroid)**2 * flux_image[x_pix, y_pix])
-            flux_sum = flux_sum + flux_image[x_pix, y_pix]
-            
-    x_rms = numpy.sqrt(x_var_sum/flux_sum)
-    y_rms = numpy.sqrt(y_var_sum/flux_sum)
+        x_pix = mask_x[i]
+        y_pix = mask_y[i]
+
+        x_var_sum = x_var_sum + ((x_pix - x_centroid) ** 2 * flux_image[x_pix, y_pix])
+        y_var_sum = y_var_sum + ((y_pix - y_centroid) ** 2 * flux_image[x_pix, y_pix])
+        flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
+    x_rms = numpy.sqrt(x_var_sum / flux_sum)
+    y_rms = numpy.sqrt(y_var_sum / flux_sum)
     return x_centroid, x_rms, y_centroid, y_rms
 
 
@@ -263,6 +262,7 @@ def read_fits_file(filepath):
     # imgdata = hdul[0].data
     # hdul.close()
     return hdr, imgdata
+
 
 def get_instr_filter_name(hdr, filter_key='FILTER'):
     """
@@ -345,7 +345,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=sigma*bkg_std, fwhm=fwhm, brightest=200)
+    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm, brightest=200)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -449,7 +449,7 @@ def calculate_fwhm(irafsources):
     return fwhms, fwhm, fwhm_std
 
 
-def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std, 
+def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
                            focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
     """
     Convert the FWHM from pixels to arcsec.
@@ -498,8 +498,8 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
-def convert_fwhm_to_arcsec_trm(hdr, fwhm, 
-                           focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
+def convert_fwhm_to_arcsec_trm(hdr, fwhm,
+                               focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
     """
     Convert the FWHM from pixels to arcsec.
 
@@ -535,6 +535,7 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
         print("FWHM in pixels.")
         fwhm_arcsec = fwhm
     return fwhm_arcsec
+
 
 def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter(), fitshape=5):
     """
@@ -590,10 +591,10 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg, fitter=LevMarLSQFitter()
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
                 data=[irafsources['xcentroid'], irafsources['ycentroid'], irafsources['flux']])
-    
-    photometry = BasicPSFPhotometry(group_maker=daogroup, 
-                                    bkg_estimator=None, 
-                                    psf_model=psf_model, 
+
+    photometry = BasicPSFPhotometry(group_maker=daogroup,
+                                    bkg_estimator=None,
+                                    psf_model=psf_model,
                                     fitter=fitter,
                                     fitshape=fitshape)
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
@@ -654,10 +655,10 @@ def perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg, fitter=LevMarLSQFit
     psf_model.y_0.fixed = True
     pos = Table(names=['x_0', 'y_0'],
                 data=[sat_x, sat_y])
-    
-    photometry = BasicPSFPhotometry(group_maker=daogroup, 
-                                    bkg_estimator=None, 
-                                    psf_model=psf_model, 
+
+    photometry = BasicPSFPhotometry(group_maker=daogroup,
+                                    bkg_estimator=None,
+                                    psf_model=psf_model,
                                     fitter=fitter,
                                     fitshape=fitshape)
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
@@ -765,7 +766,7 @@ def calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms=N
             bsb = instr_bsb
     else:
         instr_filter = get_instr_filter_name(hdr, filter_key)
-        if instr_filter == 'v' or instr_filter =='g':
+        if instr_filter == 'v' or instr_filter == 'g':
             mask = (gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == 'B-V')
         else:
             mask = gb_final_transforms['filter'] == instr_filter
@@ -786,7 +787,7 @@ def calculate_limiting_magnitude(bkg, hdr, exptime, fwhm, gb_final_transforms=No
                                  focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ',
                                  filter_key='Filter'):
     bkg_flux = normalize_flux_by_time(bkg, exptime)
-    square_fwhm = pi * ((fwhm/2.0) ** 2)
+    square_fwhm = pi * ((fwhm / 2.0) ** 2)
     bkg_flux_per_square_fwhm = bkg_flux * square_fwhm
     limiting_mag_units = u.Magnitude(bkg_flux_per_square_fwhm)
     limiting_mag = limiting_mag_units.value
@@ -806,17 +807,16 @@ def calculate_limiting_magnitude(bkg, hdr, exptime, fwhm, gb_final_transforms=No
 # def add_zpoint(sat_auxiliary_table, unique_filters, gb_final_transforms=None):
 #     if not gb_final_transforms:
 #         return
-    
 
 
-def find_ref_stars(reference_stars, 
-                   ref_star_positions, 
-                   skypositions, 
-                   instr_mags, 
-                   instr_mags_sigma, 
-                   fluxes, 
-                   ground_based=False, 
-                   altazpositions=None, 
+def find_ref_stars(reference_stars,
+                   ref_star_positions,
+                   skypositions,
+                   instr_mags,
+                   instr_mags_sigma,
+                   fluxes,
+                   ground_based=False,
+                   altazpositions=None,
                    max_ref_sep=10.0):
     """
     Match the stars detected in the image to those provided in the reference star file.
@@ -909,7 +909,7 @@ def find_ref_stars(reference_stars,
             return
         img_star_altaz = altazpositions[img_star_index]
         img_star_airmass = img_star_altaz.secz.value
-    matched_stars = namedtuple('matched_stars', 
+    matched_stars = namedtuple('matched_stars',
                                ['ref_star_index',
                                 'img_star_index',
                                 'ref_star',
@@ -922,16 +922,16 @@ def find_ref_stars(reference_stars,
                                 'img_star_altaz',
                                 'img_star_airmass'])
     return matched_stars(
-        ref_star_index, 
-        img_star_index, 
-        ref_star, 
-        ref_star_loc, 
-        img_star_loc, 
-        ang_separation, 
-        img_instr_mag, 
+        ref_star_index,
+        img_star_index,
+        ref_star,
+        ref_star_loc,
+        img_star_loc,
+        ang_separation,
+        img_instr_mag,
         img_instr_mag_sigma,
         img_fluxes,
-        img_star_altaz, 
+        img_star_altaz,
         img_star_airmass)
 
 
@@ -1028,7 +1028,7 @@ def init_auxiliary_data_columns():
     fwhm_std = []
     avg_mag_sigma = []
     std_mag_sigma = []
-    auxiliary_data_columns = namedtuple('auxiliary_data_columns', 
+    auxiliary_data_columns = namedtuple('auxiliary_data_columns',
                                         ['filename',
                                          'exposure_time',
                                          'fwhm',
@@ -1169,7 +1169,7 @@ def create_auxiliary_data_table(auxiliary_data_columns):
             'fwhm_sigma',
             'avg mag_sigma',
             'std mag_sigma'
-            ],
+        ],
         data=[
             auxiliary_data_columns.filename,
             auxiliary_data_columns.exposure_time,
@@ -1177,8 +1177,8 @@ def create_auxiliary_data_table(auxiliary_data_columns):
             auxiliary_data_columns.fwhm_std,
             auxiliary_data_columns.avg_mag_sigma,
             auxiliary_data_columns.std_mag_sigma
-            ]
-        )
+        ]
+    )
     return auxiliary_data_table
 
 
@@ -1285,29 +1285,29 @@ def init_large_table_columns():
                                       # 'X_rounded'
                                       ])
     return large_table_columns(field,
-                               ref_star_name, 
-                               times, 
-                               flux_table, 
-                               exposure, 
-                               ref_star_RA, 
-                               ref_star_dec, 
-                               img_star_RA, 
-                               img_star_dec, 
-                               angular_separation, 
-                               img_star_mag, 
-                               img_star_mag_sigma, 
-                               filters, 
-                               V_apparents, 
-                               B_V_apparents, 
-                               U_B_apparents, 
-                               V_R_apparents, 
-                               V_I_apparents, 
-                               V_sigma_apparents, 
-                               B_V_sigma_apparents, 
-                               U_B_sigma_apparents, 
-                               V_R_sigma_apparents, 
-                               V_I_sigma_apparents, 
-                               img_star_airmass, 
+                               ref_star_name,
+                               times,
+                               flux_table,
+                               exposure,
+                               ref_star_RA,
+                               ref_star_dec,
+                               img_star_RA,
+                               img_star_dec,
+                               angular_separation,
+                               img_star_mag,
+                               img_star_mag_sigma,
+                               filters,
+                               V_apparents,
+                               B_V_apparents,
+                               U_B_apparents,
+                               V_R_apparents,
+                               V_I_apparents,
+                               V_sigma_apparents,
+                               B_V_sigma_apparents,
+                               U_B_sigma_apparents,
+                               V_R_sigma_apparents,
+                               V_I_sigma_apparents,
+                               img_star_airmass,
                                # X_rounded
                                )
 
@@ -1647,31 +1647,31 @@ def create_large_stars_table(large_table_columns, ground_based=False):
         large_stars_table = QTable(
             data=[
                 large_table_columns.field,
-                large_table_columns.ref_star_name, 
-                large_table_columns.times, 
-                large_table_columns.ref_star_RA, 
-                large_table_columns.ref_star_dec, 
-                large_table_columns.img_star_RA, 
-                large_table_columns.img_star_dec, 
-                large_table_columns.angular_separation, 
-                large_table_columns.flux_table, 
-                large_table_columns.exposure, 
-                large_table_columns.img_star_mag, 
-                large_table_columns.img_star_mag_sigma, 
-                large_table_columns.filters, 
-                large_table_columns.V_apparents, 
-                large_table_columns.B_V_apparents, 
-                large_table_columns.U_B_apparents, 
-                large_table_columns.V_R_apparents, 
-                large_table_columns.V_I_apparents, 
-                large_table_columns.V_sigma_apparents, 
-                large_table_columns.B_V_sigma_apparents, 
-                large_table_columns.U_B_sigma_apparents, 
-                large_table_columns.V_R_sigma_apparents, 
-                large_table_columns.V_I_sigma_apparents, 
-                large_table_columns.img_star_airmass, 
+                large_table_columns.ref_star_name,
+                large_table_columns.times,
+                large_table_columns.ref_star_RA,
+                large_table_columns.ref_star_dec,
+                large_table_columns.img_star_RA,
+                large_table_columns.img_star_dec,
+                large_table_columns.angular_separation,
+                large_table_columns.flux_table,
+                large_table_columns.exposure,
+                large_table_columns.img_star_mag,
+                large_table_columns.img_star_mag_sigma,
+                large_table_columns.filters,
+                large_table_columns.V_apparents,
+                large_table_columns.B_V_apparents,
+                large_table_columns.U_B_apparents,
+                large_table_columns.V_R_apparents,
+                large_table_columns.V_I_apparents,
+                large_table_columns.V_sigma_apparents,
+                large_table_columns.B_V_sigma_apparents,
+                large_table_columns.U_B_sigma_apparents,
+                large_table_columns.V_R_sigma_apparents,
+                large_table_columns.V_I_sigma_apparents,
+                large_table_columns.img_star_airmass,
                 # large_table_columns.X_rounded
-                ],
+            ],
             names=[
                 'Field',
                 'Name',
@@ -1698,35 +1698,35 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'e_V-I',
                 'X',
                 # 'X_rounded'
-                ]
-            )
+            ]
+        )
     else:
         large_stars_table = QTable(
             data=[
                 large_table_columns.field,
-                large_table_columns.ref_star_name, 
-                large_table_columns.times, 
-                large_table_columns.ref_star_RA, 
-                large_table_columns.ref_star_dec, 
-                large_table_columns.img_star_RA, 
-                large_table_columns.img_star_dec, 
-                large_table_columns.angular_separation, 
-                large_table_columns.flux_table, 
-                large_table_columns.exposure, 
-                large_table_columns.img_star_mag, 
-                large_table_columns.img_star_mag_sigma, 
-                large_table_columns.filters, 
-                large_table_columns.V_apparents, 
-                large_table_columns.B_V_apparents, 
-                large_table_columns.U_B_apparents, 
-                large_table_columns.V_R_apparents, 
-                large_table_columns.V_I_apparents, 
-                large_table_columns.V_sigma_apparents, 
-                large_table_columns.B_V_sigma_apparents, 
-                large_table_columns.U_B_sigma_apparents, 
-                large_table_columns.V_R_sigma_apparents, 
+                large_table_columns.ref_star_name,
+                large_table_columns.times,
+                large_table_columns.ref_star_RA,
+                large_table_columns.ref_star_dec,
+                large_table_columns.img_star_RA,
+                large_table_columns.img_star_dec,
+                large_table_columns.angular_separation,
+                large_table_columns.flux_table,
+                large_table_columns.exposure,
+                large_table_columns.img_star_mag,
+                large_table_columns.img_star_mag_sigma,
+                large_table_columns.filters,
+                large_table_columns.V_apparents,
+                large_table_columns.B_V_apparents,
+                large_table_columns.U_B_apparents,
+                large_table_columns.V_R_apparents,
+                large_table_columns.V_I_apparents,
+                large_table_columns.V_sigma_apparents,
+                large_table_columns.B_V_sigma_apparents,
+                large_table_columns.U_B_sigma_apparents,
+                large_table_columns.V_R_sigma_apparents,
                 large_table_columns.V_I_sigma_apparents
-                ],
+            ],
             names=[
                 'Field',
                 'Name',
@@ -1751,8 +1751,8 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 '(U-B)_sigma',
                 '(V-R)_sigma',
                 '(V-I)_sigma',
-                ]
-            )
+            ]
+        )
     return large_stars_table
 
 
@@ -1768,17 +1768,19 @@ def create_large_stars_table(large_table_columns, ground_based=False):
 #             self.key += 1
 #         self.last = value[1]  # Remeber the last value.
 #         return self.key
-    
+
 
 def Delta(delta):
     last = None
     key = 1
+
     def keyfunc(value):
         nonlocal last, key
         if last is not None and abs(last - value) > delta:
             key += 1
         last = value
         return key
+
     return keyfunc
 
 
@@ -1887,7 +1889,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             'e_U-B',
             'e_V-R',
             'e_V-I',
-            ],
+        ],
         data=[
             np.empty(N, dtype=object),
             np.empty(N, dtype=object),
@@ -1901,8 +1903,8 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             nan_array,
             nan_array,
             nan_array
-            ]
-        )
+        ]
+    )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
     different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
@@ -1952,7 +1954,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         # gaps = [y - x for x, y in zip(data[:-1], data[1:])]
         # # have python calculate the standard deviation for the gaps
         # sd = np.std(gaps)
-        
+
         # # create a list of lists, put the first value of the source data in the first
         # lists = [[data[0]]]
         # for x in data[1:]:
@@ -1964,7 +1966,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         #         lists.append([])
         #     # add the current item to the last list in the list
         #     lists[-1].append(x)
-        
+
         # print(lists)
         # if len(current_star_table) > 1:
         for k, g in groupby(np.array(current_star_table['X']), key=Delta(0.1)):
@@ -2021,7 +2023,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 X_std_column = f'X_{filter_column}_sigma'
                 stars_table[X_column][i] = mean_X
                 stars_table[X_std_column][i] = std_X
-            i += 1 
+            i += 1
     stars_table.remove_row(-1)
     # print(different_filter_list)
     return stars_table, different_filter_list
@@ -2048,24 +2050,25 @@ def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc, p
             colour_indices = get_all_colour_indices(different_filter)
             for colour_index in colour_indices:
                 try:
-                    c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms_AVG(current_airmass_table, 
-                                                                                                           different_filter, 
-                                                                                                           colour_index,
-                                                                                                           plot_results=plot_results, 
-                                                                                                           save_plots=save_plots, 
-                                                                                                           unique_id=unique_id,
-                                                                                                           save_loc=save_loc)
+                    c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms_AVG(
+                        current_airmass_table,
+                        different_filter,
+                        colour_index,
+                        plot_results=plot_results,
+                        save_plots=save_plots,
+                        unique_id=unique_id,
+                        save_loc=save_loc)
                 except TypeError:
                     print(f"Only 1 star at airmass: {avg_airmass:0.3f}.")
                     continue
                 gb_transform_table_columns = update_gb_transform_table_columns_AVG(gb_transform_table_columns,
-                                                                                  c_fci,
-                                                                                  c_fci_sigma,
-                                                                                  zprime_f,
-                                                                                  zprime_f_sigma,
-                                                                                  different_filter,
-                                                                                  colour_index,
-                                                                                  avg_airmass)
+                                                                                   c_fci,
+                                                                                   c_fci_sigma,
+                                                                                   zprime_f,
+                                                                                   zprime_f_sigma,
+                                                                                   different_filter,
+                                                                                   colour_index,
+                                                                                   avg_airmass)
     gb_transform_table = create_gb_transform_table_AVG(gb_transform_table_columns)
     return gb_transform_table
 
@@ -2078,7 +2081,7 @@ def init_gb_transform_table_columns_AVG():
     instr_filter = []
     colour_index = []
     airmass = []
-    gb_transform_table_columns = namedtuple('gb_transform_table_columns', 
+    gb_transform_table_columns = namedtuple('gb_transform_table_columns',
                                             ['c_fci',
                                              'c_fci_sigma',
                                              'zprime_f',
@@ -2086,12 +2089,12 @@ def init_gb_transform_table_columns_AVG():
                                              'instr_filter',
                                              'colour_index',
                                              'airmass'])
-    return gb_transform_table_columns(c_fci, 
+    return gb_transform_table_columns(c_fci,
                                       c_fci_simga,
-                                      zprime_f, 
-                                      zprime_f_sigma, 
-                                      instr_filter, 
-                                      colour_index, 
+                                      zprime_f,
+                                      zprime_f_sigma,
+                                      instr_filter,
+                                      colour_index,
                                       airmass)
 
 
@@ -2101,7 +2104,7 @@ def get_app_mag_and_index_AVG(stars_table, instr_filter):
         app_filter = 'B'
         app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
         app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+                        np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
@@ -2114,14 +2117,14 @@ def get_app_mag_and_index_AVG(stars_table, instr_filter):
         app_filter = 'R'
         app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
         app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+                        np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'i':
         colour_index = 'V-I'
         app_filter = 'I'
         app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
         app_mag_sigma = np.nan_to_num(stars_table['V_sigma'], nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
+                        np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(stars_table[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     else:
         colour_index = None
@@ -2132,13 +2135,13 @@ def get_app_mag_and_index_AVG(stars_table, instr_filter):
 
 
 def update_gb_transform_table_columns_AVG(gb_transform_table_columns,
-                                      c_fci,
-                                      c_fci_sigma,
-                                      zprime_f,
-                                      zprime_f_sigma,
-                                      instr_filter,
-                                      colour_index,
-                                      avg_airmass):
+                                          c_fci,
+                                          c_fci_sigma,
+                                          zprime_f,
+                                          zprime_f_sigma,
+                                          instr_filter,
+                                          colour_index,
+                                          avg_airmass):
     updated_gb_transform_table_columns = gb_transform_table_columns
     updated_gb_transform_table_columns.c_fci.append(c_fci)
     updated_gb_transform_table_columns.c_fci_sigma.append(c_fci_sigma)
@@ -2161,7 +2164,7 @@ def create_gb_transform_table_AVG(gb_transform_table_columns):
             'filter',
             'CI',
             'X'
-            ],
+        ],
         data=[
             gb_transform_table_columns.c_fci,
             gb_transform_table_columns.c_fci_sigma,
@@ -2170,13 +2173,13 @@ def create_gb_transform_table_AVG(gb_transform_table_columns):
             gb_transform_table_columns.instr_filter,
             gb_transform_table_columns.colour_index,
             gb_transform_table_columns.airmass
-            ]
-        )
+        ]
+    )
     return gb_transform_table
 
 
 def ground_based_first_order_transforms_AVG(stars_table, instr_filter, colour_index,
-                                        plot_results=False, save_plots=False, **kwargs):
+                                            plot_results=False, save_plots=False, **kwargs):
     try:
         len(stars_table)
     except TypeError:
@@ -2194,7 +2197,7 @@ def ground_based_first_order_transforms_AVG(stars_table, instr_filter, colour_in
     # print(len(y))
     # print(stars_table[colour_index])
     if len(x) > 1 and len(y) > 1:
-        fitted_line, mask = or_fit(line_init, x, y, weights=1.0/(err_sum[~np.isnan(stars_table[colour_index])]))
+        fitted_line, mask = or_fit(line_init, x, y, weights=1.0 / (err_sum[~np.isnan(stars_table[colour_index])]))
     else:
         return
     filtered_data = np.ma.masked_array(y, mask=mask)
@@ -2212,12 +2215,13 @@ def ground_based_first_order_transforms_AVG(stars_table, instr_filter, colour_in
     if plot_results:
         # print(min(stars_table[colour_index]))
         # print(max(stars_table[colour_index]))
-        index_plot = np.arange(start=min(stars_table[colour_index][~np.isnan(stars_table[colour_index])]), 
-                               stop=max(stars_table[colour_index][~np.isnan(stars_table[colour_index])])+0.01, 
+        index_plot = np.arange(start=min(stars_table[colour_index][~np.isnan(stars_table[colour_index])]),
+                               stop=max(stars_table[colour_index][~np.isnan(stars_table[colour_index])]) + 0.01,
                                step=0.01)
-        plt.errorbar(x, y, yerr=err_sum[~np.isnan(stars_table[colour_index])], color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
+        plt.errorbar(x, y, yerr=err_sum[~np.isnan(stars_table[colour_index])], color='#1f77b4', fmt='o',
+                     fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e',
                  label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         # plt.plot(index_plot, c_fci * index_plot + zprime_f, 
         #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
@@ -2339,7 +2343,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             '(V-R)',
             '(V-I)',
             'V_sigma'
-            ],
+        ],
         data=[
             np.empty(N, dtype=object),
             np.empty(N, dtype=object),
@@ -2349,8 +2353,8 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             nan_array,
             nan_array,
             nan_array
-            ]
-        )
+        ]
+    )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
     different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
@@ -2408,7 +2412,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                 sigma_column = f'{filter_column}_sigma'
                 stars_table[filter_column][i] = mean_mag
                 stars_table[sigma_column][i] = std_mag
-            i += 1 
+            i += 1
     else:
         for star in unique_stars['Name']:
             mask = large_stars_table['Name'] == star
@@ -2419,7 +2423,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             # gaps = [y - x for x, y in zip(data[:-1], data[1:])]
             # # have python calculate the standard deviation for the gaps
             # sd = np.std(gaps)
-            
+
             # # create a list of lists, put the first value of the source data in the first
             # lists = [[data[0]]]
             # for x in data[1:]:
@@ -2431,7 +2435,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             #         lists.append([])
             #     # add the current item to the last list in the list
             #     lists[-1].append(x)
-            
+
             # print(lists)
             # if len(current_star_table) > 1:
             for k, g in groupby(np.array(current_star_table['X']), key=Delta(0.1)):
@@ -2465,7 +2469,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                         X_std_column = f'X_{filter_column}_sigma'
                         stars_table[X_column][i] = mean_X
                         stars_table[X_std_column][i] = std_X
-                i += 1 
+                i += 1
     return stars_table
 
 
@@ -2492,12 +2496,13 @@ def write_table_to_latex(table, output_file, formats=None):
     else:
         ascii.write(table, output=output_file, format='latex', formats=formats)
 
-def space_based_transform(stars_table, 
-                          plot_results=False, 
+
+def space_based_transform(stars_table,
+                          plot_results=False,
                           save_plots=False,
-                          index='(B-V)', 
-                          app_filter='V', 
-                          instr_filter='c', 
+                          index='(B-V)',
+                          app_filter='V',
+                          instr_filter='c',
                           field=None,
                           **kwargs):
     """
@@ -2558,20 +2563,19 @@ def space_based_transform(stars_table,
     max_app_filter_sigma = max(stars_table[f'{app_filter}_sigma'])
     max_instr_filter_sigma = max(stars_table[f'{instr_filter}_sigma'])
     err_sum = np.nan_to_num(stars_table[f'{app_filter}_sigma'], nan=max_app_filter_sigma) + \
-        np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
+              np.nan_to_num(stars_table[f'{instr_filter}_sigma'], nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
-    
-    
+
     x = stars_table[index]
     y = stars_table[f'{app_filter}_ref'] - stars_table[instr_filter]
     fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-    fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
+    fitted_line, mask = or_fit(line_init, x, y, weights=1.0 / err_sum)
     filtered_data = np.ma.masked_array(y, mask=mask)
     filter_fci = fitted_line.slope.value
     zprime_fci = fitted_line.intercept.value
     cov = fit.fit_info['param_cov']
-    
+
     # a_fit, cov = curve_fit(linear_func, stars_table[index], 
     #                          stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
     #                          sigma=err_sum)
@@ -2580,12 +2584,12 @@ def space_based_transform(stars_table,
     # zprime_fci = a_fit[1]
     zprime_fci_sigma = sqrt(cov[1][1])
     if plot_results:
-        index_plot = np.arange(start=min(stars_table[index]), stop=max(stars_table[index])+0.01, step=0.01)
+        index_plot = np.arange(start=min(stars_table[index]), stop=max(stars_table[index]) + 0.01, step=0.01)
         plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e',
                  label=f"({app_filter}-{instr_filter}) = {filter_fci:.3f} * {index} + {zprime_fci:.3f}")
-        
+
         # plt.errorbar(stars_table[index], stars_table[f'{app_filter}_ref'] - stars_table[instr_filter], 
         #              yerr=err_sum, fmt='o', capsize=2)
         # plt.plot(index_plot, filter_fci * index_plot + zprime_fci, 
@@ -2629,26 +2633,26 @@ def init_sb_final_transform_columns():
     index = []
     filter_fci = []
     filter_fci_sigma = []
-    zprime_fci = [] 
+    zprime_fci = []
     zprime_fci_sigma = []
-    sb_final_transform_columns = namedtuple('sb_final_transform_columns', 
+    sb_final_transform_columns = namedtuple('sb_final_transform_columns',
                                             ['index',
                                              'filter_fci',
                                              'filter_fci_sigma',
                                              'zprime_fci',
                                              'zprime_fci_sigma'])
-    return sb_final_transform_columns(index, 
-                                      filter_fci, 
-                                      filter_fci_sigma, 
-                                      zprime_fci, 
+    return sb_final_transform_columns(index,
+                                      filter_fci,
+                                      filter_fci_sigma,
+                                      zprime_fci,
                                       zprime_fci_sigma)
 
 
 def update_sb_final_transform_columns(sb_final_transform_columns,
                                       index,
-                                      filter_fci, 
-                                      filter_fci_sigma, 
-                                      zprime_fci, 
+                                      filter_fci,
+                                      filter_fci_sigma,
+                                      zprime_fci,
                                       zprime_fci_sigma):
     """
     Update columns to be used for the transform table based on information from the current image.
@@ -2745,16 +2749,17 @@ def create_sb_final_transform_table(sb_final_transform_columns):
             'T_fCI_sigma',
             'Z_fCI',
             'Z_fCI_sigma'
-            ],
+        ],
         data=[
             sb_final_transform_columns.index,
             sb_final_transform_columns.filter_fci,
             sb_final_transform_columns.filter_fci_sigma,
             sb_final_transform_columns.zprime_fci,
             sb_final_transform_columns.zprime_fci_sigma
-            ]
-        )
+        ]
+    )
     return sb_final_transform_table
+
 
 def get_avg_airmass(altazpositions):
     """
@@ -2810,7 +2815,7 @@ def init_gb_transform_table_columns():
     instr_filter = []
     colour_index = []
     airmass = []
-    gb_transform_table_columns = namedtuple('gb_transform_table_columns', 
+    gb_transform_table_columns = namedtuple('gb_transform_table_columns',
                                             ['field',
                                              'c_fci',
                                              'c_fci_sigma',
@@ -2819,13 +2824,13 @@ def init_gb_transform_table_columns():
                                              'instr_filter',
                                              'colour_index',
                                              'airmass'])
-    return gb_transform_table_columns(field, 
-                                      c_fci, 
+    return gb_transform_table_columns(field,
+                                      c_fci,
                                       c_fci_simga,
-                                      zprime_f, 
-                                      zprime_f_sigma, 
-                                      instr_filter, 
-                                      colour_index, 
+                                      zprime_f,
+                                      zprime_f_sigma,
+                                      instr_filter,
+                                      colour_index,
                                       airmass)
 
 
@@ -2971,7 +2976,7 @@ def create_gb_transform_table(gb_transform_table_columns):
             'filter',
             'CI',
             'X'
-            ],
+        ],
         data=[
             gb_transform_table_columns.field,
             gb_transform_table_columns.c_fci,
@@ -2981,8 +2986,8 @@ def create_gb_transform_table(gb_transform_table_columns):
             gb_transform_table_columns.instr_filter,
             gb_transform_table_columns.colour_index,
             gb_transform_table_columns.airmass
-            ]
-        )
+        ]
+    )
     return gb_transform_table
 
 
@@ -3012,7 +3017,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
         app_filter = 'B'
         app_mag = np.array(ref_star['V_ref'] + ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
+                        np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
@@ -3025,14 +3030,14 @@ def get_app_mag_and_index(ref_star, instr_filter):
         app_filter = 'R'
         app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
+                        np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     elif instr_filter == 'i':
         colour_index = 'V-I'
         app_filter = 'I'
         app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
+                        np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(ref_star[f'e_{colour_index}']))
         # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
     else:
         colour_index = None
@@ -3042,7 +3047,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
     return app_mag, app_mag_sigma, app_filter, colour_index
 
 
-def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, field=None, 
+def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, field=None,
                                         plot_results=False, save_plots=False, **kwargs):
     """
     Perform the intermediary step to calculating the ground based transforms.
@@ -3104,7 +3109,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
     x = matched_stars.ref_star[colour_index]
     y = app_mag - matched_stars.img_instr_mag
     fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-    fitted_line, mask = or_fit(line_init, x, y, weights=1.0/err_sum)
+    fitted_line, mask = or_fit(line_init, x, y, weights=1.0 / err_sum)
     filtered_data = np.ma.masked_array(y, mask=mask)
     c_fci = fitted_line.slope.value
     zprime_f = fitted_line.intercept.value
@@ -3118,12 +3123,12 @@ def ground_based_first_order_transforms(matched_stars, instr_filter, colour_inde
         c_fci_sigma = sqrt(cov[0][0])
         zprime_f_sigma = sqrt(cov[1][1])
     if plot_results:
-        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]), 
-                               stop=max(matched_stars.ref_star[colour_index])+0.01, 
+        index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]),
+                               stop=max(matched_stars.ref_star[colour_index]) + 0.01,
                                step=0.01)
         plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e', 
+        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e',
                  label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         # plt.plot(index_plot, c_fci * index_plot + zprime_f, 
         #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
@@ -3280,7 +3285,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
             'k\'_f_sigma',
             'Z_f',
             'Z_f_sigma'
-            ],
+        ],
         data=[
             np.empty(num_filters, dtype=object),
             np.empty(num_filters, dtype=object),
@@ -3292,8 +3297,8 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
             nan_array,
             nan_array,
             nan_array
-            ]
-        )
+        ]
+    )
     for unique_filter_index, unique_filter_row in enumerate(unique_filters):
         unique_filter = unique_filter_row['filter']
         current_index = unique_filter_row['CI']
@@ -3312,7 +3317,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         if np.sum(np.abs(sigma)) == 0:
             fitted_line_c, mask = or_fit(line_init, x, y)
         elif len(x) > 1 and len(y) > 1:
-            fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+            fitted_line_c, mask = or_fit(line_init, x, y, weights=1.0 / sigma)
         else:
             continue
         filtered_data_c = np.ma.masked_array(y, mask=mask)
@@ -3342,7 +3347,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         if np.sum(np.abs(sigma)) == 0:
             fitted_line_z, mask = or_fit(line_init, x, y)
         else:
-            fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0/sigma)
+            fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0 / sigma)
         filtered_data_z = np.ma.masked_array(y, mask=mask)
         kprime_f = fitted_line_z.slope.value
         zprime_f = fitted_line_z.intercept.value
@@ -3367,10 +3372,10 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
         gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
         gb_final_transforms['Z_f_sigma'][unique_filter_index] = zprime_f_sigma
         if plot_results:
-            X_plot = np.arange(start=min(current_filter['X']), stop=max(current_filter['X'])+0.01, step=0.01)
+            X_plot = np.arange(start=min(current_filter['X']), stop=max(current_filter['X']) + 0.01, step=0.01)
             ci_plot = re.sub('[^a-zA-Z]+', '', current_index)
             ci_plot = ci_plot.lower()
-            plt.errorbar(x, current_filter['C_fCI'], yerr=current_filter['C_fCI_sigma'], 
+            plt.errorbar(x, current_filter['C_fCI'], yerr=current_filter['C_fCI_sigma'],
                          color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
             plt.plot(x, filtered_data_c, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(X_plot, fitted_line_c(X_plot), '-', color='#ff7f0e',
@@ -3385,7 +3390,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
-            plt.errorbar(x, current_filter['Zprime_f'], yerr=current_filter['Zprime_f_sigma'], 
+            plt.errorbar(x, current_filter['Zprime_f'], yerr=current_filter['Zprime_f_sigma'],
                          color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
             plt.plot(x, filtered_data_z, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(X_plot, fitted_line_z(X_plot), '-', color='#ff7f0e',
@@ -3400,7 +3405,7 @@ def ground_based_second_order_transforms(gb_transform_table, plot_results=False,
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
-    
+
     return gb_final_transforms
 
 
@@ -3449,7 +3454,7 @@ def get_colour_index_lower(instr_filter):
 #     instr_filter = []
 #     name = []
 #     instr_mag = []
-    
+
 #     unknown_object_table_columns = namedtuple('unknown_object_table_columns', 
 #                                               ['instr_filter',
 #                                               'name',
@@ -3819,11 +3824,11 @@ def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_
     return app_sat_dict
 
 
-def copy_and_rename(directory, 
-                    file_suffix=".fits", 
-                    time_key='DATE-OBS', 
-                    filter_key='FILTER', 
-                    temp_dir='tmp', 
+def copy_and_rename(directory,
+                    file_suffix=".fits",
+                    time_key='DATE-OBS',
+                    filter_key='FILTER',
+                    temp_dir='tmp',
                     debugging=False):
     """
     Copy and rename all files in a directory to a new location.
@@ -3861,7 +3866,7 @@ def copy_and_rename(directory,
         if os.path.exists(temp_dir):
             rmtree(temp_dir)
         os.mkdir(temp_dir)
-    
+
     filecount = 0
     for dirpth, _, files in os.walk(directory):
         for file in files:
@@ -3901,11 +3906,11 @@ def remove_temp_dir(temp_dir='tmp'):
     rmtree(temp_dir)
 
 
-def TRM_sat_detection(filepath, 
-                      ecct_cut=0.5, 
-                      sigma_clip=2.5, 
-                      edge_protect=10, 
-                      SNRLimit = 0,
+def TRM_sat_detection(filepath,
+                      ecct_cut=0.5,
+                      sigma_clip=2.5,
+                      edge_protect=10,
+                      SNRLimit=0,
                       min_obj_pixels=5,
                       pix_frac=0,
                       moffat_avg=0,
@@ -3913,124 +3918,121 @@ def TRM_sat_detection(filepath,
                       star_count=0,
                       mstar_count=0,
                       count=0):
-    def BackgroundIteration(image, tolerance):       
+    def BackgroundIteration(image, tolerance):
         # old_mean = 1e9
-        old_rms   = 1e9
-        
+        old_rms = 1e9
+
         new_mean = 2e9
         new_rms = 2e9
-        
+
         while abs(new_rms - old_rms) > (tolerance * old_rms):
             # old_mean = float(new_mean)
             old_rms = float(new_rms)
-            #image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
-        	
+            # image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
+
             if (np.size(image) == 0):
                 new_mean = 0
                 new_rms = 2e9
                 break
-          
-                
+
             new_mean = np.mean(image)
-            new_rms   = np.std(image)
+            new_rms = np.std(image)
             # retval = [new_mean, new_rms]
             return new_mean, new_rms
-        
-        
-    def myclip(x1,lo,hi):
-            vector = np.vectorize(np.float)
-            x= vector(x1)
-            
-            float(hi)
-            float(lo)
-            #print(x)
-            #print(hi)
-            #print(lo)
-    
-            y = (x * np.any(x<= hi)) + ((hi) * np.any(x> hi))
-            y = (y * np.any(y>lo)) + ((lo) * np.any(y<=lo))
-            return y
+
+    def myclip(x1, lo, hi):
+        vector = np.vectorize(np.float)
+        x = vector(x1)
+
+        float(hi)
+        float(lo)
+        # print(x)
+        # print(hi)
+        # print(lo)
+
+        y = (x * np.any(x <= hi)) + ((hi) * np.any(x > hi))
+        y = (y * np.any(y > lo)) + ((lo) * np.any(y <= lo))
+        return y
+
     def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
-          
+
         num_elem_x = mask_x.size
         # num_elem_y = mask_y.size
         sum1 = 0
-        pix_flux = np.zeros((num_elem_x))    
+        pix_flux = np.zeros((num_elem_x))
         for i in range(num_elem_x):
             x_pix = mask_x[i]
             y_pix = mask_y[i]
-            
+
             sum1 = sum1 + flux_image[x_pix, y_pix]
             pix_flux[i] = flux_image[x_pix, y_pix]
-        
+
         object_flux = sum1
         max_pixel_flux = max(pix_flux)
         return object_flux, max_pixel_flux
+
     def MomentCalculation(xmask, ymask, xc, yc, p, q):
-            num_pix = xmask.size
-            mom = sum((xmask - xc)**p * (ymask - yc)**q) / num_pix
-            moment=mom
-            return moment
-    
+        num_pix = xmask.size
+        mom = sum((xmask - xc) ** p * (ymask - yc) ** q) / num_pix
+        moment = mom
+        return moment
+
     def EccentricityCalculation(m11, m02, m20):
-        eccent = np.sqrt((m20 - m02)**2 + (4*m11**2))/ (m20+m02)
+        eccent = np.sqrt((m20 - m02) ** 2 + (4 * m11 ** 2)) / (m20 + m02)
         return eccent
-    
+
     def Compact(num_pix, m02, m20):
-        compact = (num_pix/(m02 + m20))
+        compact = (num_pix / (m02 + m20))
         return compact
-    
+
     def WeightedCentroid(mask_x, mask_y, flux_image):
-      
+
         num_elem_x = mask_x.size
         num_elem_y = mask_y.size
         x_wt_sum = 0
         y_wt_sum = 0
         flux_sum = 0
-        #print("2")
+        # print("2")
         if num_elem_x != num_elem_y:
             # object_flux = -999
-            #print("3")
+            # print("3")
             return
         else:
-          for i in range(num_elem_x):
-                           
-                    x_pix = mask_x[i]
-                    y_pix = mask_y[i]
-                    
-                    x_wt_sum =x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
-                    y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
-                    flux_sum = flux_sum + flux_image[x_pix, y_pix]
-                
+            for i in range(num_elem_x):
+                x_pix = mask_x[i]
+                y_pix = mask_y[i]
+
+                x_wt_sum = x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
+                y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
+                flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
         x_centroid = x_wt_sum / flux_sum
         y_centroid = y_wt_sum / flux_sum
-        
-        
+
         x_var_sum = 0
         y_var_sum = 0
         flux_sum = 0
-        #print("2")
+        # print("2")
         for i in range(num_elem_x):
-                       
-                x_pix = mask_x[i]
-                y_pix = mask_y[i]
-                
-                x_var_sum =x_var_sum + ((x_pix-x_centroid)**2 * flux_image[x_pix, y_pix])
-                y_var_sum = y_var_sum + ((y_pix-y_centroid)**2 * flux_image[x_pix, y_pix])
-                flux_sum = flux_sum + flux_image[x_pix, y_pix]
-                
-        x_rms = np.sqrt(x_var_sum/flux_sum)
-        y_rms = np.sqrt(y_var_sum/flux_sum)
+            x_pix = mask_x[i]
+            y_pix = mask_y[i]
+
+            x_var_sum = x_var_sum + ((x_pix - x_centroid) ** 2 * flux_image[x_pix, y_pix])
+            y_var_sum = y_var_sum + ((y_pix - y_centroid) ** 2 * flux_image[x_pix, y_pix])
+            flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
+        x_rms = np.sqrt(x_var_sum / flux_sum)
+        y_rms = np.sqrt(y_var_sum / flux_sum)
         return x_centroid, x_rms, y_centroid, y_rms
-    
+
     # streak1 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
     # streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
     # streak12 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
     hdr, fitsdata = read_fits_file(filepath)
     # STARS = open(filepath, "w")
     # imagehdularray = fits.open(filepath)
-    
-    streak_array = []         
+
+    streak_array = []
     # sigma_clip = 2.5           
     # edge_protect = 10          
     # min_obj_pixels = 5
@@ -4041,269 +4043,263 @@ def TRM_sat_detection(filepath,
     # star_count = 0;
     # mstar_count = 0;
     # count =0
-    
+
     # date=imagehdularray[0].header['DATE-OBS']
     # exposuretime=imagehdularray[0].header['EXPTIME']
     # imagesizeX=imagehdularray[0].header['NAXIS1']
     # imagesizeY=imagehdularray[0].header['NAXIS2']
-    imagesizeX=hdr['NAXIS1']
-    imagesizeY=hdr['NAXIS2']
+    imagesizeX = hdr['NAXIS1']
+    imagesizeY = hdr['NAXIS2']
     exposuretime = hdr['EXPTIME']
     # fitsdata =  imagehdularray[0].data 
     sigma_clip = SigmaClip(sigma=2.5)
     # bkg = SExtractorBackground(sigma_clip)
     # bkg_value = bkg.calc_background(fitsdata)
-    
-    #print(bkg_value)
+
+    # print(bkg_value)
     # bkg = MeanBackground(sigma_clip)
     # bkg_value = bkg.calc_background(fitsdata)
     # bkg_estimator1 = SExtractorBackground()
     bkg_estimator2 = SExtractorBackground()
-    #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
-    bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    bkg = Background2D(fitsdata, (50, 50), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
     bg_rem = fitsdata - bkg.background
-    
+
     # print(np.mean(bkg.background))
-    
-    bg_rem[1:edge_protect,1:edge_protect] = 0
+
+    bg_rem[1:edge_protect, 1:edge_protect] = 0
     bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
     bg_rem[:, 1:edge_protect] = 0
     bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
     im_mean = np.mean(bg_rem)
-    
-    im_rms=np.std(fitsdata)
+
+    im_rms = np.std(fitsdata)
     im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
     low_clip = im_mean + 2.5 * im_rms
     # high_clip = 161
-    
+
     # binary_image = np.zeros((imagesizeX,imagesizeY))
-    
-    bg_rem[bg_rem<= low_clip]
-    #binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
-    
-    
-    
+
+    bg_rem[bg_rem <= low_clip]
+    # binary_image = (binary_image * bg_rem[bg_rem<= low_clip]) + (1 * bg_rem[bg_rem> low_clip])
+
     th, im_th = cv.threshold(bg_rem, low_clip, 1, cv.THRESH_BINARY)
-    #print(im_mean)
+    # print(im_mean)
     connected_image = measure.label(im_th, background=0)
     # plt.subplot(133)
     # plt.imshow(connected_image, cmap='nipy_spectral')
     # plt.axis('off')
     # plt.tight_layout()
     # plt.show()
-    #im = cv2.imread(bg_rem)
+    # im = cv2.imread(bg_rem)
     # th, im_th = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
-    
-    #num_labels, labels_im = cv2.connectedComponents(im_th)
-    #num_sourcepix = cv2.connectedComponentsWithStats(binary_image, np.array(connected_image), np.array(stats), np.array(centroids), 4, np.int(CV_32S))
-    num_sourcepix =np.zeros(shape=(100000,1))
-    [size_x, size_y] = imagesizeX,imagesizeY
-                
-    for x in range(0,size_y):
-        for y in range(0,size_x):
-            pixval = connected_image[x,y]
-            
+
+    # num_labels, labels_im = cv2.connectedComponents(im_th)
+    # num_sourcepix = cv2.connectedComponentsWithStats(binary_image, np.array(connected_image), np.array(stats), np.array(centroids), 4, np.int(CV_32S))
+    num_sourcepix = np.zeros(shape=(100000, 1))
+    [size_x, size_y] = imagesizeX, imagesizeY
+
+    for x in range(0, size_y):
+        for y in range(0, size_x):
+            pixval = connected_image[x, y]
+
             if (pixval != 0):
                 num_sourcepix[pixval, 0] = num_sourcepix[pixval, 0] + 1
-     
+
     [valid_sources, temp] = np.nonzero(num_sourcepix > min_obj_pixels)
     num_valid_sources = valid_sources.size
     if num_valid_sources == 0:
         return
-    
-    centroid_x = np.zeros((num_valid_sources,1))
-    centroid_y = np.zeros((num_valid_sources,1))
-    rms_x_pos = np.zeros((num_valid_sources,1))
-    rms_y_pos = np.zeros((num_valid_sources,1))
-    m11        = np.zeros((num_valid_sources,1))
-    m02        = np.zeros((num_valid_sources,1))
-    m20        = np.zeros((num_valid_sources,1))
-    ecct       = np.zeros((num_valid_sources,1))
-    compact    = np.zeros((num_valid_sources,1))
-    obj_flux   = np.zeros((num_valid_sources,1))
-    obj_max1   = np.zeros((num_valid_sources,1))
-    length     = np.zeros((num_valid_sources,1))
-    
-    
+
+    centroid_x = np.zeros((num_valid_sources, 1))
+    centroid_y = np.zeros((num_valid_sources, 1))
+    rms_x_pos = np.zeros((num_valid_sources, 1))
+    rms_y_pos = np.zeros((num_valid_sources, 1))
+    m11 = np.zeros((num_valid_sources, 1))
+    m02 = np.zeros((num_valid_sources, 1))
+    m20 = np.zeros((num_valid_sources, 1))
+    ecct = np.zeros((num_valid_sources, 1))
+    compact = np.zeros((num_valid_sources, 1))
+    obj_flux = np.zeros((num_valid_sources, 1))
+    obj_max1 = np.zeros((num_valid_sources, 1))
+    length = np.zeros((num_valid_sources, 1))
+
     for j in range(num_valid_sources):
-    
-        vsj = valid_sources[j]  
-        a = [0,0]
-    
+
+        vsj = valid_sources[j]
+        a = [0, 0]
+
         [mask_x, mask_y] = np.nonzero(connected_image == vsj)
         obj_flux[j], obj_max1[j] = PointSourceFluxExtraction(mask_x, mask_y, bg_rem)
-        
-      
+
         centroid_x[j] = np.mean(mask_x)
         rms_x_pos[j] = np.std(mask_x)
         centroid_y[j] = np.mean(mask_y)
         rms_y_pos[j] = np.std(mask_y)
-    
-        m11[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 1,1)
-        m02[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 0,2)
-        m20[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 2,0)
+
+        m11[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 1, 1)
+        m02[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 0, 2)
+        m20[j] = MomentCalculation(mask_x, mask_y, centroid_x[j], centroid_y[j], 2, 0)
         compact[j] = Compact(num_sourcepix[vsj], m02[j], m20[j])
         ecct[j] = EccentricityCalculation(m11[j], m02[j], m20[j])
-    
+
         x_length = (max(mask_x) - min(mask_x))
         y_length = (max(mask_y) - min(mask_y))
-        length[j] = np.sqrt(x_length**2 + y_length**2)
-        
+        length[j] = np.sqrt(x_length ** 2 + y_length ** 2)
+
         Zp = 21
-        vmag= Zp - 2.5*np.log10(obj_flux[j]/exposuretime)
-    
-       
-        if obj_max1[j] < 60000:  #%fit unsaturated stars only
-              if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeY-10)) and (centroid_y[j] > 10) and ( centroid_y[j] < (imagesizeX-10)):
-               #%Find middle pixel value
-                
-               [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0*bg_rem+1)
-    
-               if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeX-10)) and (centroid_y[j] > 10) and (centroid_y[j] < (imagesizeY-10)):
-                   
-                    #mid_pix_val = bg_rem(round(cen_x),round(cen_y))
-                    cenx=int(centroid_y[j])
-                    ceny=int(centroid_x[j])
-                    mid_pix_valPP = bg_rem[ceny,cenx]
-                    
+        vmag = Zp - 2.5 * np.log10(obj_flux[j] / exposuretime)
+
+        if obj_max1[j] < 60000:  # %fit unsaturated stars only
+            if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeY - 10)) and (centroid_y[j] > 10) and (
+                    centroid_y[j] < (imagesizeX - 10)):
+                # %Find middle pixel value
+
+                [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0 * bg_rem + 1)
+
+                if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeX - 10)) and (centroid_y[j] > 10) and (
+                        centroid_y[j] < (imagesizeY - 10)):
+
+                    # mid_pix_val = bg_rem(round(cen_x),round(cen_y))
+                    cenx = int(centroid_y[j])
+                    ceny = int(centroid_x[j])
+                    mid_pix_valPP = bg_rem[ceny, cenx]
+
                     if vmag < 13:
-                        #Fit a moffat profile
-                        r = np.zeros(len(mask_x))  #holds radial distance from centroid
-                        S = np.zeros(len(mask_x))  #holds intensity
+                        # Fit a moffat profile
+                        r = np.zeros(len(mask_x))  # holds radial distance from centroid
+                        S = np.zeros(len(mask_x))  # holds intensity
                         np.delete(S, -1)
-                        for q in range(0,len(mask_x)):
-                           r[q] = np.sqrt((mask_x[q]+0.5-(ceny+1))**2 + (mask_y[q]+0.5-(cenx+1))**2)
-                           S[q] = bg_rem[mask_x[q],mask_y[q]]
-                        
-       
+                        for q in range(0, len(mask_x)):
+                            r[q] = np.sqrt((mask_x[q] + 0.5 - (ceny + 1)) ** 2 + (mask_y[q] + 0.5 - (cenx + 1)) ** 2)
+                            S[q] = bg_rem[mask_x[q], mask_y[q]]
+
                         C_index = np.argmin(r)
-                        r[C_index] = 0; #%centroid radial value
+                        r[C_index] = 0;  # %centroid radial value
                         C = S[C_index]
-                        #%a holds [alpha Beta] moffat parameters
-                       # %Fix a(2) Beta parameter to 1.5
-                        #a = [0,0]
-                        #print(C)
-                        fun = lambda a: sum((S - (C/((1+(r**2)/(a[0]**2))**1.5)))**2)
+                        # %a holds [alpha Beta] moffat parameters
+                        # %Fix a(2) Beta parameter to 1.5
+                        # a = [0,0]
+                        # print(C)
+                        fun = lambda a: sum((S - (C / ((1 + (r ** 2) / (a[0] ** 2)) ** 1.5))) ** 2)
                         aguess = 1
-                        a = scipy.optimize.fmin(func=fun, x0=aguess,disp=0)
-                        #print(a)
-                        
-                        #%b holds [alpha Beta] moffat parameters
-                        
-                        fung = lambda b: sum((S - (C*np.exp(-(r**2)/(2*(b**2)))))**2)
+                        a = scipy.optimize.fmin(func=fun, x0=aguess, disp=0)
+                        # print(a)
+
+                        # %b holds [alpha Beta] moffat parameters
+
+                        fung = lambda b: sum((S - (C * np.exp(-(r ** 2) / (2 * (b ** 2))))) ** 2)
                         bguess = 2;
                         b = scipy.optimize.fmin(func=fung, x0=bguess, disp=0)
-                        #print(b)
-                        #%Optional plot the fits:
-                        
-                        #plt.scatter(r,S);
-                        #E = lambda a,r: (C/((1+(r**2)/(a[0]^2))**1.5))
-                        #F = lambda b,r:(C*np.exp(-(r**2)/(2*(b**2))))
-                        #plot=plt(E,[0,max(r)])
-                        
-                        #h = plt.gca().get_children()
-                        
-                        #plot.set(h(1),'color','red')
-                        
-                        #plot= plt(F,[0,max(r)])
-                        #plt.axis([0,max(r),0,60000])
-                        
-                        #h = plt.gca().get_children()
-                        #plot.set(h(1),'color','green')
+                        # print(b)
+                        # %Optional plot the fits:
+
+                        # plt.scatter(r,S);
+                        # E = lambda a,r: (C/((1+(r**2)/(a[0]^2))**1.5))
+                        # F = lambda b,r:(C*np.exp(-(r**2)/(2*(b**2))))
+                        # plot=plt(E,[0,max(r)])
+
+                        # h = plt.gca().get_children()
+
+                        # plot.set(h(1),'color','red')
+
+                        # plot= plt(F,[0,max(r)])
+                        # plt.axis([0,max(r),0,60000])
+
+                        # h = plt.gca().get_children()
+                        # plot.set(h(1),'color','green')
                         # Output results
-                       
-                    else: 
-                        a = [0,0]
+
+                    else:
+                        a = [0, 0]
                         b = 0
-                        
-             
-                    
-                    pix_frac = pix_frac + mid_pix_valPP/obj_flux[j];
-                    
-                    if vmag < 13 and a[0]<4:
-                        #mstar_count = mstar_count +1;
-                        #print(a[0])
-                        count = count+1
+
+                    pix_frac = pix_frac + mid_pix_valPP / obj_flux[j];
+
+                    if vmag < 13 and a[0] < 4:
+                        # mstar_count = mstar_count +1;
+                        # print(a[0])
+                        count = count + 1
                         moffat_avg = moffat_avg + a[0];
                         gauss_avg = gauss_avg + b;
-    
-                
-    
+
     # [compact_mean, compact_rms] = BackgroundIteration(compact,0.1)
-    [ecct_mean, ecct_rms] = BackgroundIteration(ecct,0.1)
+    [ecct_mean, ecct_rms] = BackgroundIteration(ecct, 0.1)
     # compact_cut = compact_mean  + 1 * compact_rms  
     # ecct_cut = 0.5
-    
+
     stars = np.nonzero(ecct < ecct_cut)
     streaks = np.nonzero(ecct > ecct_cut)
-    stars= np.delete(stars, 1,0)
-    streaks= np.delete(streaks, 1,0)
+    stars = np.delete(stars, 1, 0)
+    streaks = np.delete(streaks, 1, 0)
     sda = valid_sources[stars]
     if len(sda) == 0 or count == 0:
         return
     num_pix_in_stars = num_sourcepix[sda]
     [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1)
-    
+
     sat_x = centroid_y[stars].flatten()
     sat_y = centroid_x[stars].flatten()
     # sat_array = np.empty((len(stars[0]), 2))
     # for sat_index in range(len(stars[0])):
     #     sat_array[sat_index][0] = float(sat_x[0][sat_index])
     #     sat_array[sat_index][1] = float(sat_y[0][sat_index])
-    
-    
+
     pix_cutoff = mean_starpix + 10 * rms_starpix
-    
+
     num_stars = stars.size
-    
-    stellar_flux_SNR = np.zeros((num_valid_sources,1))
-                
+
+    stellar_flux_SNR = np.zeros((num_valid_sources, 1))
+
     xmin = edge_protect
     xmax = imagesizeX - edge_protect
     ymin = edge_protect
     ymax = imagesizeY - edge_protect
     streaksize = streaks.size
-    
+
     for k in range(streaksize):
-        
-        real_star_num = streaks[0,k]  
-        vsj = valid_sources[real_star_num]   
+
+        real_star_num = streaks[0, k]
+        vsj = valid_sources[real_star_num]
         [mask_x, mask_y] = np.nonzero(connected_image == vsj)
-    
+
         [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, bg_rem)
-        
-        temp_SNR = obj_max1[real_star_num]/im_rms
+
+        temp_SNR = obj_max1[real_star_num] / im_rms
         stellar_flux_SNR[k] = temp_SNR
-        #print(temp_SNR)
+        # print(temp_SNR)
         if temp_SNR > SNRLimit:
             if ((cen_x > xmin) & (cen_x < xmax) & (cen_y > ymin) & (cen_y < ymax)):
                 stellar_flux_SNR[k] = temp_SNR
-    
-                if streak_array== []:
-                    streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+
+                if streak_array == []:
+                    streak_arrayelement = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k],
+                                           exposuretime]
                     streak_array.append(streak_arrayelement)
                     # flux=float(obj_flux[real_star_num,0])
                     # streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
-                   
+
                     # STARS.write(streak_line+"\n")
                     # print(Streaks_Detected, [num2str(cen_x) ',' num2str(rms_x) ',' num2str(cen_y) ',' num2str(rms_y) ',' num2str(obj_max1(1,rsn)) ',' num2str(temp_SNR) ',' fpath1(i).name '\r\n'])
                 else:
-                    new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k], exposuretime]
+                    new_element = [cen_x, rms_x, cen_y, rms_y, obj_flux[real_star_num], stellar_flux_SNR[k],
+                                   exposuretime]
                     # flux=float(obj_flux[real_star_num,0])
                     # streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(cen_y), float(cen_x),  flux)
                     # STARS.write(streak_line+"\n")
                     streak_array.append(new_element)
-                   
+
     # avg_pix_frac = pix_frac/star_count
-    moffat_avg = moffat_avg/count
-    gauss_avg = gauss_avg/count
-    FWHM= float(2*gauss_avg*0.7664)
-    
+    moffat_avg = moffat_avg / count
+    gauss_avg = gauss_avg / count
+    FWHM = float(2 * gauss_avg * 0.7664)
+
     # STARS.close()
     return sat_x, sat_y, bkg.background, FWHM
 
 
-def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(), cmap_set='Set1'):
+def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_from_sat=25, norm=LogNorm(),
+                      cmap_set='Set1'):
     """
     Initialize the names and locations of the satellites to create a light curve for.
 
@@ -4330,28 +4326,33 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         TODO
 
     """
+
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
     def set_sat_position(event, x, y, flags, params):
         global sat_locs
         if event == cv.EVENT_LBUTTONDOWN:
             sat_locs.append([x, y])
+
     def return_entry(event=None):
         """Get and print the content of the entry."""
         # global entry
         global content
         content = entry.get()
         root.destroy()
+
     def onclick(event, sat_locs):
         # global num_sat_event
         sat_locs.append([event.xdata, event.ydata])
+
     # global set_sat_positions_bool
     while set_sat_positions_bool:
         # global sat_locs
         sat_locs = []
         # global num_sat_event
         # num_sat_event = 0
-            # return satloc
+        # return satloc
         # mbox('Information',
         #       'Please select the positions of the satellites on the following image. Press any key when finished.',
         #       0)
@@ -4464,7 +4465,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
             names[i + 2] = content
             print(f"Satellite {names[i + 2]} at location ({sat_locs[i, 0]}, {sat_locs[i, 1]})")
         print(names)
-        
+
         cmap = plt.get_cmap(cmap_set)
         colours = [cmap(i) for i in range(0, num_sats)]
         legend_elements = []
@@ -4538,7 +4539,7 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
         uncertainty_table = hstack([date_table, filter_table, data_table], join_type='exact')
         sat_auxiliary_table = hstack([date_table, filter_table, ausiliary_columns], join_type='exact')
         sats_table.pprint_all()
-    sat_information = namedtuple('sat_information', 
+    sat_information = namedtuple('sat_information',
                                  ['sats_table',
                                   'uncertainty_table',
                                   'sat_auxiliary_table',
@@ -4546,22 +4547,22 @@ def set_sat_positions(imgdata, filecount, set_sat_positions_bool, max_distance_f
                                   'num_sats',
                                   'num_nans',
                                   'sat_names'])
-    return set_sat_positions_bool, sat_information(sats_table, 
-                                                   uncertainty_table, 
-                                                   sat_auxiliary_table, 
-                                                   sat_locs, 
-                                                   num_sats, 
-                                                   num_nans, 
+    return set_sat_positions_bool, sat_information(sats_table,
+                                                   uncertainty_table,
+                                                   sat_auxiliary_table,
+                                                   sat_locs,
+                                                   num_sats,
+                                                   num_nans,
                                                    sat_names)
     # return sats_table, uncertainty_table, sat_fwhm_table, sat_locs, num_sats, num_nans, sat_names
 
 
 def plot_detected_sats(filename,
-                       plot_results, 
-                       imgdata, 
-                       irafsources, 
-                       sat_information, 
-                       max_distance_from_sat=20, 
+                       plot_results,
+                       imgdata,
+                       irafsources,
+                       sat_information,
+                       max_distance_from_sat=20,
                        norm=LogNorm()):
     """
     TODO.
@@ -4592,10 +4593,10 @@ def plot_detected_sats(filename,
         fig, ax = plt.subplots()
         ax.imshow(imgdata, cmap='gray', norm=norm, interpolation='nearest')
         ax.scatter(irafsources['xcentroid'], irafsources['ycentroid'],
-                    s=100, edgecolor='red', facecolor='none')
+                   s=100, edgecolor='red', facecolor='none')
         for i in range(0, sat_information.num_sats):
-            rect = patches.Rectangle((sat_information.sat_locs[i,0] - max_distance_from_sat, 
-                                      sat_information.sat_locs[i,1] - max_distance_from_sat),
+            rect = patches.Rectangle((sat_information.sat_locs[i, 0] - max_distance_from_sat,
+                                      sat_information.sat_locs[i, 1] - max_distance_from_sat),
                                      width=max_distance_from_sat * 2, height=max_distance_from_sat * 2,
                                      edgecolor='green', facecolor='none')
             ax.add_patch(rect)
@@ -4608,7 +4609,7 @@ def plot_detected_sats(filename,
         plt.close()
 
 
-def get_image_airmass(hdr, 
+def get_image_airmass(hdr,
                       airmass_key='AIRMASS',
                       az_key='CENAZ',
                       alt_key='CENALT',
@@ -4633,15 +4634,15 @@ def get_image_airmass(hdr,
     return airmass
 
 
-def check_if_sat(sat_information, 
-                 index, 
-                 sat_x_array, 
-                 sat_y_array, 
-                 instr_mags, 
-                 instr_mags_sigma, 
-                 fwhm_arcsec, 
-                 airmass, 
-                 bsb, 
+def check_if_sat(sat_information,
+                 index,
+                 sat_x_array,
+                 sat_y_array,
+                 instr_mags,
+                 instr_mags_sigma,
+                 fwhm_arcsec,
+                 airmass,
+                 bsb,
                  max_distance_from_sat=20):
     for obj_index in range(len(sat_x_array)):
         obj_x = sat_x_array[obj_index]
@@ -4674,29 +4675,32 @@ def determine_if_change_sat_positions(sat_information, filenum, change_sat_posit
     return change_sat_positions_bool, num_nan
 
 
-def change_sat_positions(filenames, 
-                         filenum, 
-                         num_nan, 
+def change_sat_positions(filenames,
+                         filenum,
+                         num_nan,
                          sat_information,
                          change_sat_positions_bool,
                          gb_final_transforms=None,
-                         max_distance_from_sat=20, 
-                         size=25, 
-                         temp_dir='tmp', 
-                         cmap_set='Set1', 
+                         max_distance_from_sat=20,
+                         size=25,
+                         temp_dir='tmp',
+                         cmap_set='Set1',
                          plot_results=0):
     # Change the position
     # Display filenames[filenum - num_nan]
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
     def onclick(event, sat_locs, index):
         # global num_sat_event
         sat_locs[index] = [event.xdata, event.ydata]
+
     def change_sat_position(event, x, y, flags, params):
         global sat_locs
         if event == cv.EVENT_LBUTTONDOWN:
             sat_locs[params[0]] = [x, y]
             cv.destroyAllWindows()
+
     print(filenames[filenum - num_nan])
     # sat_checked = np.zeros(num_sats, dtype=IntVar())
     with fits.open(f"{temp_dir}/{filenames[filenum - num_nan]}", memmap=False) as image:
@@ -4718,18 +4722,18 @@ def change_sat_positions(filenames,
     for sat_num, sat in enumerate(sat_information.sat_names):
         sat_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(input_frame, text=sat, variable=sat_checked[sat_num])
-        checkbutton.grid(row=sat_num+1, sticky=tk.W, padx=5)
+        checkbutton.grid(row=sat_num + 1, sticky=tk.W, padx=5)
     none_select = tk.IntVar()
     checkbutton = tk.Checkbutton(input_frame, text="None", variable=none_select)
-    checkbutton.grid(row=sat_information.num_sats+2, sticky=tk.W, padx=5)
+    checkbutton.grid(row=sat_information.num_sats + 2, sticky=tk.W, padx=5)
     closebutton = tk.Button(input_frame, text='OK', command=root.destroy)
-    closebutton.grid(row=sat_information.num_sats+3)
+    closebutton.grid(row=sat_information.num_sats + 3)
     try:
         legend_elements = []
         fig = Figure()
         ax = fig.add_subplot()
         ax.imshow(imgdata, cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
-        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        cmap = plt.get_cmap(cmap_set)  # TODO: move this into a separate function?
         colours = [cmap(i) for i in range(0, sat_information.num_sats)]
         for i in range(0, sat_information.num_sats):
             sat_aperture = RectangularAperture(sat_information.sat_locs[i], w=max_distance_from_sat * 2,
@@ -4749,7 +4753,7 @@ def change_sat_positions(filenames,
         fig = Figure()
         ax = fig.add_subplot()
         ax.imshow(abs(imgdata), cmap='gray', norm=LogNorm(vmin=1), interpolation='nearest')
-        cmap = plt.get_cmap(cmap_set) # TODO: move this into a separate function?
+        cmap = plt.get_cmap(cmap_set)  # TODO: move this into a separate function?
         colours = [cmap(i) for i in range(0, sat_information.num_sats)]
         for i in range(0, sat_information.num_sats):
             sat_aperture = RectangularAperture(sat_information.sat_locs[i], w=max_distance_from_sat * 2,
@@ -4815,7 +4819,7 @@ def change_sat_positions(filenames,
         print(sat_information.sat_locs)
         # If some selection is none
         # none_sats = True
-        for reversing_index in range(1, num_nan+1):
+        for reversing_index in range(1, num_nan + 1):
             filepath = f"{temp_dir}/{filenames[filenum - reversing_index]}"
             hdr, imgdata = read_fits_file(filepath)
             print(filenames[filenum - reversing_index])
@@ -4833,11 +4837,11 @@ def change_sat_positions(filenames,
             photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-            sat_information = check_if_sat(sat_information, 
-                                           filenum - reversing_index, 
+            sat_information = check_if_sat(sat_information,
+                                           filenum - reversing_index,
                                            sat_x,
                                            sat_y,
-                                           instr_mags, 
+                                           instr_mags,
                                            instr_mags_sigma,
                                            fwhm_arcsec,
                                            airmass,
@@ -4888,8 +4892,9 @@ def interpolate_sats(sats_table, uncertainty_table, unique_filters):
             mask = sats_table['Filter'] == unique_filter
             filter_all_sats_table = sats_table[mask]
             try:
-                filter_interpolated = np.interp(times_list, 
-                                                filter_all_sats_table['Time (JD)'][~np.isnan(filter_all_sats_table[sat])],
+                filter_interpolated = np.interp(times_list,
+                                                filter_all_sats_table['Time (JD)'][
+                                                    ~np.isnan(filter_all_sats_table[sat])],
                                                 filter_all_sats_table[sat][~np.isnan(filter_all_sats_table[sat])])
             except ValueError:
                 continue
@@ -4898,9 +4903,11 @@ def interpolate_sats(sats_table, uncertainty_table, unique_filters):
             # Uncertainty interpolation
             mask = uncertainty_table['Filter'] == unique_filter
             filter_all_uncertainty_table = uncertainty_table[mask]
-            filter_uncertainty_interpolated = np.interp(times_list, 
-                            filter_all_uncertainty_table['Time (JD)'][~np.isnan(filter_all_uncertainty_table[sat])],
-                            filter_all_uncertainty_table[sat][~np.isnan(filter_all_uncertainty_table[sat])])
+            filter_uncertainty_interpolated = np.interp(times_list,
+                                                        filter_all_uncertainty_table['Time (JD)'][
+                                                            ~np.isnan(filter_all_uncertainty_table[sat])],
+                                                        filter_all_uncertainty_table[sat][
+                                                            ~np.isnan(filter_all_uncertainty_table[sat])])
             filter_uncertainty_interpolated[np.isnan(uncertainty_table[sat])] = np.nan
             sat_dict[sat][f"{unique_filter}_sigma"] = filter_uncertainty_interpolated
     return sat_dict
@@ -4925,7 +4932,7 @@ def interpolate_aux_data(sat_auxiliary_table, unique_filters, aux_key):
 
 
 def create_limiting_mag_dict(limiting_mag_table):
-    limiting_mag_dict = {"Limiting Mag" : limiting_mag_table}
+    limiting_mag_dict = {"Limiting Mag": limiting_mag_table}
     return limiting_mag_dict
 
 
@@ -4986,9 +4993,10 @@ def calculate_timeseries_colour_indices(sat_dict, all_indices):
         colour_indices_dict[sat] = hstack([time_table, index_table])
         for index_number, index in enumerate(all_indices):
             colour_indices_dict[sat][index_column_names[index_number]] = sat_dict[sat][index[0]] \
-                - sat_dict[sat][index[1]]
+                                                                         - sat_dict[sat][index[1]]
             colour_indices_dict[sat][index_uncertainty_column_names[index_number]] = sat_dict[sat][f"{index[0]}_sigma"] \
-                + sat_dict[sat][f"{index[1]}_sigma"]
+                                                                                     + sat_dict[sat][
+                                                                                         f"{index[1]}_sigma"]
     return colour_indices_dict
 
 
@@ -5003,7 +5011,7 @@ def choose_indices_to_plot(unique_filters, num_filters, all_indices_formatted, s
     for filter_num, unique_filter in enumerate(unique_filters):
         filter_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(rootx, text=unique_filter, variable=filter_checked[filter_num])
-        checkbutton.grid(row=filter_num+2, column=0, sticky=tk.W)
+        checkbutton.grid(row=filter_num + 2, column=0, sticky=tk.W)
     # none_filter = tk.IntVar()
     # checkbutton = tk.Checkbutton(rootx, text="None", variable=none_filter)
     # checkbutton.grid(row=num_filters+2, column=0, sticky=tk.W)
@@ -5013,16 +5021,16 @@ def choose_indices_to_plot(unique_filters, num_filters, all_indices_formatted, s
     for index_num, index in enumerate(all_indices_formatted):
         index_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(rootx, text=index, variable=index_checked[index_num])
-        checkbutton.grid(row=index_num+2, column=1, sticky=tk.W)
+        checkbutton.grid(row=index_num + 2, column=1, sticky=tk.W)
     label = tk.Label(rootx, text='Auxiliary Data:')
     label.grid(row=1, column=2)
     aux_checked = []
     for aux_num, aux_type in enumerate(sat_auxiliary_table.columns[2:]):
         aux_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(rootx, text=aux_type, variable=aux_checked[aux_num])
-        checkbutton.grid(row=aux_num+2, column=2, sticky=tk.W)
+        checkbutton.grid(row=aux_num + 2, column=2, sticky=tk.W)
     closebutton = tk.Button(rootx, text='OK', command=rootx.destroy)
-    closebutton.grid(row=len(all_indices_formatted)+3, column=1)
+    closebutton.grid(row=len(all_indices_formatted) + 3, column=1)
     rootx.mainloop()
     filter_checked_int = np.empty(len(filter_checked), dtype=int)
     for filter_num, unique_filter in enumerate(filter_checked):
@@ -5083,12 +5091,12 @@ def choose_indices_to_plot(unique_filters, num_filters, all_indices_formatted, s
 #             sat_table[f"{unique_filter}_sigma"][sat_table[unique_filter] < lower_bound] = np.nan
 
 
-def plot_light_curve_multiband(sat_table, 
+def plot_light_curve_multiband(sat_table,
                                sat,
-                               colour_indices_dict, 
-                               sat_auxiliary_table, 
-                               filters_to_plot, 
-                               indices_to_plot, 
+                               colour_indices_dict,
+                               sat_auxiliary_table,
+                               filters_to_plot,
+                               indices_to_plot,
                                aux_data_to_plot):
     nrows = 2 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
@@ -5099,14 +5107,14 @@ def plot_light_curve_multiband(sat_table,
     times_datetime = times_obj.to_value('datetime')
     fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
     for filter_num, unique_filter in enumerate(filters_to_plot):
-        _, _, bars = axs[0].errorbar(times_datetime, sat_table[unique_filter], 
-                                    yerr=sat_table[f"{unique_filter}_sigma"], 
-                                    fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=unique_filter)
+        _, _, bars = axs[0].errorbar(times_datetime, sat_table[unique_filter],
+                                     yerr=sat_table[f"{unique_filter}_sigma"],
+                                     fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=unique_filter)
         [bar.set_alpha(0.3) for bar in bars]
     for index_num, colour_index in enumerate(indices_to_plot):
-        _, _, bars = axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index], 
-                                    yerr=colour_indices_dict[sat][f"{colour_index}_sigma"], 
-                                    fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=colour_index)
+        _, _, bars = axs[1].errorbar(times_datetime, colour_indices_dict[sat][colour_index],
+                                     yerr=colour_indices_dict[sat][f"{colour_index}_sigma"],
+                                     fmt='o', markersize=2, capsize=0, elinewidth=0.75, label=colour_index)
         [bar.set_alpha(0.3) for bar in bars]
     for aux_num, aux_data in enumerate(aux_data_to_plot, start=2):
         axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
@@ -5131,7 +5139,7 @@ def plot_light_curve_multiband(sat_table,
     axs[1].legend()
     axs[0].invert_yaxis()
     axs[1].invert_yaxis()
-    axs[nrows-1].set_xlabel("Time (UTC)")
+    axs[nrows - 1].set_xlabel("Time (UTC)")
     axs[0].set_ylabel("Magnitude")
     axs[1].set_ylabel("Colour Index")
     plt.tight_layout()
@@ -5149,9 +5157,9 @@ def choose_aux_data_to_plot(sat_auxiliary_table):
     for aux_num, aux_type in enumerate(sat_auxiliary_table.columns[2:]):
         aux_checked.append(tk.IntVar())
         checkbutton = tk.Checkbutton(rootx, text=aux_type, variable=aux_checked[aux_num])
-        checkbutton.grid(row=aux_num+2, column=0, sticky=tk.W)
+        checkbutton.grid(row=aux_num + 2, column=0, sticky=tk.W)
     closebutton = tk.Button(rootx, text='OK', command=rootx.destroy)
-    closebutton.grid(row=len(sat_auxiliary_table.columns[2:])+2, column=0)
+    closebutton.grid(row=len(sat_auxiliary_table.columns[2:]) + 2, column=0)
     rootx.mainloop()
     aux_checked_int = np.empty(len(aux_checked), dtype=int)
     for aux_num, aux_type in enumerate(aux_checked):
@@ -5174,8 +5182,8 @@ def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliar
     # fig = plt.figure(figsize=(7.5, 9.5))
     # spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
     if nrows > 1:
-        _, _, bars = axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], 
-                        fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+        _, _, bars = axs[0].errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat],
+                                     fmt='o', markersize=2, capsize=0, elinewidth=0.75)
         [bar.set_alpha(0.3) for bar in bars]
         for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
             axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
@@ -5187,12 +5195,12 @@ def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliar
         axs[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[0].invert_yaxis()
-        axs[nrows-1].set_xlabel("Time (UTC)")
+        axs[nrows - 1].set_xlabel("Time (UTC)")
         axs[0].set_ylabel("Instrumental Magnitude")
         plt.tight_layout()
     else:
-        _, _, bars = axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat], 
-                     fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+        _, _, bars = axs.errorbar(times_datetime, sats_table[sat], yerr=uncertainty_table[sat],
+                                  fmt='o', markersize=2, capsize=0, elinewidth=0.75)
         [bar.set_alpha(0.3) for bar in bars]
         axs.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs.invert_yaxis()
@@ -5202,17 +5210,17 @@ def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliar
     return fig, axs
 
 
-def axis_limits_singleband_gui(sats_table, 
+def axis_limits_singleband_gui(sats_table,
                                uncertainty_table,
-                               sat_auxiliary_table, 
+                               sat_auxiliary_table,
                                aux_data_to_plot,
                                save_loc):
     def refresh_plots(canvas):
         fig_list[0], axs = plot_light_curve_singleband(sats_table,
-                                         sat,
-                                         uncertainty_table,
-                                         sat_auxiliary_table, 
-                                         aux_data_to_plot)
+                                                       sat,
+                                                       uncertainty_table,
+                                                       sat_auxiliary_table,
+                                                       aux_data_to_plot)
         for entry_num, entry in enumerate(entries):
             if entry_num % 2 == 0:
                 axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
@@ -5223,16 +5231,17 @@ def axis_limits_singleband_gui(sats_table,
         canvas.draw()
         canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
+
     def reset_plots(canvas):
         fig_list[0], axs = plot_light_curve_singleband(sats_table,
-                                         sat,
-                                         uncertainty_table,
-                                         sat_auxiliary_table, 
-                                         aux_data_to_plot)
+                                                       sat,
+                                                       uncertainty_table,
+                                                       sat_auxiliary_table,
+                                                       aux_data_to_plot)
         row_num = 1
         for ax in axs:
-            entries[row_num-1].delete(0, tk.END)
-            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num - 1].delete(0, tk.END)
+            entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
             entries[row_num].delete(0, tk.END)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
             row_num += 2
@@ -5241,35 +5250,37 @@ def axis_limits_singleband_gui(sats_table,
         canvas.draw()
         canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
+
     def save_plots(fig):
         fig.set_size_inches(7.5, 9.5)
         fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
+
     try:
         plt.rcParams.update({
             "text.usetex": True,
             "font.family": "serif",
-            "font.serif" : ["Computer Modern Roman"]})
+            "font.serif": ["Computer Modern Roman"]})
     except Exception:
         pass
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat in sats_table.columns[2:]:
         fig_list = [None]
         fig_list[0], axs = plot_light_curve_singleband(sats_table,
-                                         sat,
-                                         uncertainty_table,
-                                         sat_auxiliary_table, 
-                                         aux_data_to_plot)
-        
+                                                       sat,
+                                                       uncertainty_table,
+                                                       sat_auxiliary_table,
+                                                       aux_data_to_plot)
+
         root = tk.Tk()
-        for x in range(nrows+1):
+        for x in range(nrows + 1):
             tk.Grid.rowconfigure(root, x, weight=1)
         root.title(sat)
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw_idle()
         toolbarFrame = tk.Frame(master=root)
         tk.Grid.columnconfigure(root, 0, weight=1)
-        toolbarFrame.grid(row=nrows+1, column=0, sticky=tk.NSEW)
+        toolbarFrame.grid(row=nrows + 1, column=0, sticky=tk.NSEW)
         toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
         # toolbar = NavigationToolbar2Tk(canvas, root)
         toolbar.update()
@@ -5279,16 +5290,16 @@ def axis_limits_singleband_gui(sats_table,
         label = tk.Label(text="Please set the y axis limits.")
         label.grid(column=1, row=0, columnspan=2)
         row_num = 1
-        entries = [tk.Entry(root, width=10) for _ in range(2*len(axs))]
+        entries = [tk.Entry(root, width=10) for _ in range(2 * len(axs))]
         for ax in axs:
             label = tk.Label(root, text=ax.get_ylabel())
             label.grid(column=1, row=row_num, columnspan=2, sticky=tk.N)
             # entries[row_num-1] = tk.Entry(root, width=10)
-            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
-            entries[row_num-1].grid(column=1, row=row_num+1, padx=(10, 5), pady=0, sticky=tk.N)
+            entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num - 1].grid(column=1, row=row_num + 1, padx=(10, 5), pady=0, sticky=tk.N)
             # entries[row_num] = tk.Entry(root, width=10)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
-            entries[row_num].grid(column=2, row=row_num+1, padx=(5, 10), pady=0, sticky=tk.N)
+            entries[row_num].grid(column=2, row=row_num + 1, padx=(5, 10), pady=0, sticky=tk.N)
             # print(ax.get_ylim())
             row_num += 2
         button = tk.Button(root, text="Refresh", command=lambda: refresh_plots(canvas))
@@ -5296,29 +5307,29 @@ def axis_limits_singleband_gui(sats_table,
         button = tk.Button(root, text="Reset", command=lambda: reset_plots(canvas))
         button.grid(column=2, row=row_num)
         button = tk.Button(root, text="Save and Close", command=lambda: save_plots(fig_list[0]))
-        button.grid(column=1, row=row_num+1, columnspan=2)
+        button.grid(column=1, row=row_num + 1, columnspan=2)
         root.mainloop()
         # fig.show()
         plt.close()
     return
 
 
-def axis_limits_multiband_gui(app_sat_dict, 
-                              colour_indices_dict, 
-                              sat_auxiliary_table, 
-                              filters_to_plot, 
-                              indices_to_plot, 
+def axis_limits_multiband_gui(app_sat_dict,
+                              colour_indices_dict,
+                              sat_auxiliary_table,
+                              filters_to_plot,
+                              indices_to_plot,
                               aux_data_to_plot,
                               save_loc):
     def refresh_plots(canvas):
         # fig.clear()
         fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                         sat,
-                                         colour_indices_dict, 
-                                         sat_auxiliary_table, 
-                                         filters_to_plot, 
-                                         indices_to_plot, 
-                                         aux_data_to_plot)
+                                                      sat,
+                                                      colour_indices_dict,
+                                                      sat_auxiliary_table,
+                                                      filters_to_plot,
+                                                      indices_to_plot,
+                                                      aux_data_to_plot)
         for entry_num, entry in enumerate(entries):
             if entry_num % 2 == 0:
                 axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
@@ -5329,18 +5340,19 @@ def axis_limits_multiband_gui(app_sat_dict,
         canvas.draw()
         canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
+
     def reset_plots(canvas):
         fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                         sat,
-                                         colour_indices_dict, 
-                                         sat_auxiliary_table, 
-                                         filters_to_plot, 
-                                         indices_to_plot, 
-                                         aux_data_to_plot)
+                                                      sat,
+                                                      colour_indices_dict,
+                                                      sat_auxiliary_table,
+                                                      filters_to_plot,
+                                                      indices_to_plot,
+                                                      aux_data_to_plot)
         row_num = 1
         for ax in axs:
-            entries[row_num-1].delete(0, tk.END)
-            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num - 1].delete(0, tk.END)
+            entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
             entries[row_num].delete(0, tk.END)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
             row_num += 2
@@ -5349,37 +5361,39 @@ def axis_limits_multiband_gui(app_sat_dict,
         canvas.draw()
         canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
+
     def save_plots(fig):
         fig.set_size_inches(7.5, 9.5)
         fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
+
     try:
         plt.rcParams.update({
             "text.usetex": True,
             "font.family": "serif",
-            "font.serif" : ["Computer Modern Roman"]})
+            "font.serif": ["Computer Modern Roman"]})
     except Exception:
         pass
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat, sat_table in app_sat_dict.items():
         fig_list = [None]
         fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                         sat,
-                                         colour_indices_dict, 
-                                         sat_auxiliary_table, 
-                                         filters_to_plot, 
-                                         indices_to_plot, 
-                                         aux_data_to_plot)
-        
+                                                      sat,
+                                                      colour_indices_dict,
+                                                      sat_auxiliary_table,
+                                                      filters_to_plot,
+                                                      indices_to_plot,
+                                                      aux_data_to_plot)
+
         root = tk.Tk()
-        for x in range(nrows+1):
+        for x in range(nrows + 1):
             tk.Grid.rowconfigure(root, x, weight=1)
         root.title(sat)
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw_idle()
         toolbarFrame = tk.Frame(master=root)
         tk.Grid.columnconfigure(root, 0, weight=1)
-        toolbarFrame.grid(row=nrows+1, column=0, sticky=tk.NSEW)
+        toolbarFrame.grid(row=nrows + 1, column=0, sticky=tk.NSEW)
         toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
         # toolbar = NavigationToolbar2Tk(canvas, root)
         toolbar.update()
@@ -5389,16 +5403,16 @@ def axis_limits_multiband_gui(app_sat_dict,
         label = tk.Label(text="Please set the y axis limits.")
         label.grid(column=1, row=0, columnspan=2)
         row_num = 1
-        entries = [tk.Entry(root, width=10) for _ in range(2*len(axs))]
+        entries = [tk.Entry(root, width=10) for _ in range(2 * len(axs))]
         for ax in axs:
             label = tk.Label(root, text=ax.get_ylabel())
             label.grid(column=1, row=row_num, columnspan=2, sticky=tk.N)
             # entries[row_num-1] = tk.Entry(root, width=10)
-            entries[row_num-1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
-            entries[row_num-1].grid(column=1, row=row_num+1, padx=(10, 5), pady=0, sticky=tk.N)
+            entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
+            entries[row_num - 1].grid(column=1, row=row_num + 1, padx=(10, 5), pady=0, sticky=tk.N)
             # entries[row_num] = tk.Entry(root, width=10)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
-            entries[row_num].grid(column=2, row=row_num+1, padx=(5, 10), pady=0, sticky=tk.N)
+            entries[row_num].grid(column=2, row=row_num + 1, padx=(5, 10), pady=0, sticky=tk.N)
             # print(ax.get_ylim())
             row_num += 2
         button = tk.Button(root, text="Refresh", command=lambda: refresh_plots(canvas))
@@ -5406,7 +5420,7 @@ def axis_limits_multiband_gui(app_sat_dict,
         button = tk.Button(root, text="Reset", command=lambda: reset_plots(canvas))
         button.grid(column=2, row=row_num)
         button = tk.Button(root, text="Save and Close", command=lambda: save_plots(fig_list[0]))
-        button.grid(column=1, row=row_num+1, columnspan=2)
+        button.grid(column=1, row=row_num + 1, columnspan=2)
         root.mainloop()
         # fig.show()
         plt.close()
@@ -5422,28 +5436,28 @@ def save_interpolated_light_curve(sat_dict, save_loc, suffix=None):
             ascii.write(sat_table, output=f"{save_loc}/{sat}.csv", format='csv')
 
 
-def _main_gb_transform_calc(directory, 
+def _main_gb_transform_calc(directory,
                             ref_stars_file,
-                            plot_results=False, 
-                            save_plots=False, 
-                            remove_large_airmass_bool=False, 
-                            file_suffix=".fits", 
-                            exposure_key='EXPTIME', 
-                            lat_key='SITELAT', 
-                            lon_key='SITELONG', 
-                            elev_key='SITEELEV', 
+                            plot_results=False,
+                            save_plots=False,
+                            remove_large_airmass_bool=False,
+                            file_suffix=".fits",
+                            exposure_key='EXPTIME',
+                            lat_key='SITELAT',
+                            lon_key='SITELONG',
+                            elev_key='SITEELEV',
                             name_key='Name',
                             **kwargs):
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
     auxiliary_data_columns = init_auxiliary_data_columns()
-    
+
     if save_plots:
         save_loc = kwargs.get('save_loc')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-    
+
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -5464,12 +5478,12 @@ def _main_gb_transform_calc(directory,
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
                 altazpositions = None
                 try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, 
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key,
                                                               lon_key=lon_key, elev_key=elev_key)
                 except AttributeError as e:
                     print(e)
                     continue
-                matched_stars = find_ref_stars(reference_stars, 
+                matched_stars = find_ref_stars(reference_stars,
                                                ref_star_positions,
                                                skypositions,
                                                instr_mags,
@@ -5479,59 +5493,59 @@ def _main_gb_transform_calc(directory,
                                                altazpositions=altazpositions)
                 if not matched_stars:
                     continue
-                
-                
-                
+
                 instr_filter = get_instr_filter_name(hdr)
                 colour_indices = get_all_colour_indices(instr_filter)
                 print("match")
                 for colour_index in colour_indices:
-                    
+
                     field = get_field_name(matched_stars, name_key=name_key)
-                    
+
                     try:
                         len(matched_stars.img_instr_mag)
                     except TypeError:
                         print("Only 1 reference star detected in the image.")
                         continue
-                    
+
                     if np.isnan(matched_stars.ref_star[colour_index]).any():
                         no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
                         matched_stars = matched_stars._replace(
-                            ref_star_index = matched_stars.ref_star_index[no_nan_indices],
-                            img_star_index = matched_stars.img_star_index[no_nan_indices],
-                            ref_star = matched_stars.ref_star[no_nan_indices],
-                            ref_star_loc = matched_stars.ref_star_loc[no_nan_indices],
-                            img_star_loc = matched_stars.img_star_loc[no_nan_indices],
-                            ang_separation = matched_stars.ang_separation[no_nan_indices],
-                            img_instr_mag = matched_stars.img_instr_mag[no_nan_indices],
-                            img_instr_mag_sigma = matched_stars.img_instr_mag_sigma[no_nan_indices],
-                            flux = matched_stars.flux[no_nan_indices],
-                            img_star_altaz = matched_stars.img_star_altaz[no_nan_indices],
-                            img_star_airmass = matched_stars.img_star_airmass[no_nan_indices]
-                            )
-                    
-                    auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns, 
-                                                                       filename, 
-                                                                       exptime, 
-                                                                       fwhm, 
-                                                                       fwhm_std, 
-                                                                       matched_stars)
+                            ref_star_index=matched_stars.ref_star_index[no_nan_indices],
+                            img_star_index=matched_stars.img_star_index[no_nan_indices],
+                            ref_star=matched_stars.ref_star[no_nan_indices],
+                            ref_star_loc=matched_stars.ref_star_loc[no_nan_indices],
+                            img_star_loc=matched_stars.img_star_loc[no_nan_indices],
+                            ang_separation=matched_stars.ang_separation[no_nan_indices],
+                            img_instr_mag=matched_stars.img_instr_mag[no_nan_indices],
+                            img_instr_mag_sigma=matched_stars.img_instr_mag_sigma[no_nan_indices],
+                            flux=matched_stars.flux[no_nan_indices],
+                            img_star_altaz=matched_stars.img_star_altaz[no_nan_indices],
+                            img_star_airmass=matched_stars.img_star_airmass[no_nan_indices]
+                        )
+
+                    auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns,
+                                                                           filename,
+                                                                           exptime,
+                                                                           fwhm,
+                                                                           fwhm_std,
+                                                                           matched_stars)
                     try:
                         if not save_plots:
-                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
-                                                                                                               instr_filter, 
-                                                                                                               colour_index, 
-                                                                                                               plot_results=plot_results)
+                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(
+                                matched_stars,
+                                instr_filter,
+                                colour_index,
+                                plot_results=plot_results)
                         else:
                             unique_id = filename
-                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars, 
-                                                                                                               instr_filter, 
-                                                                                                               colour_index, 
-                                                                                                               plot_results=plot_results,
-                                                                                                               save_plots=save_plots,
-                                                                                                               save_loc=save_loc,
-                                                                                                               unique_id=unique_id)
+                            c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(
+                                matched_stars,
+                                instr_filter,
+                                colour_index,
+                                plot_results=plot_results,
+                                save_plots=save_plots,
+                                save_loc=save_loc,
+                                unique_id=unique_id)
                     except Exception:
                         continue
                     gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
@@ -5548,33 +5562,35 @@ def _main_gb_transform_calc(directory,
     if remove_large_airmass_bool:
         gb_transform_table = remove_large_airmass(gb_transform_table, 3.0)
     if save_plots:
-        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
-                                                                   plot_results=plot_results, 
+        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
+                                                                   plot_results=plot_results,
                                                                    save_plots=save_plots,
                                                                    save_loc=save_loc)
         formats = {
-        'k\'\'_fCI': '%0.3f',
-        'k\'\'_fCI_sigma': '%0.3f',
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'k\'_f': '%0.3f',
-        'k\'_f_sigma': '%0.3f',
-        'Z_f': '%0.3f',
-        'Z_f_sigma': '%0.3f'
+            'k\'\'_fCI': '%0.3f',
+            'k\'\'_fCI_sigma': '%0.3f',
+            'T_fCI': '%0.3f',
+            'T_fCI_sigma': '%0.3f',
+            'k\'_f': '%0.3f',
+            'k\'_f_sigma': '%0.3f',
+            'Z_f': '%0.3f',
+            'Z_f_sigma': '%0.3f'
         }
         ascii.write(gb_final_transforms, f"{os.path.join(save_loc, '_gb_final_transforms')}.csv", format='csv')
-        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
+        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt",
+                             formats=formats)
         formats = {
-        'exptime': '%0.3f',
-        'fwhm': '%0.3f',
-        'fwhm_sigma': '%0.3f',
-        'avg mag_sigma': '%0.3f',
-        'std mag_sigma': '%0.3f'
+            'exptime': '%0.3f',
+            'fwhm': '%0.3f',
+            'fwhm_sigma': '%0.3f',
+            'avg mag_sigma': '%0.3f',
+            'std mag_sigma': '%0.3f'
         }
-        ascii.write(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv', formats=formats)
+        ascii.write(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv',
+                    formats=formats)
     else:
-        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
-                                                                   plot_results=plot_results, 
+        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
+                                                                   plot_results=plot_results,
                                                                    save_plots=save_plots)
     # Test the Transforms.
     # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
@@ -5619,21 +5635,21 @@ def _main_gb_transform_calc(directory,
     #                                                                     exptime, 
     #                                                                     ground_based=True, 
     #                                                                     name_key='Name')
-    
+
     # large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table.pprint_all()
     # # large_stars_table = remove_large_airmass(large_stars_table)
     # stars_table = group_each_star(large_stars_table, ground_based=True)
     # stars_table.pprint_all()
-    
+
     # instr_filters = ['b', 'v', 'r', 'i']
     # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)', '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
     # for instr_filter in instr_filters:
     #     app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
     #     app_mag_table = hstack([app_mag_table, app_mag_table_filter[instr_filter.upper()]])
-    
+
     # app_mag_table.pprint_all()
-    
+
     # import matplotlib.pyplot as plt
     # # import matplotlib
     # # matplotlib.use('TkAgg')
@@ -5647,7 +5663,7 @@ def _main_gb_transform_calc(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
     # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
@@ -5658,7 +5674,7 @@ def _main_gb_transform_calc(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
     #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
@@ -5672,7 +5688,7 @@ def _main_gb_transform_calc(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
     #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
@@ -5689,25 +5705,25 @@ def _main_gb_transform_calc(directory,
     return gb_final_transforms, auxiliary_data_table
 
 
-def verify_gb_transforms(directory, 
-                         ref_stars_file, 
+def verify_gb_transforms(directory,
+                         ref_stars_file,
                          gb_final_transforms,
-                         plot_results=False, 
+                         plot_results=False,
                          save_plots=False,
-                         file_suffix=".fits", 
-                         exposure_key='EXPTIME',  
+                         file_suffix=".fits",
+                         exposure_key='EXPTIME',
                          name_key='Name',
                          **kwargs):
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
-    
+
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-    
+
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -5726,42 +5742,44 @@ def verify_gb_transforms(directory,
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
                 try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
+                                                              elev_key='SITEELEV')
                 except AttributeError as e:
                     print(e)
                     continue
-                matched_stars = find_ref_stars(reference_stars, 
-                                                     ref_star_positions,
-                                                     skypositions,
-                                                     instr_mags,
-                                                     instr_mags_sigma,
-                                                     fluxes,
-                                                     ground_based=True,
-                                                     altazpositions=altazpositions)
+                matched_stars = find_ref_stars(reference_stars,
+                                               ref_star_positions,
+                                               skypositions,
+                                               instr_mags,
+                                               instr_mags_sigma,
+                                               fluxes,
+                                               ground_based=True,
+                                               altazpositions=altazpositions)
                 if not matched_stars:
                     continue
-                                
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                 matched_stars, 
-                                                                 hdr, 
-                                                                 exptime, 
-                                                                 ground_based=True, 
+
+                large_table_columns = update_large_table_columns(large_table_columns,
+                                                                 matched_stars,
+                                                                 hdr,
+                                                                 exptime,
+                                                                 ground_based=True,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
-    
+
     # instr_filters = ['b', 'v', 'r', 'i']
-    app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma', 'e_B-V', 'e_U-B', 'e_V-R', 'e_V-I'])
+    app_mag_table = Table(stars_table[
+                              'Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma', 'e_B-V', 'e_U-B', 'e_V-R', 'e_V-I'])
     for instr_filter in different_filter_list:
         app_mag_filter = instr_filter.upper()
         app_filter_sigma = f"{app_mag_filter}_sigma"
         app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
         app_mag_table = hstack([app_mag_table, app_mag_table_filter[app_mag_filter, app_filter_sigma]])
-    
+
     app_mag_table.pprint(max_lines=30, max_width=200)
-    
+
     import matplotlib.pyplot as plt
     # import matplotlib
     # matplotlib.use('TkAgg')
@@ -5800,7 +5818,7 @@ def verify_gb_transforms(directory,
             continue
         plt.errorbar(x, y, yerr=y_err, fmt='o', fillstyle='none', capsize=0, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(x, m*x+b, '-', label=f'y={m:.3f}x+{b:.3f}')
+        plt.plot(x, m * x + b, '-', label=f'y={m:.3f}x+{b:.3f}')
         plt.plot(x, x, '-', label='y=x')
         plt.title('Calculated Magnitude vs. Reference Magnitude')
         plt.ylabel(f"{app_filter} (Calculated)")
@@ -5812,8 +5830,7 @@ def verify_gb_transforms(directory,
         if plot_results:
             plt.show(block=True)
         plt.close()
-        
-        
+
     # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], app_mag_table['B'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])], app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
     # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'], m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
@@ -5824,7 +5841,7 @@ def verify_gb_transforms(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])], app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
     # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-', label=f'y={m:.3f}x+{b:.3f}')
@@ -5835,7 +5852,7 @@ def verify_gb_transforms(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'], app_mag_table['R'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] - app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])], 
     #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
@@ -5849,7 +5866,7 @@ def verify_gb_transforms(directory,
     # plt.legend()
     # plt.show(block=True)
     # plt.close()
-    
+
     # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'], app_mag_table['I'], 'o')
     # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])] - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])], 
     #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
@@ -5865,25 +5882,26 @@ def verify_gb_transforms(directory,
     # plt.close()
     return app_mag_table
 
-def _main_gb_transform_calc_TEST(directory, 
-                            ref_stars_file, 
-                            plot_results=False, 
-                            save_plots=False,
-                            file_suffix=".fits", 
-                            exposure_key='EXPTIME',  
-                            name_key='Name',
-                            **kwargs):
+
+def _main_gb_transform_calc_TEST(directory,
+                                 ref_stars_file,
+                                 plot_results=False,
+                                 save_plots=False,
+                                 file_suffix=".fits",
+                                 exposure_key='EXPTIME',
+                                 name_key='Name',
+                                 **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
-    
+
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-    
+
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -5902,26 +5920,27 @@ def _main_gb_transform_calc_TEST(directory,
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
                 try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV')
+                    altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
+                                                              elev_key='SITEELEV')
                 except AttributeError as e:
                     print(e)
                     continue
-                matched_stars = find_ref_stars(reference_stars, 
-                                                     ref_star_positions,
-                                                     skypositions,
-                                                     instr_mags,
-                                                     instr_mags_sigma,
-                                                     fluxes,
-                                                     ground_based=True,
-                                                     altazpositions=altazpositions)
+                matched_stars = find_ref_stars(reference_stars,
+                                               ref_star_positions,
+                                               skypositions,
+                                               instr_mags,
+                                               instr_mags_sigma,
+                                               fluxes,
+                                               ground_based=True,
+                                               altazpositions=altazpositions)
                 if not matched_stars:
                     continue
-                                
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                 matched_stars, 
-                                                                 hdr, 
-                                                                 exptime, 
-                                                                 ground_based=True, 
+
+                large_table_columns = update_large_table_columns(large_table_columns,
+                                                                 matched_stars,
+                                                                 hdr,
+                                                                 exptime,
+                                                                 ground_based=True,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
@@ -5929,31 +5948,32 @@ def _main_gb_transform_calc_TEST(directory,
     stars_table.pprint(max_lines=30, max_width=200)
     if save_plots:
         ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
-    gb_transform_table = calc_gb_first_transforms_AVG(stars_table, different_filter_list, 
+    gb_transform_table = calc_gb_first_transforms_AVG(stars_table, different_filter_list,
                                                       save_loc, plot_results=plot_results, save_plots=save_plots)
     gb_transform_table.pprint(max_lines=30, max_width=-1)
-    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
-                                                               plot_results=plot_results, 
+    gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
+                                                               plot_results=plot_results,
                                                                save_plots=save_plots,
                                                                save_loc=save_loc)
     gb_final_transforms.pprint_all()
     if save_plots:
-        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table, 
-                                                                   plot_results=plot_results, 
+        gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
+                                                                   plot_results=plot_results,
                                                                    save_plots=save_plots,
                                                                    save_loc=save_loc)
         formats = {
-        'k\'\'_fCI': '%0.3f',
-        'k\'\'_fCI_sigma': '%0.3f',
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'k\'_f': '%0.3f',
-        'k\'_f_sigma': '%0.3f',
-        'Z_f': '%0.3f',
-        'Z_f_sigma': '%0.3f'
+            'k\'\'_fCI': '%0.3f',
+            'k\'\'_fCI_sigma': '%0.3f',
+            'T_fCI': '%0.3f',
+            'T_fCI_sigma': '%0.3f',
+            'k\'_f': '%0.3f',
+            'k\'_f_sigma': '%0.3f',
+            'Z_f': '%0.3f',
+            'Z_f_sigma': '%0.3f'
         }
         ascii.write(gb_final_transforms, f"{os.path.join(save_loc, '_gb_final_transforms')}.csv", format='csv')
-        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
+        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt",
+                             formats=formats)
     return large_stars_table
     # sb_final_transform_columns = init_sb_final_transform_columns()
     # if save_plots:
@@ -6016,33 +6036,33 @@ def init_star_aux_table_columns():
     azimuth = []
     elevation = []
     airmass = []
-    star_aux_table_columns = namedtuple('sat_aux_table_columns', 
-                                       ['filenames',
-                                        'times',
-                                        'filters',
-                                        'fwhms_pixels',
-                                        'fwhm_pixels_sigma',
-                                        'fwhms_arcsec',
-                                        'fwhm_arcsec_sigma',
-                                        'num_sources',
-                                        'background_sky_brightness',
-                                        'background_sky_brightness_sigma',
-                                        'azimuth',
-                                        'elevation',
-                                        'airmass'])
+    star_aux_table_columns = namedtuple('sat_aux_table_columns',
+                                        ['filenames',
+                                         'times',
+                                         'filters',
+                                         'fwhms_pixels',
+                                         'fwhm_pixels_sigma',
+                                         'fwhms_arcsec',
+                                         'fwhm_arcsec_sigma',
+                                         'num_sources',
+                                         'background_sky_brightness',
+                                         'background_sky_brightness_sigma',
+                                         'azimuth',
+                                         'elevation',
+                                         'airmass'])
     return star_aux_table_columns(filenames,
-                                 times,
-                                 filters,
-                                 fwhms_pixels,
-                                 fwhm_pixels_sigma,
-                                 fwhms_arcsec,
-                                 fwhm_arcsec_sigma,
-                                 num_sources,
-                                 background_sky_brightness,
-                                 background_sky_brightness_sigma,
-                                 azimuth,
-                                 elevation,
-                                 airmass)
+                                  times,
+                                  filters,
+                                  fwhms_pixels,
+                                  fwhm_pixels_sigma,
+                                  fwhms_arcsec,
+                                  fwhm_arcsec_sigma,
+                                  num_sources,
+                                  background_sky_brightness,
+                                  background_sky_brightness_sigma,
+                                  azimuth,
+                                  elevation,
+                                  airmass)
 
 
 def update_star_aux_columns(star_aux_table_columns,
@@ -6092,7 +6112,7 @@ def create_star_aux_table(star_aux_table_columns):
             'Azimuth',
             'Elevation',
             'X'
-            ],
+        ],
         data=[
             star_aux_table_columns.filenames,
             star_aux_table_columns.times,
@@ -6107,12 +6127,12 @@ def create_star_aux_table(star_aux_table_columns):
             star_aux_table_columns.azimuth,
             star_aux_table_columns.elevation,
             star_aux_table_columns.airmass
-            ]
-        )
+        ]
+    )
     return star_aux_table
 
 
-def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):            
+def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):
     stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(stars_table)
     slope_filters = [f"slope_{different_filter}" for different_filter in different_filter_list]
     intercept_filters = [f"intercept_{different_filter}" for different_filter in different_filter_list]
@@ -6134,7 +6154,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
         'e_U-B',
         'e_V-R',
         'e_V-I'
-        ]
+    ]
     star_index_table = Table(
         names=star_index_columns,
         data=[
@@ -6150,8 +6170,8 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             nan_array,
             nan_array,
             nan_array
-            ]
-        )
+        ]
+    )
     slope_table = Table(names=slope_filters, data=data_filter_table)
     intercept_table = Table(names=intercept_filters, data=data_filter_table)
     slope_sigma_table = Table(names=slope_filters_sigma, data=data_filter_table)
@@ -6178,9 +6198,10 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             y_nan_indices = np.isnan(current_star[unique_filter])
             nan_indices = (x_nan_indices | y_nan_indices)
             try:
-                X_plot = np.arange(start=min(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])-0.02, 
-                                   stop=max(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])])+0.02, 
-                                   step=0.01)
+                X_plot = np.arange(
+                    start=min(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])]) - 0.02,
+                    stop=max(current_star[x_current_filter][~np.isnan(current_star[x_current_filter])]) + 0.02,
+                    step=0.01)
             except ValueError:
                 slopes_table[f"slope_{unique_filter}"][i] = np.nan
                 slopes_table[f"intercept_{unique_filter}"][i] = np.nan
@@ -6190,7 +6211,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             # m, b = np.polyfit(current_star[x_current_filter], current_star[unique_filter], 1)
             fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
             try:
-                fitted_line, mask = or_fit(line_init, current_star[x_current_filter][~nan_indices], 
+                fitted_line, mask = or_fit(line_init, current_star[x_current_filter][~nan_indices],
                                            current_star[unique_filter][~nan_indices])
             except TypeError:
                 # print(current_star[x_current_filter])
@@ -6210,10 +6231,12 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
             except TypeError:
                 m_sigma = np.nan
                 b_sigma = np.nan
-            plt.plot(current_star[x_current_filter], current_star[unique_filter], 'o', fillstyle='none', color=colors[i], label="Clipped Data")
-            plt.plot(current_star[x_current_filter][~nan_indices], filtered_data, 'o', color=colors[i], label="Fitted Data")
+            plt.plot(current_star[x_current_filter], current_star[unique_filter], 'o', fillstyle='none',
+                     color=colors[i], label="Clipped Data")
+            plt.plot(current_star[x_current_filter][~nan_indices], filtered_data, 'o', color=colors[i],
+                     label="Fitted Data")
             # plt.scatter(current_star[x_current_filter], current_star[unique_filter], color=colors[i], label=unique_star)
-            plt.plot(X_plot, m*X_plot+b, color=colors[i])
+            plt.plot(X_plot, m * X_plot + b, color=colors[i])
             slopes_table[f"slope_{unique_filter}"][i] = m
             slopes_table[f"intercept_{unique_filter}"][i] = b
             slopes_table[f"slope_{unique_filter}_sigma"][i] = m_sigma
@@ -6221,8 +6244,8 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
         # plt.plot(current_filter['X'], current_filter['mag_instrumental'], 'o')
         plt.xlabel('X')
         plt.ylabel(unique_filter.lower())
-        plt.ylim([min(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])])*1.05, 
-                  max(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])])*0.95])
+        plt.ylim([min(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])]) * 1.05,
+                  max(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])]) * 0.95])
         plt.gca().invert_yaxis()
         # plt.title(unique_field)
         # plt.legend()
@@ -6264,15 +6287,15 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             filter_column.append(different_filter)
             CI_column.append(colour_index)
             # print(slopes_table[colour_index])
-            ci_plot = np.arange(min(slopes_table[colour_index])-0.1, max(slopes_table[colour_index])+0.1, step=0.01)
+            ci_plot = np.arange(min(slopes_table[colour_index]) - 0.1, max(slopes_table[colour_index]) + 0.1, step=0.01)
             # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
             # try:
             x_nan_indices = np.isnan(slopes_table[colour_index])
             y_nan_indices = np.isnan(slopes_table[f"slope_{different_filter}"])
             nan_indices = (x_nan_indices | y_nan_indices)
-            fitted_line, mask = or_fit(line_init, slopes_table[colour_index][~nan_indices], 
-                                           slopes_table[f"slope_{different_filter}"][~nan_indices])
+            fitted_line, mask = or_fit(line_init, slopes_table[colour_index][~nan_indices],
+                                       slopes_table[f"slope_{different_filter}"][~nan_indices])
             # except TypeError as e:
             #     # print(current_star[x_current_filter])
             #     # print(current_star[unique_filter])
@@ -6301,9 +6324,10 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             k_primeprime_sigma_column.append(m_sigma)
             k_prime_sigma_column.append(b_sigma)
             # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
-            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none', label="Clipped Data")
+            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none',
+                     label="Clipped Data")
             plt.plot(slopes_table[colour_index][~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-            plt.plot(ci_plot, m*ci_plot+b, '-', label=f"k''={m:0.3f}, k'={b:0.3f}")
+            plt.plot(ci_plot, m * ci_plot + b, '-', label=f"k''={m:0.3f}, k'={b:0.3f}")
             plt.ylabel(different_filter)
             plt.xlabel(colour_index)
             plt.title(f"Second Order extinction ({different_filter} v. {colour_index})")
@@ -6327,7 +6351,7 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             'k\'\'_fCI_sigma',
             'k\'_f',
             'k\'_f_sigma'
-            ],
+        ],
         data=[
             filter_column,
             CI_column,
@@ -6335,7 +6359,7 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             k_primeprime_sigma_column,
             k_prime_column,
             k_prime_sigma_column
-            ])
+        ])
     return extinction_table_Warner
 
 
@@ -6356,7 +6380,7 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
         'e_U-B',
         'e_V-R',
         'e_V-I'
-        ]
+    ]
     exoatmospheric_table = Table(
         names=[
             'Field',
@@ -6376,7 +6400,7 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
             'g V-R',
             'g V-I',
             'r V-R'
-            ],
+        ],
         data=[
             np.empty(len(stars_table), dtype=object),
             np.empty(len(stars_table), dtype=object),
@@ -6395,7 +6419,7 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
             nan_array,
             nan_array,
             nan_array
-            ])
+        ])
     i = 0
     for star in stars_table:
         for field in star_index_columns:
@@ -6405,7 +6429,8 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
             colour_indices = get_all_colour_indices(different_filter)
             x_column_name = f"X_{different_filter}"
             for colour_index in colour_indices:
-                mask = ((extinction_table_Warner['filter'] == different_filter) & (extinction_table_Warner['CI'] == colour_index))
+                mask = ((extinction_table_Warner['filter'] == different_filter) & (
+                            extinction_table_Warner['CI'] == colour_index))
                 row_of_extinctions = extinction_table_Warner[mask]
                 # if len(row_of_transforms) == 0 and instr_filter == 'v':
                 #     instr_filter = 'g'
@@ -6428,7 +6453,8 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
     return exoatmospheric_table
 
 
-def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner, save_plots, **kwargs):
+def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner,
+                                        save_plots, **kwargs):
     nan_array = np.empty(len(extinction_table_Warner))
     nan_array.fill(np.nan)
     transform_zp_table = Table(
@@ -6437,13 +6463,13 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             'T_fCI_sigma',
             'Z_f',
             'Z_f_sigma'
-            ],
+        ],
         data=[
             nan_array,
             nan_array,
             nan_array,
             nan_array
-            ])
+        ])
     Warner_final_transform_table = hstack([extinction_table_Warner, transform_zp_table])
     # print(Warner_final_transform_table)
     for different_filter in different_filter_list:
@@ -6454,7 +6480,8 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             app_mag, app_mag_sigma, app_mag_filter, _ = get_app_mag_and_index(exoatmospheric_table, different_filter)
         colour_indices = get_all_colour_indices(different_filter)
         for colour_index in colour_indices:
-            ci_plot = np.arange(min(exoatmospheric_table[colour_index])-0.1, max(exoatmospheric_table[colour_index])+0.1, step=0.01)
+            ci_plot = np.arange(min(exoatmospheric_table[colour_index]) - 0.1,
+                                max(exoatmospheric_table[colour_index]) + 0.1, step=0.01)
             exoatmospheric_mag = np.array(exoatmospheric_table[f"{different_filter} {colour_index}"])
             y = app_mag - exoatmospheric_mag
             x = exoatmospheric_table[colour_index]
@@ -6489,8 +6516,9 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             except TypeError:
                 t_fci_sigma = np.nan
                 z_f_sigma = np.nan
-            
-            mask = ((Warner_final_transform_table['filter'] == different_filter) & (Warner_final_transform_table['CI'] == colour_index))
+
+            mask = ((Warner_final_transform_table['filter'] == different_filter) & (
+                        Warner_final_transform_table['CI'] == colour_index))
             # current_filter_index = Warner_final_transform_table[mask]
             Warner_final_transform_table["T_fCI"][mask] = t_fci
             Warner_final_transform_table["T_fCI_sigma"][mask] = t_fci_sigma
@@ -6498,7 +6526,7 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
             Warner_final_transform_table["Z_f_sigma"][mask] = z_f_sigma
             plt.plot(x, y, 'o', fillstyle='none', label="Clipped Data")
             plt.plot(x[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-            plt.plot(ci_plot, t_fci*ci_plot+z_f, '-', label=f"t_fci={t_fci:0.3f}, ZP_f={z_f:0.3f}")
+            plt.plot(ci_plot, t_fci * ci_plot + z_f, '-', label=f"t_fci={t_fci:0.3f}, ZP_f={z_f:0.3f}")
             plt.ylabel(f"{app_mag_filter} - {different_filter}")
             plt.xlabel(colour_index)
             plt.title(f"Colour Transform and Zero Point ({different_filter} v. {colour_index})")
@@ -6511,7 +6539,8 @@ def colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_l
     return Warner_final_transform_table
 
 
-def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, different_filter_list, save_plots, **kwargs):
+def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, different_filter_list, save_plots,
+                            **kwargs):
     # exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, Warner_final_transform_table, different_filter_list)
     # exoatmospheric_table.pprint(max_lines=-1, max_width=-1)
     instr_ci_list = []
@@ -6544,7 +6573,7 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
         x_nan_indices = np.isnan(instr_colour_index_mags)
         y_nan_indices = np.isnan(standard_colour_index_mags)
         nan_indices = (x_nan_indices | y_nan_indices)
-        fitted_line, mask = or_fit(line_init, instr_colour_index_mags[~nan_indices], 
+        fitted_line, mask = or_fit(line_init, instr_colour_index_mags[~nan_indices],
                                    standard_colour_index_mags[~nan_indices])
         # except TypeError as e:
         #     print(e)
@@ -6567,7 +6596,7 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
             t_ci_sigma.append(m_sigma)
             zp_ci.append(b)
             zp_ci_sigma.append(b_sigma)
-        plt.plot(instr_colour_index_mags, m*instr_colour_index_mags+b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
+        plt.plot(instr_colour_index_mags, m * instr_colour_index_mags + b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
         plt.ylabel(colour_index)
         plt.xlabel(f"{table_ci[0]}-{table_ci[1]}")
         plt.title("Hidden Transform")
@@ -6585,7 +6614,7 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
             "T_CI_sigma",
             "ZP_CI",
             "ZP_CI_sigma"
-            ],
+        ],
         data=[
             app_ci_list,
             instr_ci_list,
@@ -6593,8 +6622,8 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
             t_ci_sigma,
             zp_ci,
             zp_ci_sigma
-            ]
-        )
+        ]
+    )
     return hidden_transform_table
 
 
@@ -6613,7 +6642,8 @@ def calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_
         positive_instr_mag = stars_table[table_ci[0]]
         negative_instr_mag = stars_table[table_ci[1]]
     instr_colour_index_mags = positive_instr_mag - negative_instr_mag
-    mask = ((hidden_transform_table['Apparent CI'] == colour_index) & (hidden_transform_table['Instrumental CI'] == table_ci))
+    mask = ((hidden_transform_table['Apparent CI'] == colour_index) & (
+                hidden_transform_table['Instrumental CI'] == table_ci))
     row_of_hidden_transforms = hidden_transform_table[mask]
     t_ci = row_of_hidden_transforms["T_CI"]
     zp_ci = row_of_hidden_transforms["ZP_CI"]
@@ -6621,7 +6651,8 @@ def calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_
     return CI
 
 
-def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidden_transform_table, different_filter_list):
+def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidden_transform_table,
+                                      different_filter_list):
     # m_0 = m - k'_f * X - k''_fCI * X * CI
     nan_array = np.empty(len(stars_table))
     nan_array.fill(np.nan)
@@ -6638,7 +6669,7 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
         'e_U-B',
         'e_V-R',
         'e_V-I'
-        ]
+    ]
     exoatmospheric_table_verify = Table(
         names=[
             'Field',
@@ -6656,7 +6687,7 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
             'b',
             'g',
             'r'
-            ],
+        ],
         data=[
             np.empty(len(stars_table), dtype=object),
             np.empty(len(stars_table), dtype=object),
@@ -6673,7 +6704,7 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
             nan_array,
             nan_array,
             nan_array
-            ])
+        ])
     i = 0
     for star in stars_table:
         for field in star_index_columns:
@@ -6684,7 +6715,8 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
             colour_index, _ = get_colour_index_lower(different_filter)
             x_column_name = f"X_{different_filter}"
             # for colour_index in colour_indices:
-            mask = ((extinction_table_Warner['filter'] == different_filter) & (extinction_table_Warner['CI'] == colour_index))
+            mask = ((extinction_table_Warner['filter'] == different_filter) & (
+                        extinction_table_Warner['CI'] == colour_index))
             row_of_extinctions = extinction_table_Warner[mask]
             # if len(row_of_transforms) == 0 and instr_filter == 'v':
             #     instr_filter = 'g'
@@ -6714,10 +6746,10 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
     return exoatmospheric_table_verify
 
 
-def apply_transforms_Warner(stars_table, 
-                            exoatmospheric_table_verify, 
-                            Warner_final_transform_table, 
-                            hidden_transform_table, 
+def apply_transforms_Warner(stars_table,
+                            exoatmospheric_table_verify,
+                            Warner_final_transform_table,
+                            hidden_transform_table,
                             different_filter_list,
                             save_plots,
                             **kwargs):
@@ -6726,7 +6758,8 @@ def apply_transforms_Warner(stars_table,
         app_mag_filter = different_filter.upper()
         CI = calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_filter)
         exoatmospheric_mag = exoatmospheric_table_verify[different_filter]
-        mask = ((Warner_final_transform_table['filter'] == different_filter) & (Warner_final_transform_table['CI'] == colour_index))
+        mask = ((Warner_final_transform_table['filter'] == different_filter) & (
+                    Warner_final_transform_table['CI'] == colour_index))
         row_of_extinctions = Warner_final_transform_table[mask]
         t_fci = float(row_of_extinctions["T_fCI"])
         z_f = float(row_of_extinctions["Z_f"])
@@ -6762,7 +6795,7 @@ def apply_transforms_Warner(stars_table,
         #     t_ci_sigma.append(m_sigma)
         #     zp_ci.append(b)
         #     zp_ci_sigma.append(b_sigma)
-        plt.plot(app_mag, m*app_mag+b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
+        plt.plot(app_mag, m * app_mag + b, '-', label=f"y={m:0.3f}x+{b:0.3f}")
         plt.plot(app_mag, app_mag, label=f"y=x")
         plt.ylabel(f"{app_mag_filter} (Calculated)")
         plt.xlabel(f"{app_filter} (Reference)")
@@ -6777,26 +6810,26 @@ def apply_transforms_Warner(stars_table,
         plt.close()
 
 
-def _main_gb_transform_calc_Warner(directory, 
-                            ref_stars_file, 
-                            plot_results=False, 
-                            save_plots=False,
-                            file_suffix=".fits", 
-                            exposure_key='EXPTIME',  
-                            name_key='Name',
-                            **kwargs):
+def _main_gb_transform_calc_Warner(directory,
+                                   ref_stars_file,
+                                   plot_results=False,
+                                   save_plots=False,
+                                   file_suffix=".fits",
+                                   exposure_key='EXPTIME',
+                                   name_key='Name',
+                                   **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
     star_aux_table_columns = init_star_aux_table_columns()
-    
+
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-            
+
     filecount = 0
     file_paths = []
     file_names = []
@@ -6807,8 +6840,7 @@ def _main_gb_transform_calc_Warner(directory,
                 file_names.append(file)
     #             filecount += 1
     # filenames = sorted(os.listdir(temp_dir))
-    
-    
+
     # for dirpath, dirnames, filenames in os.walk(directory):
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
@@ -6816,7 +6848,7 @@ def _main_gb_transform_calc_Warner(directory,
     #     for filename in filenames:
     #         if filename.endswith(file_suffix):
     #             filepath = os.path.join(dirpath, filename)
-    
+
     for file_num, filepath in enumerate(tqdm(file_paths)):
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
@@ -6833,7 +6865,8 @@ def _main_gb_transform_calc_Warner(directory,
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
-            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L', elev_key='OBSGEO-H')
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
+                                                      elev_key='OBSGEO-H')
         except AttributeError as e:
             print(e)
             continue
@@ -6847,36 +6880,36 @@ def _main_gb_transform_calc_Warner(directory,
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
-        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
-                                                         file_names[file_num], 
-                                                         time, 
-                                                         img_filter, 
-                                                         fwhm, 
+        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns,
+                                                         file_names[file_num],
+                                                         time,
+                                                         img_filter,
+                                                         fwhm,
                                                          fwhm_std,
-                                                         fwhm_arcsec, 
-                                                         fwhms_arcsec_std, 
+                                                         fwhm_arcsec,
+                                                         fwhms_arcsec_std,
                                                          num_sources,
-                                                         background_sky_brightness, 
-                                                         background_sky_brightness_sigma, 
-                                                         azimuth, 
-                                                         elevation, 
+                                                         background_sky_brightness,
+                                                         background_sky_brightness_sigma,
+                                                         azimuth,
+                                                         elevation,
                                                          airmass)
-        matched_stars = find_ref_stars(reference_stars, 
-                                             ref_star_positions,
-                                             skypositions,
-                                             instr_mags,
-                                             instr_mags_sigma,
-                                             fluxes,
-                                             ground_based=True,
-                                             altazpositions=altazpositions)
+        matched_stars = find_ref_stars(reference_stars,
+                                       ref_star_positions,
+                                       skypositions,
+                                       instr_mags,
+                                       instr_mags_sigma,
+                                       fluxes,
+                                       ground_based=True,
+                                       altazpositions=altazpositions)
         if not matched_stars:
             continue
-                        
-        large_table_columns = update_large_table_columns(large_table_columns, 
-                                                         matched_stars, 
-                                                         hdr, 
-                                                         exptime, 
-                                                         ground_based=True, 
+
+        large_table_columns = update_large_table_columns(large_table_columns,
+                                                         matched_stars,
+                                                         hdr,
+                                                         exptime,
+                                                         ground_based=True,
                                                          name_key=name_key)
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
@@ -6890,34 +6923,40 @@ def _main_gb_transform_calc_Warner(directory,
     # list_of_stars = list(unique_stars['Name'])
     # print(list_of_stars)
     slopes_table = calculate_slopes_Warner(stars_table, different_filter_list, save_plots, save_loc=save_loc)
-    extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots, save_loc=save_loc)
+    extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots,
+                                                                  save_loc=save_loc)
     extinction_table_Warner.pprint(max_lines=-1, max_width=-1)
     exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
-    Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list, extinction_table_Warner, save_plots, save_loc=save_loc)
+    Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list,
+                                                                       extinction_table_Warner, save_plots,
+                                                                       save_loc=save_loc)
     Warner_final_transform_table.pprint(max_lines=-1, max_width=250)
-    hidden_transform_table = hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, different_filter_list, save_plots, save_loc=save_loc)
-    exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidden_transform_table, different_filter_list)
-    apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table, hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
+    hidden_transform_table = hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table,
+                                                     different_filter_list, save_plots, save_loc=save_loc)
+    exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner,
+                                                                    hidden_transform_table, different_filter_list)
+    apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table,
+                            hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
     ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
 
 
-def _sky_survey_calc(directory, 
-                     plot_results=False, 
+def _sky_survey_calc(directory,
+                     plot_results=False,
                      save_plots=False,
-                     file_suffix=".fits", 
-                     exposure_key='EXPTIME',  
+                     file_suffix=".fits",
+                     exposure_key='EXPTIME',
                      gb_final_transforms=None,
-                     lat_key='SITELAT', 
-                     lon_key='SITELONG', 
+                     lat_key='SITELAT',
+                     lon_key='SITELONG',
                      elev_key='SITEELEV',
                      **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
     # large_table_columns = init_large_table_columns()
     star_aux_table_columns = init_star_aux_table_columns()
-    
+
     filecount = 0
     file_paths = []
     file_names = []
@@ -6928,11 +6967,11 @@ def _sky_survey_calc(directory,
                 file_names.append(file)
     #             filecount += 1
     # filenames = sorted(os.listdir(temp_dir))
-    
+
     save_loc = kwargs.get('save_loc')
     if not os.path.exists(save_loc):
         os.mkdir(save_loc)
-    
+
     # for dirpath, dirnames, filenames in os.walk(directory):
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
@@ -6962,19 +7001,19 @@ def _sky_survey_calc(directory,
                 airmass = hdr['AIRMASS']
             except KeyError:
                 continue
-            star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
-                                                             file_names[file_num], 
-                                                             time, 
-                                                             img_filter, 
-                                                             fwhm, 
-                                                             fwhm_std, 
-                                                             fwhm_arcsec, 
-                                                             fwhm_arcsec_std, 
+            star_aux_table_columns = update_star_aux_columns(star_aux_table_columns,
+                                                             file_names[file_num],
+                                                             time,
+                                                             img_filter,
+                                                             fwhm,
+                                                             fwhm_std,
+                                                             fwhm_arcsec,
+                                                             fwhm_arcsec_std,
                                                              num_sources,
-                                                             background_sky_brightness, 
-                                                             background_sky_brightness_sigma, 
-                                                             azimuth, 
-                                                             elevation, 
+                                                             background_sky_brightness,
+                                                             background_sky_brightness_sigma,
+                                                             azimuth,
+                                                             elevation,
                                                              airmass)
             continue
         num_sources = len(irafsources)
@@ -6987,7 +7026,8 @@ def _sky_survey_calc(directory,
             wcs = WCS(hdr)
             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
             try:
-                altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key, elev_key=elev_key)
+                altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key,
+                                                          elev_key=elev_key)
                 azimuth = np.mean(altazpositions.az)
                 elevation = np.mean(altazpositions.alt)
                 airmass = np.mean(altazpositions.secz)
@@ -7014,44 +7054,42 @@ def _sky_survey_calc(directory,
         # azimuth = hdr['CENTAZ']
         # elevation = hdr['CENTALT']
         # airmass = hdr['AIRMASS']
-        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns, 
-                                                         file_names[file_num], 
-                                                         time, 
-                                                         img_filter, 
-                                                         fwhm, 
-                                                         fwhm_std, 
-                                                         fwhm_arcsec, 
-                                                         fwhm_arcsec_std, 
+        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns,
+                                                         file_names[file_num],
+                                                         time,
+                                                         img_filter,
+                                                         fwhm,
+                                                         fwhm_std,
+                                                         fwhm_arcsec,
+                                                         fwhm_arcsec_std,
                                                          num_sources,
-                                                         background_sky_brightness, 
-                                                         background_sky_brightness_sigma, 
-                                                         azimuth, 
-                                                         elevation, 
+                                                         background_sky_brightness,
+                                                         background_sky_brightness_sigma,
+                                                         azimuth,
+                                                         elevation,
                                                          airmass)
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     return star_aux_table
 
 
-
-
-def _main_sb_transform_calc(directory, 
-                            ref_stars_file, 
-                            plot_results=False, 
+def _main_sb_transform_calc(directory,
+                            ref_stars_file,
+                            plot_results=False,
                             save_plots=False,
-                            file_suffix=".fits", 
-                            exposure_key='EXPTIME',  
+                            file_suffix=".fits",
+                            exposure_key='EXPTIME',
                             name_key='Name',
                             transform_index_list=['(B-V)', '(V-R)', '(V-I)'],
                             **kwargs):
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
-    
+
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
-    
+
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -7069,84 +7107,85 @@ def _main_sb_transform_calc(directory,
                 instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                matched_stars = find_ref_stars(reference_stars, 
-                                                     ref_star_positions,
-                                                     skypositions,
-                                                     instr_mags,
-                                                     instr_mags_sigma,
-                                                     fluxes,
-                                                     ground_based=False,
-                                                     altazpositions=None)
+                matched_stars = find_ref_stars(reference_stars,
+                                               ref_star_positions,
+                                               skypositions,
+                                               instr_mags,
+                                               instr_mags_sigma,
+                                               fluxes,
+                                               ground_based=False,
+                                               altazpositions=None)
                 if not matched_stars:
                     continue
-                                
-                large_table_columns = update_large_table_columns(large_table_columns, 
-                                                                 matched_stars, 
-                                                                 hdr, 
-                                                                 exptime, 
-                                                                 ground_based=False, 
+
+                large_table_columns = update_large_table_columns(large_table_columns,
+                                                                 matched_stars,
+                                                                 hdr,
+                                                                 exptime,
+                                                                 ground_based=False,
                                                                  name_key=name_key)
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
     stars_table = group_each_star(large_stars_table, ground_based=False)
     sb_final_transform_columns = init_sb_final_transform_columns()
     if save_plots:
-        write_table_to_latex(stars_table, f"{os.path.join(save_loc, f'{unique_id}_stars_table')}.txt", 
+        write_table_to_latex(stars_table, f"{os.path.join(save_loc, f'{unique_id}_stars_table')}.txt",
                              formats={'c': '%0.3f',
                                       'c_sigma': '%0.3f'})
         for index in transform_index_list:
-            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
-                                                                                               plot_results=plot_results, 
+            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table,
+                                                                                               plot_results=plot_results,
                                                                                                index=index,
-                                                                                               save_plots=save_plots, 
+                                                                                               save_plots=save_plots,
                                                                                                save_loc=save_loc,
                                                                                                unique_id=unique_id)
-            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
-                                                                           index, 
-                                                                           filter_fci, 
-                                                                           filter_fci_sigma, 
-                                                                           zprime_fci, 
+            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns,
+                                                                           index,
+                                                                           filter_fci,
+                                                                           filter_fci_sigma,
+                                                                           zprime_fci,
                                                                            zprime_fci_sigma)
             # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
             #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
     else:
         for index in transform_index_list:
-            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table, 
-                                                                                               plot_results=plot_results, 
+            filter_fci, filter_fci_sigma, zprime_fci, zprime_fci_sigma = space_based_transform(stars_table,
+                                                                                               plot_results=plot_results,
                                                                                                index=index,
                                                                                                save_plots=save_plots)
-            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns, 
-                                                                           index, 
-                                                                           filter_fci, 
-                                                                           filter_fci_sigma, 
-                                                                           zprime_fci, 
+            sb_final_transform_columns = update_sb_final_transform_columns(sb_final_transform_columns,
+                                                                           index,
+                                                                           filter_fci,
+                                                                           filter_fci_sigma,
+                                                                           zprime_fci,
                                                                            zprime_fci_sigma)
             # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
             #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
     sb_final_transform_table = create_sb_final_transform_table(sb_final_transform_columns)
     if save_plots:
         formats = {
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'Z_fCI': '%0.3f',
-        'Z_fCI_sigma': '%0.3f'
+            'T_fCI': '%0.3f',
+            'T_fCI_sigma': '%0.3f',
+            'Z_fCI': '%0.3f',
+            'Z_fCI_sigma': '%0.3f'
         }
         write_table_to_latex(sb_final_transform_table, f"{os.path.join(save_loc, f'{unique_id}_transform_table')}.txt",
                              formats=formats)
     return sb_final_transform_table
 
-def _main_sc_lightcurve(directory, 
+
+def _main_sc_lightcurve(directory,
                         gb_final_transforms=None,
-                        temp_dir='tmp', 
+                        temp_dir='tmp',
                         save_loc='Outputs',
-                        file_suffix=".fits", 
+                        file_suffix=".fits",
                         ecct_cut=0.5,
-                        max_distance_from_sat=20, 
+                        max_distance_from_sat=20,
                         size=25,
-                        max_num_nan=5, 
+                        max_num_nan=5,
                         plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory, 
-                                           file_suffix=file_suffix, 
-                                           temp_dir=temp_dir, 
+    filecount, filenames = copy_and_rename(directory=directory,
+                                           file_suffix=file_suffix,
+                                           temp_dir=temp_dir,
                                            debugging=True)
     # remove_temp_dir(temp_dir=temp_dir)
     # return
@@ -7160,20 +7199,20 @@ def _main_sc_lightcurve(directory,
             set_sat_positions_bool, sat_information = set_sat_positions(imgdata, filecount, set_sat_positions_bool)
         sat_information = add_new_time_and_filter(hdr, sat_information, filenum)
         if change_sat_positions_bool:
-            change_sat_positions_bool, sat_information = change_sat_positions(filenames, 
-                                                                              filenum, 
-                                                                              num_nan, 
+            change_sat_positions_bool, sat_information = change_sat_positions(filenames,
+                                                                              filenum,
+                                                                              num_nan,
                                                                               sat_information,
                                                                               change_sat_positions_bool,
                                                                               gb_final_transforms=gb_final_transforms,
-                                                                              max_distance_from_sat=max_distance_from_sat, 
-                                                                              size=size, 
-                                                                              temp_dir=temp_dir, 
-                                                                              cmap_set='Set1', 
+                                                                              max_distance_from_sat=max_distance_from_sat,
+                                                                              size=size,
+                                                                              temp_dir=temp_dir,
+                                                                              cmap_set='Set1',
                                                                               plot_results=plot_results)
         exptime = hdr['EXPTIME'] * u.s
         # bkg, bkg_std = calculate_img_bkg(imgdata)
-        
+
         try:
             sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath, ecct_cut=ecct_cut)
         except TypeError:
@@ -7196,25 +7235,25 @@ def _main_sc_lightcurve(directory,
         # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         bkg = np.median(bkg_trm)
         bsb = calculate_background_sky_brightness(bkg, hdr, exptime, gb_final_transforms,
-                                        focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ')
+                                                  focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ')
         fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
         airmass = get_image_airmass(hdr)
         photometry_result = perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg_trm)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
         instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
-        sat_information = check_if_sat(sat_information, 
-                                       filenum, 
+        sat_information = check_if_sat(sat_information,
+                                       filenum,
                                        sat_x,
                                        sat_y,
-                                       instr_mags, 
-                                       instr_mags_sigma, 
+                                       instr_mags,
+                                       instr_mags_sigma,
                                        fwhm_arcsec,
                                        airmass,
                                        bsb,
                                        max_distance_from_sat=max_distance_from_sat)
-        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information, 
-                                                                               filenum, 
-                                                                               change_sat_positions_bool, 
+        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information,
+                                                                               filenum,
+                                                                               change_sat_positions_bool,
                                                                                max_num_nan=max_num_nan)
         # del hdr
         # del imgdata
@@ -7223,7 +7262,7 @@ def _main_sc_lightcurve(directory,
     # except PermissionError as e:
     #     print(e)
     if not os.path.exists(save_loc):
-            os.mkdir(save_loc)
+        os.mkdir(save_loc)
     sats_table = sat_information.sats_table
     ascii.write(sats_table, output=f"{save_loc}/Measured_Magnitudes.csv", format='csv')
     uncertainty_table = sat_information.uncertainty_table
@@ -7231,7 +7270,7 @@ def _main_sc_lightcurve(directory,
     sat_auxiliary_table = sat_information.sat_auxiliary_table
     for aux_data in sat_auxiliary_table.columns[2:]:
         if all(np.isnan(sat_auxiliary_table[aux_data])):
-               sat_auxiliary_table.remove_column(aux_data)
+            sat_auxiliary_table.remove_column(aux_data)
     ascii.write(sat_auxiliary_table, output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
     unique_filters, num_filters, multiple_filters = determine_num_filters(sats_table)
     if multiple_filters:
@@ -7239,49 +7278,52 @@ def _main_sc_lightcurve(directory,
         if not gb_final_transforms:
             app_sat_dict = None
             save_interpolated_light_curve(sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
+            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters,
+                                                                               multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(sat_dict, all_indices)
             save_interpolated_light_curve(colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
-                                                                                        num_filters, 
-                                                                                        all_indices_formatted, 
+            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters,
+                                                                                        num_filters,
+                                                                                        all_indices_formatted,
                                                                                         sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(sat_dict, 
-                              colour_indices_dict, 
-                              sat_auxiliary_table, 
-                              filters_to_plot, 
-                              indices_to_plot, 
-                              aux_data_to_plot,
-                              save_loc)
+            fig = axis_limits_multiband_gui(sat_dict,
+                                            colour_indices_dict,
+                                            sat_auxiliary_table,
+                                            filters_to_plot,
+                                            indices_to_plot,
+                                            aux_data_to_plot,
+                                            save_loc)
         else:
-            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters)
+            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table,
+                                                          unique_filters)
             save_interpolated_light_curve(app_sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters, multiple_filters)
+            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters, num_filters,
+                                                                               multiple_filters)
             colour_indices_dict = calculate_timeseries_colour_indices(app_sat_dict, all_indices)
             save_interpolated_light_curve(colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters, 
-                                                                                        num_filters, 
-                                                                                        all_indices_formatted, 
+            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters,
+                                                                                        num_filters,
+                                                                                        all_indices_formatted,
                                                                                         sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(app_sat_dict, 
-                              colour_indices_dict, 
-                              sat_auxiliary_table, 
-                              filters_to_plot, 
-                              indices_to_plot, 
-                              aux_data_to_plot,
-                              save_loc)
+            fig = axis_limits_multiband_gui(app_sat_dict,
+                                            colour_indices_dict,
+                                            sat_auxiliary_table,
+                                            filters_to_plot,
+                                            indices_to_plot,
+                                            aux_data_to_plot,
+                                            save_loc)
     else:
         sat_dict = None
         app_sat_dict = None
         aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        axis_limits_singleband_gui(sats_table,  
+        axis_limits_singleband_gui(sats_table,
                                    uncertainty_table,
-                                   sat_auxiliary_table, 
+                                   sat_auxiliary_table,
                                    aux_data_to_plot,
                                    save_loc)
         # plot_light_curve_singleband(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc)
     return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
-        
+
 
 def __debugging__(gb_final_transforms, save_loc):
     """
@@ -7294,88 +7336,85 @@ def __debugging__(gb_final_transforms, save_loc):
     """
     # Maybe put the write table option in here?
     formats = {
-    'k\'\'_fCI': '%0.3f',
-    'k\'\'_fCI_sigma': '%0.3f',
-    'T_fCI': '%0.3f',
-    'T_fCI_sigma': '%0.3f',
-    'k\'_f': '%0.3f',
-    'k\'_f_sigma': '%0.3f',
-    'Z_f': '%0.3f',
-    'Z_f_sigma': '%0.3f'
+        'k\'\'_fCI': '%0.3f',
+        'k\'\'_fCI_sigma': '%0.3f',
+        'T_fCI': '%0.3f',
+        'T_fCI_sigma': '%0.3f',
+        'k\'_f': '%0.3f',
+        'k\'_f_sigma': '%0.3f',
+        'Z_f': '%0.3f',
+        'Z_f_sigma': '%0.3f'
     }
     write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
     return
 
+
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
-   
     sigma_clip = SigmaClip(sigma=2.5)
     bkg = SExtractorBackground(sigma_clip)
-    #bkg_value1 = bkg.calc_background(fitsdata)
-    
-    #print(bkg_value)
+    # bkg_value1 = bkg.calc_background(fitsdata)
+
+    # print(bkg_value)
     bkg = MeanBackground(sigma_clip)
     bkg_value2 = bkg.calc_background(fitsdata)
-    
+
     bkg = MedianBackground(sigma_clip)
     bkg_value3 = bkg.calc_background(fitsdata)
-    
-    #bkg = ModeEstimatorBackground(sigma_clip)
-   #bkg_value4 = bkg.calc_background(fitsdata)
-    
-    
+
+    # bkg = ModeEstimatorBackground(sigma_clip)
+    # bkg_value4 = bkg.calc_background(fitsdata)
+
     bkg_estimator2 = SExtractorBackground()
-    #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
-    bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    bkg = Background2D(fitsdata, (50, 50), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
     bg_rem = fitsdata - bkg.background
 
     if printval == 1:
         print("Background Solutions")
         print("Sigma Clip: " + str(sigma_clip))
-        print("Using: "+ bkgmethod)
+        print("Using: " + bkgmethod)
         print("---------------------------")
         print("SExtractor Background: " + str(np.mean(bkg.background)))
-        print("SExtractor Background(Filtered): " + str(np.mean(bkg.background))+"\n "+ "     " + "Box Size: " +"50x50" +"\n "+ "     " + "Filter Size: " +"3x3")
+        print("SExtractor Background(Filtered): " + str(np.mean(
+            bkg.background)) + "\n " + "     " + "Box Size: " + "50x50" + "\n " + "     " + "Filter Size: " + "3x3")
         print("Mean Background: " + str(bkg_value2))
         print("Median Background: " + str(bkg_value3))
-        #print("Mode Estimator Background: " + str(bkg_value4))
+        # print("Mode Estimator Background: " + str(bkg_value4))
         print("Remaining Background (subtracted): " + str(bg_rem))
         print("Polyfit Background: Not Implemented Yet")
-        
+
     else:
         return bkg
-    
+
+
 def ref_star_folder_read(refstars_doc):
-    
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
-    HIP= refstars["HIP"]
+    HIP = refstars["HIP"]
     erad = refstars["erad"]
-    edec= refstars["edec"]
-    vref= refstars["V"]
-    bvindex=refstars["(B-V)"]
-    vrindex=refstars["(V-R)"]
-    refstarsfin= np.column_stack((HIP, erad,edec,vref))
-    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+    edec = refstars["edec"]
+    vref = refstars["V"]
+    bvindex = refstars["(B-V)"]
+    vrindex = refstars["(V-R)"]
+    refstarsfin = np.column_stack((HIP, erad, edec, vref))
+    return HIP, erad, edec, vref, bvindex, vrindex, refstarsfin
 
 
+def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
+    refx = []
+    refy = []
+    vref2 = []
+    HIP2 = []
+    vrindexdet = []
+    bvindexdet = []
 
-def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
-    refx=[]
-    refy=[]
-    vref2=[]
-    HIP2=[]
-    vrindexdet=[]
-    bvindexdet=[]
-    
-    
     for s in range(89):
-        
+
         try:
-            f.SkyToXy(erad[s],edec[s]);
-            refSTAR_X  = f.ScratchX   #the x result of skytoxy
+            f.SkyToXy(erad[s], edec[s]);
+            refSTAR_X = f.ScratchX  # the x result of skytoxy
             refSTAR_Y = f.ScratchY
-            if refSTAR_X>0 and refSTAR_X<1900:
-                
+            if refSTAR_X > 0 and refSTAR_X < 1900:
                 refx.append(refSTAR_X)
                 refy.append(refSTAR_Y)
                 vref2.append(vref[s])
@@ -7384,132 +7423,130 @@ def ref_star_search(s,f,erad,edec, HIP, vref,bvindex,vrindex,refstarsfin):
                 bvindexdet.append(bvindex[s])
             # else:
             #   print("Star Found outside bounds of image")
-            #s=s+1
+            # s=s+1
         except:
             if s > 89:
                 print("Stop")
             # else:
             #     print('Pinpoint can''t process coords')
-                                                      
+
     nmstars = f.MatchedStars.Count
     mstars = f.MatchedStars;
-    print("Matched Stars:"+ str(nmstars))
+    print("Matched Stars:" + str(nmstars))
     print("Reference Stars Located:")
     print("")
-    for i in range(1,nmstars):
-            #print(i)
-            mstar = mstars.Item(i)
-            X_min = mstar.X - 0.5*mstar.Width
-            X_max = mstar.X + 0.5*mstar.Width
-            Y_min = mstar.Y - 0.5*mstar.Height
-            Y_max = mstar.Y + 0.5*mstar.Height
-            #print(i)
-            length = len(refx)
-            
-            exptime = f.ExposureInterval  
-            rawflux = mstar.RawFlux;            
-            Zp = f.MagZeroPoint;
-            
-            vmag= Zp - 2.5*(math.log10(rawflux/exptime))
-            #starx = mstar.X
-            #stary = mstar.Y
-            #print(vmag)
+    for i in range(1, nmstars):
+        # print(i)
+        mstar = mstars.Item(i)
+        X_min = mstar.X - 0.5 * mstar.Width
+        X_max = mstar.X + 0.5 * mstar.Width
+        Y_min = mstar.Y - 0.5 * mstar.Height
+        Y_max = mstar.Y + 0.5 * mstar.Height
+        # print(i)
+        length = len(refx)
 
-            for j in range(length):
-                #print("ref" +str(refx[j]))
-                #print(X_max)
-                if (refx[j] > X_min) and (refx[j] < X_max):
-                    if (refy[j] > Y_min) and (refy[j] < Y_max):
-                          if abs(vmag - vref2[j]) < 0.5:
-                                  
-                                  print("HIP: " +str(HIP2[j]))
-                                  print("Located at: X: " +str(mstar.X) + " Y: " + str(mstar.Y))
-                                  #print("matched X:" + str(X_max))
-                                  #print(str(vref2[j]))
-                                  #print(mstar.ColorMagnitude)
-                                  print("Reference Mag: "+str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
-                                  print("")
-                                  Bvtransform=(vref2[j]-vmag)/bvindexdet[j]
-                                  print("B-V Transform: " + str(Bvtransform))
-                                  Vrtransform=(vref2[j]-vmag)/vrindexdet[j]
-                                  print("V-R Transform: " + str(Vrtransform))
-    
-    
-    
+        exptime = f.ExposureInterval
+        rawflux = mstar.RawFlux;
+        Zp = f.MagZeroPoint;
+
+        vmag = Zp - 2.5 * (math.log10(rawflux / exptime))
+        # starx = mstar.X
+        # stary = mstar.Y
+        # print(vmag)
+
+        for j in range(length):
+            # print("ref" +str(refx[j]))
+            # print(X_max)
+            if (refx[j] > X_min) and (refx[j] < X_max):
+                if (refy[j] > Y_min) and (refy[j] < Y_max):
+                    if abs(vmag - vref2[j]) < 0.5:
+                        print("HIP: " + str(HIP2[j]))
+                        print("Located at: X: " + str(mstar.X) + " Y: " + str(mstar.Y))
+                        # print("matched X:" + str(X_max))
+                        # print(str(vref2[j]))
+                        # print(mstar.ColorMagnitude)
+                        print("Reference Mag: " + str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
+                        print("")
+                        Bvtransform = (vref2[j] - vmag) / bvindexdet[j]
+                        print("B-V Transform: " + str(Bvtransform))
+                        Vrtransform = (vref2[j] - vmag) / vrindexdet[j]
+                        print("V-R Transform: " + str(Vrtransform))
+
+
 def ref_read(refstars_doc):
-    
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
-    HIP= refstars["HIP"]
+    HIP = refstars["HIP"]
     erad = refstars["erad"]
-    edec= refstars["edec"]
-    vref= refstars["V"]
-    bvindex=refstars["(B-V)"]
-    vrindex=refstars["(V-R)"]
-    refstarsfin= np.column_stack((HIP, erad,edec,vref))
-    return HIP, erad,edec,vref,bvindex,vrindex,refstarsfin
+    edec = refstars["edec"]
+    vref = refstars["V"]
+    bvindex = refstars["(B-V)"]
+    vrindex = refstars["(V-R)"]
+    refstarsfin = np.column_stack((HIP, erad, edec, vref))
+    return HIP, erad, edec, vref, bvindex, vrindex, refstarsfin
+
 
 def pinpoint_init():
     f = win32com.client.Dispatch("Pinpoint.plate")
     return f
 
+
 def getFileList(inbox):
     filepathall = []
-    #directory = os.path.dirname(inbox)
-    list1 = os.listdir(inbox) #List of Files
-    listSize = len(list1) #Number of Files
+    # directory = os.path.dirname(inbox)
+    list1 = os.listdir(inbox)  # List of Files
+    listSize = len(list1)  # Number of Files
     print(listSize)
-    c=list1
+    c = list1
     print(c)
-    #o=0;
-    for i in range(1,listSize):
+    # o=0;
+    for i in range(1, listSize):
         print(c[i])
-        filepath2 = inbox+"\\"+c[i]
+        filepath2 = inbox + "\\" + c[i]
         filepathall.append(filepath2)
-        #o=o+1;
+        # o=o+1;
     return filepathall
-    #o=0;
+    # o=0;
+
+
 def fits_header_import(filepath, filter_key='FILTER'):
-        imagehdularray = fits.open(filepath)
-        header = imagehdularray[0].header
-        date=imagehdularray[0].header['DATE-OBS']
-        exposuretime=imagehdularray[0].header['EXPTIME']
-        imagesizeX=imagehdularray[0].header['NAXIS1']
-        imagesizeY=imagehdularray[0].header['NAXIS2']
-        fitsdata =  imagehdularray[0].data
-       # focal_Length=imagehdularray[0].header['FOCALLEN']
-        XPIXSZ=imagehdularray[0].header['XPIXSZ']
-        YPIXSZ=imagehdularray[0].header['YPIXSZ']
-        filt=imagehdularray[0].header['FILTER']
-        wcs = WCS(header)
-        return imagehdularray,date,exposuretime,imagesizeX,imagesizeY, fitsdata, filt,header, XPIXSZ, YPIXSZ, wcs
+    imagehdularray = fits.open(filepath)
+    header = imagehdularray[0].header
+    date = imagehdularray[0].header['DATE-OBS']
+    exposuretime = imagehdularray[0].header['EXPTIME']
+    imagesizeX = imagehdularray[0].header['NAXIS1']
+    imagesizeY = imagehdularray[0].header['NAXIS2']
+    fitsdata = imagehdularray[0].data
+    # focal_Length=imagehdularray[0].header['FOCALLEN']
+    XPIXSZ = imagehdularray[0].header['XPIXSZ']
+    YPIXSZ = imagehdularray[0].header['YPIXSZ']
+    filt = imagehdularray[0].header['FILTER']
+    wcs = WCS(header)
+    return imagehdularray, date, exposuretime, imagesizeX, imagesizeY, fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs
+
 
 def calc_ArcsecPerPixel(header):
-   focal_Length= header['FOCALLEN']
-   xpix_size=header['XPIXSZ']
-   ypix_size=header['XPIXSZ']
-   xbin=header['XPIXSZ']
-   ybin=header['XPIXSZ']
-   x_arcsecperpixel = 206.2648*((xpix_size)/ (focal_Length))
-   y_arcsecperpixel = 206.2648*((ypix_size)/ (focal_Length))
-   # x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
-   # y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
-   
-   return x_arcsecperpixel, y_arcsecperpixel
+    focal_Length = header['FOCALLEN']
+    xpix_size = header['XPIXSZ']
+    ypix_size = header['XPIXSZ']
+    xbin = header['XPIXSZ']
+    ybin = header['XPIXSZ']
+    x_arcsecperpixel = 206.2648 * ((xpix_size) / (focal_Length))
+    y_arcsecperpixel = 206.2648 * ((ypix_size) / (focal_Length))
+    # x_arcsecperpixel = math.atan(xpix_size/focal_Length)*3600*xbin
+    # y_arcsecperpixel = math.atan(ypix_size/focal_Length)*3600*ybin
 
-def edge_Protect (bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
-                    
-    bg_rem[1:edge_protect,1:edge_protect] = 0;
+    return x_arcsecperpixel, y_arcsecperpixel
+
+
+def edge_Protect(bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
+    bg_rem[1:edge_protect, 1:edge_protect] = 0;
     bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
     bg_rem[:, 1:edge_protect] = 0
     bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
     im_mean = np.mean(bg_rem)
-    im_rms=np.std(fitsdata)
-    
+    im_rms = np.std(fitsdata)
+
     return im_mean, bg_rem, im_rms
-
-
-
-
 
 # TODO: change the SCInstrMagLightCurve.py code into functions in this file.
