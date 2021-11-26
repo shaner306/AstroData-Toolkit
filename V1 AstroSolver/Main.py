@@ -441,7 +441,7 @@ Created on Mon May 31 12:35:34 2021
 @author: jmwawrow
 """
 
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor, all_sky_solve):
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor):
         f = pinpoint_init()
         filepathall = getFileList(inbox)
         file_suffix=".fits"
@@ -504,10 +504,7 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                             #print(f.CatalogStars.Count)
                             f.FindImageStars()
                             #print(f.ImageStars.Count)
-                            if not all_sky_solve:
-                                f.Solve()
-                            else:
-                                f.SolveAllSky()
+                            f.Solve()
                             f.UpdateFITS()
                             #print( f.MatchedStars.count)
                             #f.FindImageStars()
