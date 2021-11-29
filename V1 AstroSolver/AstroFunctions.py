@@ -27,7 +27,7 @@ import numpy
 import numpy as np
 import pandas as pd
 import scipy
-import win32com
+#import win32com
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
@@ -4159,7 +4159,6 @@ def TRM_sat_detection(filepath,
 
                 if (centroid_x[j] > 10) and (centroid_x[j] < (imagesizeX - 10)) and (centroid_y[j] > 10) and (
                         centroid_y[j] < (imagesizeY - 10)):
-
                     # mid_pix_val = bg_rem(round(cen_x),round(cen_y))
                     cenx = int(centroid_y[j])
                     ceny = int(centroid_x[j])
