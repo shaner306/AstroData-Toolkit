@@ -345,7 +345,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm, brightest=200)
+    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -6971,7 +6971,7 @@ def _sky_survey_calc(directory,
     save_loc = kwargs.get('save_loc')
     if not os.path.exists(save_loc):
         os.mkdir(save_loc)
-
+    
     # for dirpath, dirnames, filenames in os.walk(directory):
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
@@ -7068,6 +7068,12 @@ def _sky_survey_calc(directory,
                                                          azimuth,
                                                          elevation,
                                                          airmass)
+        if (file_num % 10) == 0:
+            star_aux_table = create_star_aux_table(star_aux_table_columns)
+            ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+            with open(os.path.join(save_loc, 'checkpoint.txt'), 'a') as f:
+                f.write(file_num)
+                f.write(filepath)
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     return star_aux_table
