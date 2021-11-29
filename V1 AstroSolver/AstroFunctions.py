@@ -6975,7 +6975,8 @@ def _sky_survey_calc(directory,
     # for dirpath, dirnames, filenames in os.walk(directory):
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
-    for file_num, filepath in enumerate(tqdm(file_paths)):
+    # TODO: Edit this line to properly read the checkpoint 
+    for file_num, filepath in enumerate(tqdm(file_paths[110:]), start=110):
         # filepath = os.path.join(dirpath, filename)
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
