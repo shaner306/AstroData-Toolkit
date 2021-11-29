@@ -7072,7 +7072,8 @@ def _sky_survey_calc(directory,
             star_aux_table = create_star_aux_table(star_aux_table_columns)
             ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
             with open(os.path.join(save_loc, 'checkpoint.txt'), 'a') as f:
-                f.write(file_num)
+                f.write(str(file_num))
+                f.write('\n')
                 f.write(filepath)
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
