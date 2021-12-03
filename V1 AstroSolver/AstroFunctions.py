@@ -2099,7 +2099,7 @@ def init_gb_transform_table_columns_AVG():
 
 
 def get_app_mag_and_index_AVG(stars_table, instr_filter):
-    if instr_filter == 'b':
+    if instr_filter == 'b' or instr_filter == 'u':
         colour_index = 'B-V'
         app_filter = 'B'
         app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
@@ -3012,7 +3012,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
         Name of the colour index to use when calculating the transform (e.g. B-V for b, V-R for r).
 
     """
-    if instr_filter == 'b':
+    if instr_filter == 'b' or instr_filter == 'u':
         colour_index = 'B-V'
         app_filter = 'B'
         app_mag = np.array(ref_star['V_ref'] + ref_star[colour_index])
@@ -3164,7 +3164,7 @@ def get_all_colour_indices(instr_filter):
         List of all of the colour indices to use when calculating the transforms.
 
     """
-    if instr_filter == 'b':
+    if instr_filter == 'b' or instr_filter == 'u':
         colour_indices = ['B-V']
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_indices = ['B-V', 'V-R', 'V-I']
@@ -3426,7 +3426,7 @@ def get_colour_index_lower(instr_filter):
         Colour index of the form 'xy'.
 
     """
-    if instr_filter == 'b':
+    if instr_filter == 'b' or instr_filter =='u':
         colour_index = 'B-V'
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
@@ -3542,6 +3542,10 @@ def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
         instr_filter = 'g'
         mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'b':
+        instr_filter = 'u'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
     c_fci = float(row_of_transforms['T_fCI']) - (float(row_of_transforms["k''_fCI"]) * airmass)
     return c_fci
 
@@ -3638,6 +3642,10 @@ def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index
     row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'v':
         instr_filter = 'g'
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+        row_of_transforms = gb_final_transforms[mask]
+    if len(row_of_transforms) == 0 and instr_filter == 'b':
+        instr_filter = 'u'
         mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
     z_prime_f = float(row_of_transforms['Z_f']) - (float(row_of_transforms["k'_f"]) * airmass)
@@ -3814,7 +3822,13 @@ def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_
                 positive_instr_mag = sat_table[CI[0]]
                 negative_instr_mag = sat_table[CI[1]]
             except KeyError:
-                table_ci = CI.replace('V', 'G')
+                # table_ci = CI.replace('V', 'G')
+                if 'v' in ci:
+                    table_ci = ci.replace('v', 'g')
+                else:
+                    table_ci = ci
+                if 'b' in ci:
+                    table_ci = table_ci.replace('b', 'u')
                 positive_instr_mag = sat_table[table_ci[0]]
                 negative_instr_mag = sat_table[table_ci[1]]
             lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
@@ -4855,17 +4869,17 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
     t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
     sat_information.sats_table['Time (JD)'][filenum] = t.jd
     try:
-        sat_information.sats_table['Filter'][filenum] = hdr['FILTER']
+        sat_information.sats_table['Filter'][filenum] = hdr['FILTER'][0]
     except KeyError:
         sat_information.sats_table['Filter'][filenum] = 'C'
     sat_information.uncertainty_table['Time (JD)'][filenum] = t.jd
     try:
-        sat_information.uncertainty_table['Filter'][filenum] = hdr['FILTER']
+        sat_information.uncertainty_table['Filter'][filenum] = hdr['FILTER'][0]
     except KeyError:
         sat_information.uncertainty_table['Filter'][filenum] = 'C'
     sat_information.sat_auxiliary_table['Time (JD)'][filenum] = t.jd
     try:
-        sat_information.sat_auxiliary_table['Filter'][filenum] = hdr['FILTER']
+        sat_information.sat_auxiliary_table['Filter'][filenum] = hdr['FILTER'][0]
     except KeyError:
         sat_information.sat_auxiliary_table['Filter'][filenum] = 'C'
     return sat_information
@@ -6380,7 +6394,8 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
         'e_V-R',
         'e_V-I'
     ]
-    exoatmospheric_table = Table(
+    # try:
+    exoatmospheric_table_begin = Table(
         names=[
             'Field',
             'Name',
@@ -6394,11 +6409,11 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
             'e_U-B',
             'e_V-R',
             'e_V-I',
-            'b B-V',
-            'g B-V',
-            'g V-R',
-            'g V-I',
-            'r V-R'
+            # 'b B-V',
+            # 'g B-V',
+            # 'g V-R',
+            # 'g V-I',
+            # 'r V-R'
         ],
         data=[
             np.empty(len(stars_table), dtype=object),
@@ -6413,12 +6428,22 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
             nan_array,
             nan_array,
             nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array
+            # nan_array,
+            # nan_array,
+            # nan_array,
+            # nan_array,
+            # nan_array
         ])
+    exoatmospheric_table_filter_ci_columns = []
+    for instr_filter in different_filter_list:
+        colour_indices_list = get_all_colour_indices(instr_filter)
+        for colour_index in colour_indices_list:
+            exoatmospheric_table_filter_ci_columns.append(f"{instr_filter} {colour_index}")
+    exoatmospheric_table_filter_ci_data = np.empty((len(nan_array), len(exoatmospheric_table_filter_ci_columns)))
+    exoatmospheric_table_filter_ci_data.fill(np.nan)
+    exoatmospheric_table_filter_ci = Table(names=exoatmospheric_table_filter_ci_columns,
+                                           data=exoatmospheric_table_filter_ci_data)
+    exoatmospheric_table = hstack((exoatmospheric_table_begin, exoatmospheric_table_filter_ci))
     i = 0
     for star in stars_table:
         for field in star_index_columns:
@@ -6448,6 +6473,77 @@ def exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_f
                 #     print(f"Exoatmospheric mag for {different_filter} and {colour_index}:")
                 #     print(f"{exoatmospheric_mag:0.3f}")
         i += 1
+    # except KeyError:
+    #     exoatmospheric_table = Table(
+    #         names=[
+    #             'Field',
+    #             'Name',
+    #             'V_ref',
+    #             'B-V',
+    #             'U-B',
+    #             'V-R',
+    #             'V-I',
+    #             'V_sigma',
+    #             'e_B-V',
+    #             'e_U-B',
+    #             'e_V-R',
+    #             'e_V-I',
+    #             'u B-V',
+    #             'g B-V',
+    #             'g V-R',
+    #             'g V-I',
+    #             'r V-R',
+    #             'i V-I'
+    #         ],
+    #         data=[
+    #             np.empty(len(stars_table), dtype=object),
+    #             np.empty(len(stars_table), dtype=object),
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array,
+    #             nan_array
+    #         ])
+    #     i = 0
+    #     for star in stars_table:
+    #         for field in star_index_columns:
+    #             exoatmospheric_table[field][i] = star[field]
+    #         # exoatmospheric_table['Name'][i] = star['Name']
+    #         for different_filter in different_filter_list:
+    #             colour_indices = get_all_colour_indices(different_filter)
+    #             x_column_name = f"X_{different_filter}"
+    #             for colour_index in colour_indices:
+    #                 mask = ((extinction_table_Warner['filter'] == different_filter) & (
+    #                             extinction_table_Warner['CI'] == colour_index))
+    #                 row_of_extinctions = extinction_table_Warner[mask]
+    #                 # if len(row_of_transforms) == 0 and instr_filter == 'v':
+    #                 #     instr_filter = 'g'
+    #                 #     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
+    #                 #     row_of_transforms = gb_final_transforms[mask]
+    #                 instr_mag = star[different_filter]
+    #                 X = star[x_column_name]
+    #                 CI = star[colour_index]
+    #                 k_primeprime = row_of_extinctions['k\'\'_fCI']
+    #                 k_prime = row_of_extinctions['k\'_f']
+    #                 exoatmospheric_mag = float(instr_mag - (k_prime * X) - (k_primeprime * X * CI))
+    #                 exoatmospheric_table[f"{different_filter} {colour_index}"][i] = exoatmospheric_mag
+    #                 # if different_filter == 'g':
+    #                 #     print(f"Instrumental mag for {different_filter} and {colour_index}:")
+    #                 #     print(f"{instr_mag:0.3f}")
+    #                 #     print(f"Exoatmospheric mag for {different_filter} and {colour_index}:")
+    #                 #     print(f"{exoatmospheric_mag:0.3f}")
+    #         i += 1
     # exoatmospheric_table.pprint(max_lines=-1, max_width=250)
     return exoatmospheric_table
 
@@ -6557,7 +6653,13 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
             negative_instr_mag = exoatmospheric_table[f"{ci[1]} {ci1_index}"]
             table_ci = ci
         except KeyError:
-            table_ci = ci.replace('v', 'g')
+            if 'v' in ci:
+                table_ci = ci.replace('v', 'g')
+            else:
+                table_ci = ci
+            if 'b' in ci:
+                table_ci = table_ci.replace('b', 'u')
+            # table_ci = ci.replace('v', 'g')
             ci0_index, _ = get_colour_index_lower(ci[0])
             ci1_index, _ = get_colour_index_lower(ci[1])
             positive_instr_mag = exoatmospheric_table[f"{table_ci[0]} {ci0_index}"]
@@ -6635,7 +6737,13 @@ def calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_
         negative_instr_mag = stars_table[ci[1]]
         table_ci = ci
     except KeyError:
-        table_ci = ci.replace('v', 'g')
+        if 'v' in ci:
+            table_ci = ci.replace('v', 'g')
+        else:
+            table_ci = ci
+        if 'b' in ci:
+            table_ci = table_ci.replace('b', 'u')
+        # table_ci = ci.replace('v', 'g')
         ci0_index, _ = get_colour_index_lower(ci[0])
         ci1_index, _ = get_colour_index_lower(ci[1])
         positive_instr_mag = stars_table[table_ci[0]]
@@ -6669,7 +6777,42 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
         'e_V-R',
         'e_V-I'
     ]
-    exoatmospheric_table_verify = Table(
+    # exoatmospheric_table_verify = Table(
+    #     names=[
+    #         'Field',
+    #         'Name',
+    #         'V_ref',
+    #         'B-V',
+    #         'U-B',
+    #         'V-R',
+    #         'V-I',
+    #         'V_sigma',
+    #         'e_B-V',
+    #         'e_U-B',
+    #         'e_V-R',
+    #         'e_V-I',
+    #         'b',
+    #         'g',
+    #         'r'
+    #     ],
+    #     data=[
+    #         np.empty(len(stars_table), dtype=object),
+    #         np.empty(len(stars_table), dtype=object),
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array,
+    #         nan_array
+    #     ])
+    exoatmospheric_table_begin = Table(
         names=[
             'Field',
             'Name',
@@ -6683,9 +6826,11 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
             'e_U-B',
             'e_V-R',
             'e_V-I',
-            'b',
-            'g',
-            'r'
+            # 'b B-V',
+            # 'g B-V',
+            # 'g V-R',
+            # 'g V-I',
+            # 'r V-R'
         ],
         data=[
             np.empty(len(stars_table), dtype=object),
@@ -6700,10 +6845,20 @@ def exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner, hidd
             nan_array,
             nan_array,
             nan_array,
-            nan_array,
-            nan_array,
-            nan_array
+            # nan_array,
+            # nan_array,
+            # nan_array,
+            # nan_array,
+            # nan_array
         ])
+    exoatmospheric_table_filter_columns = []
+    for instr_filter in different_filter_list:
+        exoatmospheric_table_filter_columns.append(f"{instr_filter}")
+    exoatmospheric_table_filter_data = np.empty((len(nan_array), len(exoatmospheric_table_filter_columns)))
+    exoatmospheric_table_filter_data.fill(np.nan)
+    exoatmospheric_table_filter = Table(names=exoatmospheric_table_filter_columns,
+                                           data=exoatmospheric_table_filter_data)
+    exoatmospheric_table_verify = hstack((exoatmospheric_table_begin, exoatmospheric_table_filter))
     i = 0
     for star in stars_table:
         for field in star_index_columns:
@@ -6760,6 +6915,7 @@ def apply_transforms_Warner(stars_table,
         mask = ((Warner_final_transform_table['filter'] == different_filter) & (
                     Warner_final_transform_table['CI'] == colour_index))
         row_of_extinctions = Warner_final_transform_table[mask]
+        # print(row_of_extinctions)
         t_fci = float(row_of_extinctions["T_fCI"])
         z_f = float(row_of_extinctions["Z_f"])
         # print(exoatmospheric_mag)
@@ -6864,10 +7020,13 @@ def _main_gb_transform_calc_Warner(directory,
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
-            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
-                                                      elev_key='OBSGEO-H')
+            # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
+            #                                           elev_key='OBSGEO-H')
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
+                                                      elev_key='SITEELEV')
         except AttributeError as e:
-            print(e)
+            # print(e)
+            warn("No plate solution found for the current image. Moving on to the next one.")
             continue
         fwhms_arcsec, fwhm_arcsec, fwhms_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
@@ -6929,6 +7088,7 @@ def _main_gb_transform_calc_Warner(directory,
     Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list,
                                                                        extinction_table_Warner, save_plots,
                                                                        save_loc=save_loc)
+    ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
     Warner_final_transform_table.pprint(max_lines=-1, max_width=250)
     hidden_transform_table = hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table,
                                                      different_filter_list, save_plots, save_loc=save_loc)
@@ -6936,7 +7096,6 @@ def _main_gb_transform_calc_Warner(directory,
                                                                     hidden_transform_table, different_filter_list)
     apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table,
                             hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
-    ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
     ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
 

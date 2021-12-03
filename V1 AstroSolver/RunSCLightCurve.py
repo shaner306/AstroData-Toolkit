@@ -13,8 +13,8 @@ import os
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-03-20 - Calibrated\Intelsat 10-02\Test'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
-directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Intelsat 10-02\corrected_lights'
-directory = r'Z:\2021-04-21 - unprocessed\Intelsat 10-02\corrected_lights'
+# directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Intelsat 10-02\corrected_lights'
+directory = r'F:\Intelsat 10-02\2021-11-21\Intelsat 10-02'
 
 # transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
 # transforms_file = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Stars\corrected_lights\Outputs\_gb_final_transforms.csv'
@@ -43,7 +43,7 @@ plot_results = 0
 # for subfolder in reversed(subfolder_list):
 # print(subfolder)
 # transforms_file = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights\\Outputs_Warner\\_gb_final_transforms.csv'
-transforms_file = r"Z:\2021-04-21 - unprocessed\Stars\corrected_lights\Outputs_Warner\_gb_final_transforms.csv"
+transforms_file = r"F:\Intelsat 10-02\2021-11-21\Landolt Stars\Outputs_Warner\_gb_final_transforms.csv"
 gb_final_transforms = ascii.read(transforms_file)
 # directory = f"F:\\Intelsat 10-02\\{subfolder}\\Intelsat 10-02\\corrected_lights"
 save_loc = os.path.join(directory, 'Outputs_Warner_Test')
