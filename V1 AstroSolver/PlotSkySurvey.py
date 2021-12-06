@@ -15,7 +15,7 @@ import numpy as np
 from astropy.time import Time
 import matplotlib.dates as mdates
 
-survey_file = r"C:\Users\jack.wawrow\Documents\2021 10 21 - ZWO with C8\2021 10 21 - Pointing Run\corrected_lights\Outputs_SkySurvey\auxiliary_table.csv"
+survey_file = r"C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\ZWO\To solve\Outputs_SkySurvey\auxiliary_table.csv"
 # survey_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Sky Survey\Automated Pointing Run 004\Outputs_SkySurvey\auxiliary_table.csv"
 star_aux_table = ascii.read(survey_file)
 
@@ -34,17 +34,17 @@ custom_cmap = matplotlib.colors.LinearSegmentedColormap.from_list("",
 # m.set_array([])
 # plt.colorbar(m)
 norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7), vmax=max(z[~np.isnan(z)]))
-m = cm.ScalarMappable(cmap=plt.get_cmap('Greys'), norm=norm)
+m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
 m.set_array([])
 plt.colorbar(m)
 # Change contourf in the line below to scatter if you have only 1D theta, r and brightness values
-ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=plt.get_cmap('Greys'), norm=norm)
+ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=plt.get_cmap('viridis_r'), norm=norm)
 # ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=custom_cmap, norm=norm)
 # ax.tricontourf(theta[~np.isnan(z)], r[~np.isnan(z)], z[~np.isnan(z)], cmap=custom_cmap, norm=norm)
 rlabels = ax.get_ymajorticklabels()
 for label in rlabels:
 	label.set_color('black')
-# plt.savefig(r'C:\Users\jack.wawrow\Documents\2021 10 21 - ZWO with C8\2021 10 21 - Pointing Run\corrected_lights\Outputs_SkySurvey\BSB_plot_BW')
+# plt.savefig(r'C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\ZWO\To solve\Outputs_SkySurvey\BSB_plot_virdis')
 plt.show()
 plt.close()
 
