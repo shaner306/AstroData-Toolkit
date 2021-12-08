@@ -5,7 +5,8 @@
 To run the Image Processor “AstroSolver”, run the GUI python script. The GUI will open a popup window displaying the following screen.
 
 
-[image:157A5259-738C-4722-9417-2FACCB94271E-42252-0000059F1918C50C/AA354318-3DDD-4018-B6D3-0CE999D718E1.png]
+![AA354318-3DDD-4018-B6D3-0CE999D718E1](https://user-images.githubusercontent.com/75094714/145273674-39e4da25-4b04-4802-be28-cbdc1fc8f64a.png)
+
 
 This screen allows you to adjust the parameters and inputs that will be processed. 
 
