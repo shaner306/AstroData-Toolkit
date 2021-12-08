@@ -56,8 +56,8 @@ def Gui ():
     #column2.update(disabled=True)
     
     tab1_layout = [
-    [sg.T("AstroSolver Processor")],[sg.T("Version 0.1")], [sg.T("   ")],
-              [sg.Text("Image Folder:      "), 
+    [sg.T("Input Folders")], [sg.T("   ")],
+              [sg.Text("Image Folder:      "),
                sg.Input("D:\Solved Stars\Tycho 3023_1724", key="-IN2-" ,change_submits=True), 
                sg.FolderBrowse(key="-IN1-"), sg.Text('')],
               [sg.Text("Catalog Folder:    "), 
