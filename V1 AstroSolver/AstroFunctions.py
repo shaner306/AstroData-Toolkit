@@ -7171,21 +7171,10 @@ def _main_gb_transform_calc_Warner(directory,
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
                 filecount += 1
-    # filenames = sorted(os.listdir(temp_dir))
-
-    # for dirpath, dirnames, filenames in os.walk(directory):
-    #     for filename in tqdm(filenames):
-    #         if filename.endswith(file_suffix):
-    # for dirpath, dirnames, filenames in os.walk(directory):
-    #     for filename in filenames:
-    #         if filename.endswith(file_suffix):
-    #             filepath = os.path.join(dirpath, filename)
     "Split the files into those for calculation and those for verification."
     shuffle(file_paths)
     split_decimal = 0.7
     split_filecount_location = math.ceil(split_decimal * filecount)
-    # print(random_filepaths)
-    # print(split_filecount_location)
     calculation_files = file_paths[:split_filecount_location]
     verification_files = file_paths[split_filecount_location:]
     with open(os.path.join(save_loc, 'CalculationVerificationSplit.txt'), 'a') as f:
@@ -7194,7 +7183,6 @@ def _main_gb_transform_calc_Warner(directory,
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
-    # for file_num, filepath in enumerate(tqdm(file_paths)):
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         hdr, imgdata = read_fits_file(filepath)
@@ -7223,8 +7211,6 @@ def _main_gb_transform_calc_Warner(directory,
             # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
             #                                           elev_key='SITEELEV')
         except AttributeError as e:
-            # print(e)
-            # warn("No plate solution found for the current image. Moving on to the next one.")
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
                 f.write('\t')
@@ -7239,7 +7225,6 @@ def _main_gb_transform_calc_Warner(directory,
             fwhms_arcsec_std = np.nan
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
-        # time = hdr['DATE-OBS']
         img_filter = hdr['FILTER']
         background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime)
         background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
@@ -7287,7 +7272,6 @@ def _main_gb_transform_calc_Warner(directory,
         f.write('Total excluded:')
         f.write('\t')
         f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
-        # f.write('\n')
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
@@ -7296,11 +7280,6 @@ def _main_gb_transform_calc_Warner(directory,
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
     stars_table.pprint(max_lines=-1, max_width=250)
-    # if save_plots:
-    #     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
-    # unique_stars = table.unique(stars_table, keys='Name')
-    # list_of_stars = list(unique_stars['Name'])
-    # print(list_of_stars)
     slopes_table = calculate_slopes_Warner(stars_table, different_filter_list, save_plots, save_loc=save_loc)
     extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots,
                                                                   save_loc=save_loc)
@@ -7327,8 +7306,6 @@ def _main_gb_transform_calc_Warner(directory,
                                               exposure_key=exposure_key,
                                               name_key=name_key,
                                               save_loc=verify_save_loc)
-    # apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table,
-    #                         hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
 
