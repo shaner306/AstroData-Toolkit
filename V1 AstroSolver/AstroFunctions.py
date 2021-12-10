@@ -495,6 +495,8 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     except KeyError:
         print("FWHM in pixels.")
         fwhms_arcsec = fwhms
+        fwhm_arcsec = None
+        fwhm_std_arcsec = None
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
@@ -6337,8 +6339,8 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             k_primeprime_sigma_column.append(m_sigma)
             k_prime_sigma_column.append(b_sigma)
             # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
-            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', fillstyle='none',
-                     label="Clipped Data")
+            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o', 
+                     fillstyle='none', label="Clipped Data")
             plt.plot(slopes_table[colour_index][~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
             plt.plot(ci_plot, m * ci_plot + b, '-', label=f"k''={m:0.3f}, k'={b:0.3f}")
             plt.ylabel(different_filter)
@@ -6657,13 +6659,19 @@ def hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table, 
                 table_ci = ci.replace('v', 'g')
             else:
                 table_ci = ci
-            if 'b' in ci:
-                table_ci = table_ci.replace('b', 'u')
-            # table_ci = ci.replace('v', 'g')
-            ci0_index, _ = get_colour_index_lower(ci[0])
-            ci1_index, _ = get_colour_index_lower(ci[1])
-            positive_instr_mag = exoatmospheric_table[f"{table_ci[0]} {ci0_index}"]
-            negative_instr_mag = exoatmospheric_table[f"{table_ci[1]} {ci1_index}"]
+            try:
+                ci0_index, _ = get_colour_index_lower(ci[0])
+                ci1_index, _ = get_colour_index_lower(ci[1])
+                positive_instr_mag = exoatmospheric_table[f"{table_ci[0]} {ci0_index}"]
+                negative_instr_mag = exoatmospheric_table[f"{table_ci[1]} {ci1_index}"]
+            except KeyError:
+                if 'b' in ci:
+                    table_ci = table_ci.replace('b', 'u')
+                # table_ci = ci.replace('v', 'g')
+                ci0_index, _ = get_colour_index_lower(ci[0])
+                ci1_index, _ = get_colour_index_lower(ci[1])
+                positive_instr_mag = exoatmospheric_table[f"{table_ci[0]} {ci0_index}"]
+                negative_instr_mag = exoatmospheric_table[f"{table_ci[1]} {ci1_index}"]
         instr_colour_index_mags = positive_instr_mag - negative_instr_mag
         standard_colour_index_mags = exoatmospheric_table[colour_index]
         # plt.plot(instr_colour_index_mags, standard_colour_index_mags, 'o')
@@ -6741,13 +6749,19 @@ def calculate_standard_CI_Warner(stars_table, hidden_transform_table, different_
             table_ci = ci.replace('v', 'g')
         else:
             table_ci = ci
-        if 'b' in ci:
-            table_ci = table_ci.replace('b', 'u')
-        # table_ci = ci.replace('v', 'g')
-        ci0_index, _ = get_colour_index_lower(ci[0])
-        ci1_index, _ = get_colour_index_lower(ci[1])
-        positive_instr_mag = stars_table[table_ci[0]]
-        negative_instr_mag = stars_table[table_ci[1]]
+        try:
+            ci0_index, _ = get_colour_index_lower(ci[0])
+            ci1_index, _ = get_colour_index_lower(ci[1])
+            positive_instr_mag = stars_table[table_ci[0]]
+            negative_instr_mag = stars_table[table_ci[1]]
+        except KeyError:
+            if 'b' in ci:
+                table_ci = table_ci.replace('b', 'u')
+            # table_ci = ci.replace('v', 'g')
+            ci0_index, _ = get_colour_index_lower(ci[0])
+            ci1_index, _ = get_colour_index_lower(ci[1])
+            positive_instr_mag = stars_table[table_ci[0]]
+            negative_instr_mag = stars_table[table_ci[1]]
     instr_colour_index_mags = positive_instr_mag - negative_instr_mag
     mask = ((hidden_transform_table['Apparent CI'] == colour_index) & (
                 hidden_transform_table['Instrumental CI'] == table_ci))
@@ -6965,6 +6979,154 @@ def apply_transforms_Warner(stars_table,
         plt.close()
 
 
+def verify_gb_transforms_auto(directory,
+                         stars_list,
+                         ref_stars_file,
+                         gb_final_transforms,
+                         hidden_transform_table,
+                         plot_results=False,
+                         save_plots=False,
+                         file_suffix=".fits",
+                         exposure_key='EXPTIME',
+                         name_key='Name',
+                         **kwargs):
+    # TODO: Docstring.
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
+        # unique_id = kwargs.get('unique_id')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
+
+    for file_num, filepath in enumerate(tqdm(stars_list)):
+        # filepath = os.path.join(dirpath, filename)
+        hdr, imgdata = read_fits_file(filepath)
+        exptime = hdr[exposure_key]
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if not irafsources:
+            continue
+        _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+        fluxes = np.array(photometry_result['flux_fit'])
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        wcs = WCS(hdr)
+        skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+        try:
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
+                                                      elev_key='OBSGEO-H')
+            # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
+            #                                           elev_key='SITEELEV')
+        except AttributeError as e:
+            print(e)
+            continue
+        matched_stars = find_ref_stars(reference_stars,
+                                       ref_star_positions,
+                                       skypositions,
+                                       instr_mags,
+                                       instr_mags_sigma,
+                                       fluxes,
+                                       ground_based=True,
+                                       altazpositions=altazpositions)
+        if not matched_stars:
+            continue
+
+        large_table_columns = update_large_table_columns(large_table_columns,
+                                                         matched_stars,
+                                                         hdr,
+                                                         exptime,
+                                                         ground_based=True,
+                                                         name_key=name_key)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
+    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    # print(different_filter_list)
+    exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, 
+                                                                    gb_final_transforms, 
+                                                                    hidden_transform_table, 
+                                                                    different_filter_list)
+    warner_verfication = apply_transforms_Warner(stars_table, 
+                                                 exoatmospheric_table_verify, 
+                                                 gb_final_transforms, 
+                                                 hidden_transform_table, 
+                                                 different_filter_list, 
+                                                 save_plots=save_plots, 
+                                                 save_loc=save_loc)
+    stars_table.pprint(max_lines=30, max_width=200)
+
+    # instr_filters = ['b', 'v', 'r', 'i']
+    app_mag_table = Table(stars_table[
+                              'Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma', 'e_B-V', 'e_U-B', 'e_V-R', 'e_V-I'])
+    for instr_filter in different_filter_list:
+        app_mag_filter = instr_filter.upper()
+        app_filter_sigma = f"{app_mag_filter}_sigma"
+        app_mag_table_filter = apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter)
+        app_mag_table = hstack([app_mag_table, app_mag_table_filter[app_mag_filter, app_filter_sigma]])
+
+    app_mag_table.pprint(max_lines=30, max_width=200)
+    import matplotlib.pyplot as plt
+    # import matplotlib
+    # matplotlib.use('TkAgg')
+    for instr_filter in different_filter_list:
+        app_filter = instr_filter.upper()
+        try:
+            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index_AVG(app_mag_table, instr_filter)
+        except KeyError:
+            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index(app_mag_table, instr_filter)
+        app_filter_sigma = f"{app_filter}_sigma"
+        x = ref_app_mag
+        x_err = ref_app_mag_sigma
+        y = app_mag_table[app_filter]
+        # y_err = app_mag_table[app_filter_sigma]
+        max_y_err = max(app_mag_table[app_filter_sigma])
+        # print(max_y_err)
+        y_err = np.nan_to_num(app_mag_table[app_filter_sigma], nan=max_y_err)
+        y_err = np.array(y_err)
+        y_err[y_err == 0] = max_y_err
+        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
+        x_nan_indices = np.isnan(x)
+        y_nan_indices = np.isnan(y)
+        nan_indices = (x_nan_indices | y_nan_indices)
+        # try:
+        fitted_line, mask = or_fit(line_init, x[~nan_indices], y[~nan_indices])#, weights=1.0/y_err[~nan_indices])
+        filtered_data = np.ma.masked_array(y[~nan_indices], mask=mask)
+        m = fitted_line.slope.value
+        b = fitted_line.intercept.value
+        # fitted_line, mask = or_fit(line_init, x, y, weights=1.0/y_err)
+        # filtered_data = np.ma.masked_array(y, mask=mask)
+        # m = fitted_line.slope.value
+        # b = fitted_line.intercept.value
+        # if m == 1 and b == 0:
+        #     fitted_line, mask = or_fit(line_init, x, y)
+        #     filtered_data = np.ma.masked_array(y, mask=mask)
+        #     m = fitted_line.slope.value
+        #     b = fitted_line.intercept.value
+        # except TypeError as e:
+        #     print(e)
+        #     continue
+        plt.errorbar(x[~nan_indices], y[~nan_indices], yerr=y_err[~nan_indices], fmt='o', fillstyle='none', capsize=0, label="Clipped Data")
+        plt.plot(x[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+        plt.plot(x[~nan_indices], m * x[~nan_indices] + b, '-', label=f'y={m:.3f}x+{b:.3f}')
+        plt.plot(x[~nan_indices], x[~nan_indices], '-', label='y=x')
+        plt.title('Calculated Magnitude vs. Reference Magnitude')
+        plt.ylabel(f"{app_filter} (Calculated)")
+        plt.xlabel(f"{app_filter} (Reference)")
+        plt.legend()
+        if save_plots:
+            save_filename = f"{os.path.join(save_loc, f'{app_filter}_CalcVsRefMag')}.png"
+            ascii.write(app_mag_table, os.path.join(save_loc, 'app_mag_table.csv'), format='csv')
+            # print(save_filename)
+        plt.savefig(save_filename)
+        if plot_results:
+            plt.show(block=True)
+        plt.close()
+    return app_mag_table
+
+from random import shuffle
+
 def _main_gb_transform_calc_Warner(directory,
                                    ref_stars_file,
                                    plot_results=False,
@@ -6975,16 +7137,31 @@ def _main_gb_transform_calc_Warner(directory,
                                    **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
+    
+    """
+    Perform all of the beginning operations.
+    Create the refrence stars table and read their positions.
+    Initialize empty arrays for the star information and auxiliary info.
+    """
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
     star_aux_table_columns = init_star_aux_table_columns()
-
+    
+    "Create the save location if the one specified by the user doesn't exist."
     if save_plots:
         save_loc = kwargs.get('save_loc')
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-
+            
+    "Create the text file for logging problem files."
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('File')
+        f.write('\t')
+        f.write('Reason')
+        f.write('\n')
+    "Create an array of all .fits files in the directory (including subfolders)."
+    excluded_files = 0
     filecount = 0
     file_paths = []
     file_names = []
@@ -6993,7 +7170,7 @@ def _main_gb_transform_calc_Warner(directory,
             if file.endswith(file_suffix):
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
-    #             filecount += 1
+                filecount += 1
     # filenames = sorted(os.listdir(temp_dir))
 
     # for dirpath, dirnames, filenames in os.walk(directory):
@@ -7003,13 +7180,34 @@ def _main_gb_transform_calc_Warner(directory,
     #     for filename in filenames:
     #         if filename.endswith(file_suffix):
     #             filepath = os.path.join(dirpath, filename)
-
-    for file_num, filepath in enumerate(tqdm(file_paths)):
+    "Split the files into those for calculation and those for verification."
+    shuffle(file_paths)
+    split_decimal = 0.7
+    split_filecount_location = math.ceil(split_decimal * filecount)
+    # print(random_filepaths)
+    # print(split_filecount_location)
+    calculation_files = file_paths[:split_filecount_location]
+    verification_files = file_paths[split_filecount_location:]
+    with open(os.path.join(save_loc, 'CalculationVerificationSplit.txt'), 'a') as f:
+        f.write('File Path'+'\t'+'Calculation/Verification')
+        for calc_file in calculation_files:
+            f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
+        for verify_file in verification_files:
+            f.write('\n'+f'{verify_file}'+'\t'+'Verification')
+    # for file_num, filepath in enumerate(tqdm(file_paths)):
+    "Iterate over the images."
+    for file_num, filepath in enumerate(tqdm(calculation_files)):
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = calculate_img_bkg(imgdata)
         irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No sources detected')
+                f.write('\n')
+            excluded_files += 1
             continue
         num_sources = len(irafsources)
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
@@ -7020,15 +7218,25 @@ def _main_gb_transform_calc_Warner(directory,
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
-            # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
-            #                                           elev_key='OBSGEO-H')
-            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
-                                                      elev_key='SITEELEV')
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
+                                                      elev_key='OBSGEO-H')
+            # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG',
+            #                                           elev_key='SITEELEV')
         except AttributeError as e:
             # print(e)
-            warn("No plate solution found for the current image. Moving on to the next one.")
+            # warn("No plate solution found for the current image. Moving on to the next one.")
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No plate solution found')
+                f.write('\n')
+                excluded_files += 1
             continue
+        
         fwhms_arcsec, fwhm_arcsec, fwhms_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        if not fwhm_arcsec:
+            fwhm_arcsec = np.nan
+            fwhms_arcsec_std = np.nan
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
         # time = hdr['DATE-OBS']
@@ -7061,6 +7269,12 @@ def _main_gb_transform_calc_Warner(directory,
                                        ground_based=True,
                                        altazpositions=altazpositions)
         if not matched_stars:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No reference star found in image')
+                f.write('\n')
+                excluded_files += 1
             continue
 
         large_table_columns = update_large_table_columns(large_table_columns,
@@ -7069,11 +7283,18 @@ def _main_gb_transform_calc_Warner(directory,
                                                          exptime,
                                                          ground_based=True,
                                                          name_key=name_key)
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('Total excluded:')
+        f.write('\t')
+        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+        # f.write('\n')
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
     stars_table.pprint(max_lines=-1, max_width=250)
     # if save_plots:
     #     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
@@ -7094,8 +7315,20 @@ def _main_gb_transform_calc_Warner(directory,
                                                      different_filter_list, save_plots, save_loc=save_loc)
     exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner,
                                                                     hidden_transform_table, different_filter_list)
-    apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table,
-                            hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
+    verify_save_loc = os.path.join(save_loc, 'Verification')
+    app_mag_table = verify_gb_transforms_auto(directory, 
+                                              verification_files, 
+                                              ref_stars_file, 
+                                              Warner_final_transform_table, 
+                                              hidden_transform_table,
+                                              plot_results=True,
+                                              save_plots=True,
+                                              file_suffix=file_suffix,
+                                              exposure_key=exposure_key,
+                                              name_key=name_key,
+                                              save_loc=verify_save_loc)
+    # apply_transforms_Warner(stars_table, exoatmospheric_table_verify, Warner_final_transform_table,
+    #                         hidden_transform_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
     return large_stars_table
 
@@ -7134,7 +7367,7 @@ def _sky_survey_calc(directory,
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
     # TODO: Edit this line to properly read the checkpoint 
-    for file_num, filepath in enumerate(tqdm(file_paths[110:]), start=110):
+    for file_num, filepath in enumerate(tqdm(file_paths[100:]), start=100):
         # filepath = os.path.join(dirpath, filename)
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
@@ -7234,6 +7467,7 @@ def _sky_survey_calc(directory,
                 f.write(str(file_num))
                 f.write('\n')
                 f.write(filepath)
+                f.write('\n')
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
     return star_aux_table

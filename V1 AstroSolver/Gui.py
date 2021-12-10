@@ -213,9 +213,24 @@ def Gui ():
             if values["-IN91-"]==True:
                 if values["-IN82-"]==True:
                     try:
-                
-                        Main.Ground_based_transforms(image_dir,refstar_dir)
-                        print (image_dir,refstar_dir)
+                        plot_results = True
+                        save_plots = True
+                        file_suffix = ".fit"
+                        exposure_key = 'EXPTIME'
+                        name_key = 'Name'
+                        unique_id = 'GBO'
+                        save_loc = os.path.join(image_dir, 'Outputs_Warner_verification_check')
+                        large_stars_table = astro._main_gb_transform_calc_Warner(image_dir, 
+                                                                                 refstar_dir, 
+                                                                                 plot_results=plot_results, 
+                                                                                 save_plots=save_plots,
+                                                                                 file_suffix=file_suffix, 
+                                                                                 exposure_key=exposure_key,  
+                                                                                 name_key=name_key,
+                                                                                 save_loc=save_loc,
+                                                                                 unique_id=unique_id)
+                        # Main.Ground_based_transforms(image_dir,refstar_dir)
+                        # print (image_dir,refstar_dir)
                         window.close()
                     except Exception as e:
                         print(e)

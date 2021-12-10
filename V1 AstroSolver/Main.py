@@ -10,7 +10,8 @@ import PySimpleGUI as sg
 import numpy as np
 import pandas as pd
 import tqdm
-#import win32com
+import win32com
+import win32com.client
 from astropy.io import fits
 from astropy.stats import SigmaClip
 from astropy.wcs import WCS
@@ -403,10 +404,10 @@ remove_large_airmass = False
 image_reduce = False # Reduce Images before Solving
 
 # Function #1: Pinpoint Solving
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor):
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor, all_sky_solve):
     f = pinpoint_init()
     filepathall = getFileList(inbox)
-    file_suffix = ".fits"
+    file_suffix = ".fit"
 
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
