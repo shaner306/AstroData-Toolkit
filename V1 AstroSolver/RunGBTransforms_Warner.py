@@ -22,7 +22,7 @@ ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference S
 
 plot_results = True
 save_plots = True
-file_suffix = ".fit"
+file_suffix = ".fits"
 exposure_key = 'EXPTIME'
 name_key = 'Name'
 
@@ -54,9 +54,9 @@ subfolder = '2021-04-21'
 print(subfolder)
 unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
+directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-directory = r'D:\ORC GBO\Transforms\2021-05-18'
+# directory = r'D:\Intelsat 10-02\2021-04-25\Stars\corrected_lights'
 save_loc = os.path.join(directory, 'Outputs_Warner_verification_check')
 # try:
 large_stars_table = astro._main_gb_transform_calc_Warner(directory, 
