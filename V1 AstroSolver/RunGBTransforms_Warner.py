@@ -25,6 +25,9 @@ save_plots = True
 file_suffix = ".fits"
 exposure_key = 'EXPTIME'
 name_key = 'Name'
+lat_key = 'SITELAT'
+lon_key = 'SITELONG'
+elev_key = 'SITEELEV'
 
 # subfolder_list = [
 #     # '2020 10 23 - 2x2 - unprocessed', 
@@ -54,10 +57,10 @@ subfolder = '2021-04-21'
 print(subfolder)
 unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
+# directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-# directory = r'D:\Intelsat 10-02\2021-04-25\Stars\corrected_lights'
-save_loc = os.path.join(directory, 'Outputs_Warner_verification_check')
+directory = r'D:\Intelsat 10-02\2021-09-17\corrected_lights\ALL_STARS'
+save_loc = os.path.join(directory, 'Outputs_Warner_axis_legend_check')
 # try:
 large_stars_table = astro._main_gb_transform_calc_Warner(directory, 
                                                          ref_stars_file, 
@@ -66,6 +69,9 @@ large_stars_table = astro._main_gb_transform_calc_Warner(directory,
                                                          file_suffix=file_suffix, 
                                                          exposure_key=exposure_key,  
                                                          name_key=name_key,
+                                                         lat_key=lat_key,
+                                                         lon_key=lon_key,
+                                                         elev_key=elev_key,
                                                          save_loc=save_loc,
                                                          unique_id=unique_id)
 end_time = time.time()

@@ -219,6 +219,9 @@ def Gui ():
                         exposure_key = 'EXPTIME'
                         name_key = 'Name'
                         unique_id = 'GBO'
+                        lat_key = 'SITELAT'
+                        lon_key = 'SITELONG'
+                        elev_key = 'SITEELEV'
                         save_loc = os.path.join(image_dir, 'Outputs_Warner_verification_check')
                         large_stars_table = astro._main_gb_transform_calc_Warner(image_dir, 
                                                                                  refstar_dir, 
@@ -227,6 +230,9 @@ def Gui ():
                                                                                  file_suffix=file_suffix, 
                                                                                  exposure_key=exposure_key,  
                                                                                  name_key=name_key,
+                                                                                 lat_key=lat_key,
+                                                                                 lon_key=lon_key,
+                                                                                 elev_key=elev_key,
                                                                                  save_loc=save_loc,
                                                                                  unique_id=unique_id)
                         # Main.Ground_based_transforms(image_dir,refstar_dir)

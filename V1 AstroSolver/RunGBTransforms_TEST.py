@@ -8,6 +8,11 @@ Created on Thu Aug  5 10:49:48 2021
 import AstroFunctions as astro
 import os
 from astropy.io import ascii
+import warnings
+warnings.filterwarnings('ignore')
+# from astropy.wcs import FITSFixedWarning
+# warnings.filterwarnings('default', category=FITSFixedWarning)
+warnings.filterwarnings('default', category=UserWarning)
 
 # subfolder_list = [
 #     '2021-03-20 - unprocessed'
@@ -43,7 +48,8 @@ from astropy.io import ascii
 #     ]
 
 
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
+# ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
+ref_stars_file = r"C:\Users\jack.wawrow\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_Apr29.txt"
 # ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 
 plot_results = True
@@ -57,8 +63,8 @@ subfolder = '2021-09-17'
 print(subfolder)
 unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
-save_loc = os.path.join(directory, 'Outputs_NEW_NoLargeAirmass')
+directory = r'D:\Intelsat 10-02\2021-04-25\Stars\corrected_lights'
+save_loc = os.path.join(directory, 'Outputs_Boyd')
 
 sb_final_transform_table = astro._main_gb_transform_calc_TEST(directory, 
                                                          ref_stars_file, 
