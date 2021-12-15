@@ -215,15 +215,23 @@ def Gui ():
                     try:
                         plot_results = True
                         save_plots = True
-                        file_suffix = ".fit"
                         exposure_key = 'EXPTIME'
                         name_key = 'Name'
                         unique_id = 'GBO'
+                        # For St. John's
+                        ## Uncomment these lines if you are processing data from St. John's.
+                        file_suffix = ".fits"
                         lat_key = 'SITELAT'
                         lon_key = 'SITELONG'
                         elev_key = 'SITEELEV'
+                        # For ORC GBO
+                        ## Uncomment these lines if you are processing data from the ORC GBO.
+                        # file_suffix = ".fit"
+                        # lat_key = 'OBSGEO-B'
+                        # lon_key = 'OBSGEO-L'
+                        # elev_key = 'OBSGEO-H'
                         save_loc = os.path.join(image_dir, 'Outputs_Warner_verification_check')
-                        large_stars_table = astro._main_gb_transform_calc_Warner(image_dir, 
+                        Warner_final_transform_table = astro._main_gb_transform_calc_Warner(image_dir, 
                                                                                  refstar_dir, 
                                                                                  plot_results=plot_results, 
                                                                                  save_plots=save_plots,

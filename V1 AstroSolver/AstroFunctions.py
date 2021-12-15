@@ -7215,10 +7215,15 @@ def _main_gb_transform_calc_Warner(directory,
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
+        # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
+        # Read the exposure time of the image.
         exptime = hdr[exposure_key]
+        # Calculate the image background and standard deviation.
         bkg, bkg_std = calculate_img_bkg(imgdata)
+        # Detect point sources in the image.
         irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -7227,19 +7232,31 @@ def _main_gb_transform_calc_Warner(directory,
                 f.write('\n')
             excluded_files += 1
             continue
+        # Calculate the number of point sources detected.
         num_sources = len(irafsources)
+        # Calculate the FWHM in pixels.
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        # Do PSF photometry on the detected sources.
         photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+        # Store the flux of the stars in a separate variable.
         fluxes = np.array(photometry_result['flux_fit'])
+        # Convert the flux and uncertainty to magnitude and its uncertainty.
         instr_mags = calculate_magnitudes(photometry_result, exptime)
         instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        # Read the World Coordinate System transformation added to the fits header
+        # by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
+        # Convert the stars' (x,y) location to (RA,dec).
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
             # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
             #                                           elev_key='OBSGEO-H')
+            
+            # Convert the stars' (RA,dec) location to (Azimuth,Elevation).
             altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key,
                                                       elev_key=elev_key)
+        # If there's no plate solution, it will raise and AttributeError.
+        # This catches that error, logs it, and moves onto the next image.
         except AttributeError as e:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -7248,19 +7265,26 @@ def _main_gb_transform_calc_Warner(directory,
                 f.write('\n')
                 excluded_files += 1
             continue
-        
+        # Convert the FWHM from pixels to arcsec.
         fwhms_arcsec, fwhm_arcsec, fwhms_arcsec_std = convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        # If it can't convert from pixels to arcsec (e.g. the focal length wasn't defined in the header), 
+        # store it as NaN.
         if not fwhm_arcsec:
             fwhm_arcsec = np.nan
             fwhms_arcsec_std = np.nan
+        # Read the time from the fits header and then convert it to Julian Date.
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
+        # Store the filter used to take the image as a variable.
         img_filter = hdr['FILTER']
+        # Calculate the background sky brightness and standard deviation.
         background_sky_brightness = calculate_background_sky_brightness(bkg, hdr, exptime)
         background_sky_brightness_sigma = calculate_BSB_sigma(bkg, bkg_std, exptime)
+        # Take the average of all stars' Az/El/airmass and store as a variable.
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
+        # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
         star_aux_table_columns = update_star_aux_columns(star_aux_table_columns,
                                                          file_names[file_num],
                                                          time,
@@ -7275,6 +7299,7 @@ def _main_gb_transform_calc_Warner(directory,
                                                          azimuth,
                                                          elevation,
                                                          airmass)
+        # Match the detected sources with a star from the reference stars file.
         matched_stars = find_ref_stars(reference_stars,
                                        ref_star_positions,
                                        skypositions,
@@ -7283,6 +7308,7 @@ def _main_gb_transform_calc_Warner(directory,
                                        fluxes,
                                        ground_based=True,
                                        altazpositions=altazpositions)
+        # If no image star corresponds to a reference star, log it and go to the next image.
         if not matched_stars:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -7291,40 +7317,56 @@ def _main_gb_transform_calc_Warner(directory,
                 f.write('\n')
                 excluded_files += 1
             continue
-
+        # Update the table that contains information on each detection of a reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
                                                          matched_stars,
                                                          hdr,
                                                          exptime,
                                                          ground_based=True,
                                                          name_key=name_key)
+    # Complete the text file that stores information on files that were not used to calculate the transforms.
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
         f.write('\t')
         f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    # Create an AstroPy table of the auxiliary data and write it to a .csv file.
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+    # Create an AstroPy table of each reference star detection and write it to a .csv file.
     large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
-    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
+    # Group each observation of a star at an airmass.
+    # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass, 
+    # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
+    # This creates that table, stores the different filters used to take the images (e.g. BVRI or BGR), 
+    # and writes it to a .csv file.
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
-    stars_table.pprint(max_lines=-1, max_width=250)
+    
+    ############# Begin the Warner Transforms #############
+    
+    # Calculate the slope of each star's instrumental magnitude vs airmass, store it in a table, 
+    # and write it to a .csv file.
     slopes_table = calculate_slopes_Warner(stars_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(slopes_table, os.path.join(save_loc, 'slopes_table.csv'), format='csv')
+    # Calculate the first and second order extinctions.
     extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table, different_filter_list, save_plots,
                                                                   save_loc=save_loc)
-    extinction_table_Warner.pprint(max_lines=-1, max_width=-1)
+    # Calculate the exoatmospheric magnitudes (m_0).
     exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
+    # Finish the transform by calculating the colour transform and zero point.
     Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table, different_filter_list,
                                                                        extinction_table_Warner, save_plots,
                                                                        save_loc=save_loc)
+    # Save the transform table to a .csv file.
     ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
-    Warner_final_transform_table.pprint(max_lines=-1, max_width=250)
+    # Calculate the hidden transform and write it to a .csv file.
     hidden_transform_table = hidden_transform_Warner(exoatmospheric_table, Warner_final_transform_table,
                                                      different_filter_list, save_plots, save_loc=save_loc)
+    ascii.write(hidden_transform_table, os.path.join(save_loc, 'hidden_transform_table.csv'), format='csv')
     exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table, extinction_table_Warner,
                                                                     hidden_transform_table, different_filter_list)
+    # Verify the transforms.
     verify_save_loc = os.path.join(save_loc, 'Verification')
     app_mag_table = verify_gb_transforms_auto(directory, 
                                               verification_files, 
@@ -7340,8 +7382,7 @@ def _main_gb_transform_calc_Warner(directory,
                                               lon_key=lon_key,
                                               elev_key=elev_key,
                                               save_loc=verify_save_loc)
-    ascii.write(hidden_transform_table, os.path.join(save_loc, '_hidden_transform_table.csv'), format='csv')
-    return large_stars_table
+    return Warner_final_transform_table
 
 
 def _sky_survey_calc(directory,
