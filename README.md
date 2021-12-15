@@ -109,13 +109,23 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 # Notes
 * We use pinpoint which is a paid software for astrometric plate solving, however we will explore other options such as astrometry.net and astropy libraries such as astroquery.
 * There is really no good free solution for astrometic plate solving right now, especially for a large imageset.
+* If you have your own method for plate solving images, it is possible to use that instead. The only requirement is that images for the transforms have a valid WCS information in the header.
 * GUI will be upgraded and improved in the future, right now it was made through simpleGUI for the sake of ease of use and time, however when the program is packaged in 2022 it will have a new UI made with either QT or javascript.
 * 
 
 ### 1. Photometry Program
 #### Instructions
 1. Select your top-level folder which contains all the images you want to process.
-2. 
+2. If you would like PinPoint to plate solve the images, select "PinPoint Solve" and the directory of the UCAC4 catalog. If not, proceed to Step 3.
+	1. If desired, edit the parameters for PinPoint. This is not recommended unless you know what you're doing.
+4. If you are calculating transforms, select the folder where the reference stars file is. This is a .txt, tab delimited file containing information on standard (Landolt) stars. The one that has been used most often by the developers is "Reference_stars_Apr29.txt" in the Referece Star Files folder. If you are not calculating transform coeficients, proceed to Step 4.
+5. It is highly recommended to keep "Save Data to Folder" selected as it will save all images and .csv files to a subfolder inside the "Image Folder."
+6. Choose which type of analysis you would like to do.
+	1. If you are calculating the transforms for a ground based observatory, ensure that the Source Capture mode is "Star Stare Mode" and the Image Source is "Ground Basaed."
+	2. If you are calculating the transforms for a space based based observatory (e.g. NEOSSat), ensure that the Source Capture Mode is "Star Stare Mode" and the Image Source is "Ground Basaed."
+	3. If you are generating the light curve of a satellite observed from the ground, ensure that the Source Capture Mode is "Track Rate Mode" and the Image Source is "Ground based."
+	4. There is currently no Track Rate Mode functionality when the image source is Space Based.
+7. Double check that all parameters are set properly, and click "Solve."
 <hr>
 
 ![image](https://user-images.githubusercontent.com/75094714/121441888-98a22400-c958-11eb-8cbc-653281fc1729.png)
