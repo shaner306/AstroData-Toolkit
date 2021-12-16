@@ -230,7 +230,7 @@ def Gui ():
                         # lat_key = 'OBSGEO-B'
                         # lon_key = 'OBSGEO-L'
                         # elev_key = 'OBSGEO-H'
-                        save_loc = os.path.join(image_dir, 'Outputs_Warner_verification_check')
+                        save_loc = os.path.join(image_dir, 'Outputs')
                         Warner_final_transform_table = astro._main_gb_transform_calc_Warner(image_dir, 
                                                                                  refstar_dir, 
                                                                                  plot_results=plot_results, 

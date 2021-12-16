@@ -16,7 +16,7 @@ import warnings
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('default', category=UserWarning)
 
-directory = r'C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\ZWO\To solve'
+directory = r'C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\ZWO\Pointing Run 1\corrected_lights'
 plot_results = True
 save_plots = True
 file_suffix = ".fits"
@@ -24,6 +24,9 @@ exposure_key = 'EXPTIME'
 lat_key = 'OBSGEO-B', 
 lon_key = 'OBSGEO-L', 
 elev_key = 'OBSGEO-H',
+# lat_key = 'SITELAT', 
+# lon_key = 'SITELONG', 
+# elev_key = 'SITEELEV',
 # transforms_file = r"C:\Users\jack.wawrow\Documents\Suffield\2021 10 19\Standards\Test\corrected_lights\Outputs_Warner_FewerStars\_gb_final_transforms.csv"
 # gb_final_transforms = ascii.read(transforms_file)
 gb_final_transforms = None
@@ -41,20 +44,20 @@ star_aux_table = astro._sky_survey_calc(directory,
                                         elev_key=elev_key,
                                         save_loc=save_loc)
 
-theta = star_aux_table['Azimuth']
-r = 90 - star_aux_table['Elevation']
-z = star_aux_table['BSB']
-fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
-ax.set_theta_zero_location("N")
-# norm = matplotlib.colors.Normalize(vmin=14, vmax=22.13)
-norm = matplotlib.colors.Normalize(vmin=np.percentile(z, 10), vmax=max(z))
-m = cm.ScalarMappable(cmap=plt.get_cmap('Greys'), norm=norm)
-m.set_array([])
-plt.colorbar(m)
-# Change contourf in the line below to scatter if you have only 1D theta, r and brightness values
-ax.scatter(theta, r, c=z, cmap=plt.get_cmap('Greys'), norm=norm)
-rlabels = ax.get_ymajorticklabels()
-for label in rlabels:
-	label.set_color('black')
-plt.show()
-plt.close()
+# theta = star_aux_table['Azimuth']
+# r = 90 - star_aux_table['Elevation']
+# z = star_aux_table['BSB']
+# fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
+# ax.set_theta_zero_location("N")
+# # norm = matplotlib.colors.Normalize(vmin=14, vmax=22.13)
+# norm = matplotlib.colors.Normalize(vmin=np.percentile(z, 10), vmax=max(z))
+# m = cm.ScalarMappable(cmap=plt.get_cmap('Greys'), norm=norm)
+# m.set_array([])
+# plt.colorbar(m)
+# # Change contourf in the line below to scatter if you have only 1D theta, r and brightness values
+# ax.scatter(theta, r, c=z, cmap=plt.get_cmap('Greys'), norm=norm)
+# rlabels = ax.get_ymajorticklabels()
+# for label in rlabels:
+# 	label.set_color('black')
+# plt.show()
+# plt.close()

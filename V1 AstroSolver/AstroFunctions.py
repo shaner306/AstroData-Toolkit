@@ -39,6 +39,7 @@ from astropy.table import Table, QTable, hstack
 from astropy.time import Time
 from astropy.utils import iers
 from astropy.wcs import WCS
+import matplotlib
 from matplotlib import patches
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -7419,7 +7420,7 @@ def _sky_survey_calc(directory,
     #     for filename in tqdm(filenames):
     #         if filename.endswith(file_suffix):
     # TODO: Edit this line to properly read the checkpoint 
-    for file_num, filepath in enumerate(tqdm(file_paths[100:]), start=100):
+    for file_num, filepath in enumerate(tqdm(file_paths)):#[100:]), start=100):
         # filepath = os.path.join(dirpath, filename)
         hdr, imgdata = read_fits_file(filepath)
         exptime = hdr[exposure_key]
@@ -7512,16 +7513,65 @@ def _sky_survey_calc(directory,
                                                          azimuth,
                                                          elevation,
                                                          airmass)
-        if (file_num % 10) == 0:
-            star_aux_table = create_star_aux_table(star_aux_table_columns)
-            ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
-            with open(os.path.join(save_loc, 'checkpoint.txt'), 'a') as f:
-                f.write(str(file_num))
-                f.write('\n')
-                f.write(filepath)
-                f.write('\n')
+        # if (file_num % 10) == 0:
+        #     star_aux_table = create_star_aux_table(star_aux_table_columns)
+        #     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+        #     with open(os.path.join(save_loc, 'checkpoint.txt'), 'a') as f:
+        #         f.write(str(file_num))
+        #         f.write('\n')
+        #         f.write(filepath)
+        #         f.write('\n')
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+    
+    theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
+    r = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
+    z = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7), vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta, r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)], cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90,top=15)
+    for label in rlabels:
+    	label.set_color('black')
+    plt.savefig(os.path.join(save_loc,'BSB_plot.png'))
+    plt.show()
+    plt.close()
+
+    fwhm_arcsec = star_aux_table['FWHM_arcsec']
+    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
+    times_list = np.array(star_aux_table['Time (JD)'])
+    times_obj = Time(times_list, format='jd', scale='utc')
+    times_datetime = times_obj.to_value('datetime')
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(times_datetime, fwhm_arcsec, yerr=fwhm_arcsec_sigma, fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.set_ylabel('FWHM (arcsec)')
+    ax.set_xlabel('Time (UTC)')
+    plt.title('FWHM (arcsec) v. Time')
+    plt.savefig(os.path.join(save_loc,'FWHM_arcsec.png'))
+    plt.show()
+    plt.close()
+    
+    fwhm = star_aux_table['FWHM_pixel']
+    fwhm_sigma = star_aux_table['FWHM_pixel_sigma']
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(times_datetime, fwhm, yerr=fwhm_sigma, fmt='o', markersize=2, capsize=0, elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.set_ylabel('FWHM (pixels)')
+    ax.set_xlabel('Time (UTC)')
+    plt.title('FWHM (pixels) v. Time')
+    plt.savefig(os.path.join(save_loc,'FWHM.png'))
+    plt.show()
+    plt.close()
+    
     return star_aux_table
 
 
