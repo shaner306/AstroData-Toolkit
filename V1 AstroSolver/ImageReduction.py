@@ -424,6 +424,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
                                               exposure_time='exptime', exposure_unit=u.second,
                                               scale=True)
                 ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
+                #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
                 # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
         
                 # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
