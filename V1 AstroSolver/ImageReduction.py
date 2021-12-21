@@ -96,9 +96,11 @@ def create_master_bias(all_fits, master_dir):
     Nil
 
     """
+    ########## For St. John's ##########
     # bias_fits = all_fits.files_filtered(include_path=True, imagetyp = 'bias')
-    # For GBO files
+    ########## For ORC GBO files ##########
     bias_fits = all_fits.files_filtered(include_path=True, imagetyp = 'Bias Frame')
+    ########## End ##########
 
     biases = []
     for file in bias_fits:
@@ -157,20 +159,27 @@ def create_master_dark(all_fits, master_dir):
         master_bias = CCDData.read(master_dir + '\master_bias.fits')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
-
+    
+    ########## For St. John's ##########
     # dark_mask = all_fits.summary['imagetyp'] == 'DARK'
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     dark_mask = all_fits.summary['imagetyp'] == 'Dark Frame'
+    ########## End ##########
+    
     dark_times = set(all_fits.summary['exptime'][dark_mask])
 
     for exp_time in sorted(dark_times):
+        
+        ########## For St. John's ##########
         # darks_to_calibrate = all_fits.files_filtered(imagetyp='dark',
         #                                             exptime=exp_time,
         #                                             include_path=True)
-        # For ORC GBO
+        ########## For ORC GBO files ##########
         darks_to_calibrate = all_fits.files_filtered(imagetyp='Dark Frame',
                                                     exptime=exp_time,
                                                     include_path=True)
+        ########## End ##########
+        
         darks = []
         for file in darks_to_calibrate:
             dark = CCDData.read(file, unit = 'adu')
@@ -223,15 +232,18 @@ def create_master_flat(all_fits, master_dir):
     """
 
     master_files = ccdp.ImageFileCollection(master_dir)
+    
+    ########## For St. John's ##########
     # master_files_list = master_files.files_filtered(imagetyp ='bias',
     #                                                 combined=True,
     #                                                 include_path = True
     #                                                 )
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     master_files_list = master_files.files_filtered(imagetyp ='Bias Frame',
                                                     combined=True,
                                                     include_path = True
                                                     )
+    ########## End ##########
 
 
     try:
@@ -243,39 +255,54 @@ def create_master_flat(all_fits, master_dir):
 
     try:
         # Get the Master Darks
+        
+        ########## For St. John's ##########
         # master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
         #                                         imagetyp='dark', combined=True
         #                                         )}
-        # For ORC GBO
+        ########## For ORC GBO files ##########
         master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
                                                 imagetyp='Dark Frame', combined=True
                                                 )}
+        ########## End ##########
+        
         # Get a list of dark frame exposures from all dark frames
+        
+        ########## For St. John's ##########
         # dark_mask = all_fits.summary['imagetyp'] == 'DARK'
-        # For ORC GBO
+        ########## For ORC GBO files ##########
         dark_mask = all_fits.summary['imagetyp'] == 'Dark Frame'
+        ########## End ##########
+        
         dark_times = set(all_fits.summary['exptime'][dark_mask])
     except:
         raise RuntimeError('WARNING -- Could not open Master Dark files')
 
     if len(master_darks) == 0:
         raise RuntimeError('WARNING -- Could not open Master Dark files')
-
+    
+    ########## For St. John's ##########
     # flat_mask = all_fits.summary['imagetyp'] == 'FLAT'
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     flat_mask = all_fits.summary['imagetyp'] == 'Flat Field'
+    ########## End ##########
+    
     flat_filters = set(all_fits.summary['filter'][flat_mask])
 
     for frame_filter in sorted(flat_filters):
+        
+        ########## For St. John's ##########
         # flats_to_combine = all_fits.files_filtered(imagetyp = 'flat',
         #                                             filter = frame_filter,
         #                                             include_path = True
         #                                             )
-        # For ORC GBO
+        ########## For ORC GBO files ##########
         flats_to_combine = all_fits.files_filtered(imagetyp = 'Flat Field',
                                                     filter = frame_filter,
                                                     include_path = True
                                                     )
+        ########## End ##########
+        
         flats = []
         for file in flats_to_combine:
             flat = CCDData.read(file, unit = 'adu')
@@ -336,35 +363,47 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
     master_files = ccdp.ImageFileCollection(master_dir)
 
     # Create dictionaries of the dark and flat master frames in the master directory
+    
+    ########## For St. John's ##########
     # master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(imagetyp='dark', combined=True)}
     # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='flat', combined=True)}
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     master_darks = {ccd.header['EXPTIME']: ccd for ccd in master_files.ccds(imagetyp='Dark Frame', combined=True)}
-    # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
-    # For 8" Celestron
-    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Field', combined=True)}
+    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
+    ########## For 8" Celestron ##########
+    # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Field', combined=True)}
+    ########## End ##########
 
     # There is only one bias frame, so no need to set up a dictionary.
+    
+    ########## For St. John's ##########
     # master_bias = [ccd for ccd in master_files.ccds(imagetyp='bias', combined=True)][0]
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     master_bias = [ccd for ccd in master_files.ccds(imagetyp='Bias Frame', combined=True)][0]
-
+    ########## End ##########
+    
+    ########## For St. John's ##########
     # light_mask = all_fits.summary['imagetyp'] == 'LIGHT'
-    # For ORC GBO
+    ########## For ORC GBO files ##########
     light_mask = all_fits.summary['imagetyp'] == 'Light Frame'
+    ########## End ##########
+    
     light_filter = set(all_fits.summary['filter'][light_mask])
 
 
     for frame_filter in sorted(light_filter):
+        
+        ########## For St. John's ##########
         # lights_to_correct = all_fits.files_filtered(imagetyp = 'light',
         #                                             filter = frame_filter,
         #                                             include_path = True
         #                                             )
-        # For ORC GBO
+        ########## For ORC GBO files ##########
         lights_to_correct = all_fits.files_filtered(imagetyp = 'Light Frame',
                                                     filter = frame_filter,
                                                     include_path = True
                                                     )
+        ########## End ##########
         
 
         light_ccds = []
@@ -375,19 +414,23 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
         
                 # Note that the first argument in the remainder of the ccdproc calls is
                 # the *reduced* image, so that the calibration steps are cumulative.
+                
+                ########## For Scalable darks (i.e. Bias Frame provided) ##########
                 reduced = ccdp.subtract_bias(light, master_bias)
-        
+                
                 closest_dark = find_nearest_dark_exposure(reduced, master_darks.keys())
         
                 reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
                                               exposure_time='exptime', exposure_unit=u.second,
                                               scale=True)
-                
+                ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
                 # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
         
                 # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
                 #                               exposure_time='exptime', exposure_unit=u.second,
                 #                               scale=True)
+                
+                ########## End ##########
         
                 good_flat = master_flats[reduced.header['filter']]
                 reduced = ccdp.flat_correct(reduced, good_flat)
