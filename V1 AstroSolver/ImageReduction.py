@@ -428,7 +428,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
         
                 # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
                 #                               exposure_time='exptime', exposure_unit=u.second,
-                #                               scale=True)
+                #                               scale=False)
                 
                 ########## End ##########
         
