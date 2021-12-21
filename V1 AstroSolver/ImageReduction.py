@@ -369,9 +369,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
     # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='flat', combined=True)}
     ########## For ORC GBO files ##########
     master_darks = {ccd.header['EXPTIME']: ccd for ccd in master_files.ccds(imagetyp='Dark Frame', combined=True)}
-    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
-    ########## For 8" Celestron ##########
-    # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Field', combined=True)}
+    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Field', combined=True)}
+    ########## If the line above doesn't work, try this ##########
+    # master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(imagetyp='Flat Frame', combined=True)}
     ########## End ##########
 
     # There is only one bias frame, so no need to set up a dictionary.
