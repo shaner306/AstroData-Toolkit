@@ -2054,6 +2054,148 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     return stars_table, different_filter_list
 
 
+def create_reformatted_large_table(large_stars_table, keys='Name'):
+    unique_stars = table.unique(large_stars_table, keys=keys)
+    N = len(large_stars_table)
+    nan_array = np.empty(N)
+    nan_array.fill(np.nan)
+    apparent_mags_table = Table(
+        names=[
+            'Field',
+            'Name',
+            'V_ref',
+            'B-V',
+            'U-B',
+            'V-R',
+            'V-I',
+            'V_sigma',
+            'e_B-V',
+            'e_U-B',
+            'e_V-R',
+            'e_V-I',
+        ],
+        data=[
+            np.empty(N, dtype=object),
+            np.empty(N, dtype=object),
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array,
+            nan_array
+        ]
+    )
+    different_filters = table.unique(large_stars_table, keys='filter')
+    different_filter_list = list(different_filters['filter'])
+    different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
+    different_filter_data = np.empty((N, len(different_filter_list)))
+    different_filter_data.fill(np.nan)
+    filter_sigma_list = []
+    for different_filter in different_filter_list:
+        filter_sigma_list.append(f"{different_filter}_sigma")
+    different_filter_table = Table(data=different_filter_data, names=different_filter_list)
+    different_filter_sigma_table = Table(data=different_filter_data, names=filter_sigma_list)
+    filter_X_list = []
+    for different_filter in different_filter_list:
+        filter_X_list.append(f"X_{different_filter}")
+    filter_X_sigma_list = []
+    for different_filter in different_filter_list:
+        filter_X_sigma_list.append(f"X_{different_filter}_sigma")
+    filter_X_table = Table(data=different_filter_data, names=filter_X_list)
+    filter_X_sigma_table = Table(data=different_filter_data, names=filter_X_sigma_list)
+    all_indices, all_indices_formatted = get_all_indicies_combinations(different_filter_list, len(different_filter_list), multiple_filters=True)
+    data_instr_index_table = [nan_array for different_index in all_indices_formatted]
+    instr_index_table = Table(names=all_indices_formatted, data=data_instr_index_table)
+    reformatted_large_stars_table = table.hstack([apparent_mags_table,
+                                different_filter_table,
+                                different_filter_sigma_table,
+                                filter_X_table,
+                                filter_X_sigma_table,
+                                instr_index_table],
+                               join_type='exact')
+    num_columns = len(reformatted_large_stars_table.columns)
+    stars_table_nan_array = np.empty(num_columns)
+    stars_table_nan_array.fill(np.nan)
+    # else:
+    #     stars_table = table.hstack([apparent_mags_table,
+    #                                 different_filter_table,
+    #                                 different_filter_sigma_table],
+    #                                join_type='exact')
+    # stars_table['Field'] = unique_stars['Field']
+    # stars_table['V_ref'] = unique_stars['V_ref']
+    # stars_table['(B-V)'] = unique_stars['(B-V)']
+    # stars_table['(U-B)'] = unique_stars['(U-B)']
+    # stars_table['(V-R)'] = unique_stars['(V-R)']
+    # stars_table['(V-I)'] = unique_stars['(V-I)']
+    # stars_table['V_sigma'] = unique_stars['V_sigma']
+    i = 0
+    for current_star_table in large_stars_table:
+        # mask = large_stars_table['Name'] == star
+        # current_star_table = large_stars_table[mask]
+        reformatted_large_stars_table['Field'][i] = current_star_table['Field']
+        reformatted_large_stars_table['V_ref'][i] = current_star_table['V_ref']
+        reformatted_large_stars_table['B-V'][i] = current_star_table['B-V']
+        reformatted_large_stars_table['U-B'][i] = current_star_table['U-B']
+        reformatted_large_stars_table['V-R'][i] = current_star_table['V-R']
+        reformatted_large_stars_table['V-I'][i] = current_star_table['V-I']
+        reformatted_large_stars_table['V_sigma'][i] = current_star_table['V_sigma']
+        reformatted_large_stars_table['e_B-V'][i] = current_star_table['e_B-V']
+        reformatted_large_stars_table['e_U-B'][i] = current_star_table['e_U-B']
+        reformatted_large_stars_table['e_V-R'][i] = current_star_table['e_V-R']
+        reformatted_large_stars_table['e_V-I'][i] = current_star_table['e_V-I']
+        reformatted_large_stars_table['Name'][i] = current_star_table['Name']
+        unique_filter = current_star_table['filter']
+        # mags_numpy = np.array(current_star_table['mag_instrumental'])
+        # mags_std_numpy = np.array(current_star_table['mag_instrumental_sigma'])
+        # mags_weights = 1 / (mags_std_numpy ** 2)
+        # # mean_mag = mags_numpy.mean()
+        # masked_mags = sigma_clip(mags_numpy)
+        # sig_clip_mask = np.ma.getmask(masked_mags)
+        # # print(sig_clip_mask)
+        # # if len(mags_numpy) != len(masked_mags):
+        # #     print(mags_numpy)
+        # #     print(masked_mags)
+        # if np.all(sig_clip_mask):
+        #     continue
+        # mean_mag = np.average(mags_numpy[~sig_clip_mask], weights=mags_weights[~sig_clip_mask])
+        # std_mag = mags_numpy[~sig_clip_mask].std()
+        mean_mag = current_star_table['mag_instrumental']
+        std_mag = current_star_table['mag_instrumental_sigma']
+        # mean_mag = np.average(mags_numpy, weights=mags_weights)
+        # std_mag = mags_numpy.std()
+        filter_column = unique_filter.lower()
+        sigma_column = f'{filter_column}_sigma'
+        reformatted_large_stars_table[filter_column][i] = mean_mag
+        reformatted_large_stars_table[sigma_column][i] = std_mag
+        # X_numpy = np.array(current_star_table['X'])
+        # mean_X = X_numpy[~sig_clip_mask].mean()
+        # std_X = X_numpy[~sig_clip_mask].std()
+        # # mean_X = X_numpy.mean()
+        # # std_X = X_numpy.std()
+        mean_X = current_star_table['X']
+        std_X = np.nan
+        X_column = f'X_{filter_column}'
+        X_std_column = f'X_{filter_column}_sigma'
+        reformatted_large_stars_table[X_column][i] = mean_X
+        reformatted_large_stars_table[X_std_column][i] = std_X
+        
+        # for i, unique_star in enumerate(multiple_stars):
+        # star_mask = stars_table['Name'] == unique_star
+        # current_star = stars_table[star_mask]
+        for instr_index_name in all_indices_formatted:
+            first_mag = reformatted_large_stars_table[instr_index_name[0]][i]
+            second_mag = reformatted_large_stars_table[instr_index_name[-1]][i]
+            instr_index = first_mag - second_mag
+            reformatted_large_stars_table[instr_index_name][i] = instr_index
+        i += 1
+    # print(different_filter_list)
+    return reformatted_large_stars_table
+
+
 def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc, plot_results=False, save_plots=False):
     gb_transform_table_columns = init_gb_transform_table_columns_AVG()
     for different_filter in different_filter_list:
@@ -7903,6 +8045,11 @@ def _main_gb_transform_calc_Warner(directory,
     # and writes it to a .csv file.
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    
+    ####### TRYING SOMETHING
+    
+    stars_table = create_reformatted_large_table(large_stars_table, keys='Name')
+    ascii.write(stars_table, os.path.join(save_loc, 'reformatted_large_stars_table.csv'), format='csv')
     
     ############# Begin the Warner Transforms #############
     
