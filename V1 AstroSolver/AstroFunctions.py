@@ -14,7 +14,7 @@ import os
 import re
 import tkinter as tk
 from collections import namedtuple, Counter
-from itertools import permutations, groupby
+from itertools import permutations, groupby, combinations
 from math import sqrt, atan, pi
 from shutil import copy2, rmtree
 from warnings import warn
@@ -56,7 +56,7 @@ from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from skimage import measure
 from tqdm import tqdm
-from random import shuffle
+from random import shuffle, choice
 
 # from scipy.optimize import curve_fit
 
@@ -1260,6 +1260,7 @@ def init_large_table_columns():
     V_R_sigma_apparents = []
     V_I_sigma_apparents = []
     img_star_airmass = []
+    img_names = []
     # X_rounded = []
     large_table_columns = namedtuple('large_table_columns',
                                      ['field',
@@ -1286,6 +1287,7 @@ def init_large_table_columns():
                                       'V_R_sigma_apparents',
                                       'V_I_sigma_apparents',
                                       'img_star_airmass',
+                                      'img_name'
                                       # 'X_rounded'
                                       ])
     return large_table_columns(field,
@@ -1312,11 +1314,12 @@ def init_large_table_columns():
                                V_R_sigma_apparents,
                                V_I_sigma_apparents,
                                img_star_airmass,
+                               img_names
                                # X_rounded
                                )
 
 
-def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime, ground_based=False, name_key='Name'):
+def update_large_table_columns(large_table_columns, filename, matched_stars, hdr, exptime, ground_based=False, name_key='Name'):
     """
     Update columns to be used for the large stars table based on information from the current image.
 
@@ -1474,6 +1477,8 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.img_star_mag_sigma.extend(matched_stars.img_instr_mag_sigma)
         filter_name_repeat = np.full(num_stars, hdr['FILTER'][0])
         updated_large_table_columns.filters.extend(filter_name_repeat)
+        filename_repeat = np.full(num_stars, filename)
+        updated_large_table_columns.img_name.extend(filename_repeat)
         updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V_ref'])
         try:
             updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['(B-V)'])
@@ -1520,6 +1525,7 @@ def update_large_table_columns(large_table_columns, matched_stars, hdr, exptime,
         updated_large_table_columns.img_star_mag.append(matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.append(matched_stars.img_instr_mag_sigma)
         updated_large_table_columns.filters.append(hdr['FILTER'][0])
+        updated_large_table_columns.img_name.append(filename)
         updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V_ref'])
         try:
             updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['(B-V)'])
@@ -1674,6 +1680,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_R_sigma_apparents,
                 large_table_columns.V_I_sigma_apparents,
                 large_table_columns.img_star_airmass,
+                large_table_columns.img_name
                 # large_table_columns.X_rounded
             ],
             names=[
@@ -1701,6 +1708,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'e_V-R',
                 'e_V-I',
                 'X',
+                'img_name'
                 # 'X_rounded'
             ]
         )
@@ -1927,11 +1935,15 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         filter_X_sigma_list.append(f"X_{different_filter}_sigma")
     filter_X_table = Table(data=different_filter_data, names=filter_X_list)
     filter_X_sigma_table = Table(data=different_filter_data, names=filter_X_sigma_list)
+    all_indices, all_indices_formatted = get_all_indicies_combinations(different_filter_list, len(different_filter_list), multiple_filters=True)
+    data_instr_index_table = [nan_array for different_index in all_indices_formatted]
+    instr_index_table = Table(names=all_indices_formatted, data=data_instr_index_table)
     stars_table = table.hstack([apparent_mags_table,
                                 different_filter_table,
                                 different_filter_sigma_table,
                                 filter_X_table,
-                                filter_X_sigma_table],
+                                filter_X_sigma_table,
+                                instr_index_table],
                                join_type='exact')
     num_columns = len(stars_table.columns)
     stars_table_nan_array = np.empty(num_columns)
@@ -2027,6 +2039,15 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 X_std_column = f'X_{filter_column}_sigma'
                 stars_table[X_column][i] = mean_X
                 stars_table[X_std_column][i] = std_X
+            
+            # for i, unique_star in enumerate(multiple_stars):
+            # star_mask = stars_table['Name'] == unique_star
+            # current_star = stars_table[star_mask]
+            for instr_index_name in all_indices_formatted:
+                first_mag = stars_table[instr_index_name[0]][i]
+                second_mag = stars_table[instr_index_name[-1]][i]
+                instr_index = first_mag - second_mag
+                stars_table[instr_index_name][i] = instr_index
             i += 1
     stars_table.remove_row(-1)
     # print(different_filter_list)
@@ -5776,6 +5797,7 @@ def verify_gb_transforms(directory,
                     continue
 
                 large_table_columns = update_large_table_columns(large_table_columns,
+                                                                 filepath,
                                                                  matched_stars,
                                                                  hdr,
                                                                  exptime,
@@ -5999,6 +6021,7 @@ def _main_gb_transform_calc_TEST(directory,
             continue
 
         large_table_columns = update_large_table_columns(large_table_columns,
+                                                         filepath,
                                                          matched_stars,
                                                          hdr,
                                                          exptime,
@@ -6325,7 +6348,9 @@ def second_order_extinction_calc_Warner(slopes_table, different_filter_list, sav
             filter_column.append(different_filter)
             CI_column.append(colour_index)
             # print(slopes_table[colour_index])
-            ci_plot = np.arange(min(slopes_table[colour_index]) - 0.1, max(slopes_table[colour_index]) + 0.1, step=0.01)
+            ci_plot = np.arange(min(slopes_table[colour_index][~np.isnan(slopes_table[colour_index])]) - 0.1, 
+                                max(slopes_table[colour_index][~np.isnan(slopes_table[colour_index])]) + 0.1, 
+                                step=0.01)
             # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
             fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
             # try:
@@ -6455,9 +6480,9 @@ def calculate_slopes_Buchheim(stars_table, different_filter_list, save_plots, **
         star_mask = stars_table['Name'] == unique_star
         current_star = stars_table[star_mask]
         for instr_index_name in all_indices_formatted:
-            first_mag = current_star[instr_index_name[0]]
-            second_mag = current_star[instr_index_name[-1]]
-            instr_index = np.mean(first_mag - second_mag)
+            # first_mag = current_star[instr_index_name[0]]
+            # second_mag = current_star[instr_index_name[-1]]
+            instr_index = np.mean(current_star[instr_index_name])
             instr_index_table[instr_index_name][i] = instr_index
     
     instr_index_table.pprint(max_lines=-1, max_width=150)
@@ -6552,7 +6577,107 @@ def calculate_slopes_Buchheim(stars_table, different_filter_list, save_plots, **
     return slopes_table
 
 
-def second_order_extinction_calc_Buchheim(slopes_table, different_filter_list, save_plots, **kwargs):
+def second_order_extinction_calc_Buchheim(stars_table, different_filter_list, save_plots, **kwargs):
+    x_list = [f'X_{different_filter}' for different_filter in different_filter_list]
+    stars_table.sort(x_list)
+    unique_fields = table.unique(stars_table, keys=['Field'])
+    unique_stars = table.unique(stars_table, keys=['Name'])
+    mags_list = np.empty(2)
+    ci_list = np.empty(2)
+    x_list = np.empty(2)
+    ci = 'b-v'
+    # print(unique_fields)
+    for different_filter in different_filter_list:
+        for field in unique_fields['Field']:
+            current_field_index = stars_table['Field'] == field
+            current_field = stars_table[current_field_index]
+            names_list = list(current_field['Name'])
+            star_combinations = list(combinations(names_list, 2))
+            if len(star_combinations) > 1:
+                delta_mags_list = np.empty(len(star_combinations))
+                delta_ci_X_list = np.empty(len(star_combinations))
+                delta_mags_list.fill(np.nan)
+                delta_ci_X_list.fill(np.nan)
+                for k, combination in enumerate(star_combinations):
+                    mags_list.fill(np.nan)
+                    ci_list.fill(np.nan)
+                    x_list.fill(np.nan)
+                    for i, star in enumerate(combination):
+                        current_star_index = stars_table['Name'] == star
+                        if sum(current_star_index) > 1:
+                            rand_index = choice(np.where(current_star_index)[0])
+                            current_star_index[np.where(current_star_index)[0][~np.where(np.where(current_star_index)[0] == rand_index)[0]]] = False
+                        current_star = stars_table[current_star_index]
+                        mags_list[i] = current_star[different_filter]
+                        x_list[i] = current_star[f"X_{different_filter}"]
+                        try:
+                            ci_list[i] = current_star[ci]
+                            table_ci = ci
+                        except KeyError:
+                            if 'v' in ci:
+                                table_ci = ci.replace('v', 'g')
+                            else:
+                                table_ci = ci
+                            try:
+                                ci_list[i] = current_star[table_ci]
+                            except KeyError:
+                                if 'b' in ci:
+                                    table_ci = table_ci.replace('b', 'u')
+                                ci_list[i] = current_star[table_ci]
+                    delta_mag = np.abs(mags_list[1] - mags_list[0])
+                    delta_ci = np.abs(ci_list[1] - ci_list[0])
+                    x_diff = np.abs(x_list[1] - x_list[0])
+                    if delta_mag == 0 and delta_ci == 0 and x_diff == 0:
+                        continue
+                    if x_diff > 0.5:
+                        continue
+                    avg_x = np.mean(x_list)
+                    delta_mags_list[k] = delta_mag
+                    ########## Fix this. #############
+                    delta_ci_X_list[k] = delta_ci * avg_x
+                fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.5, slope=0.0)
+                # try:
+                x_nan_indices = np.isnan(delta_ci_X_list)
+                y_nan_indices = np.isnan(delta_mags_list)
+                nan_indices = (x_nan_indices | y_nan_indices)
+                try:
+                    fitted_line, mask = or_fit(line_init, delta_ci_X_list[~nan_indices],
+                                               delta_mags_list[~nan_indices])
+                except TypeError:
+                    continue
+                filtered_data = np.ma.masked_array(delta_mags_list[~nan_indices], mask=mask)
+                m = fitted_line.slope.value
+                b = fitted_line.intercept.value
+                cov = fit.fit_info['param_cov']
+                try:
+                    m_sigma = sqrt(cov[0][0])
+                    b_sigma = sqrt(cov[1][1])
+                except TypeError:
+                    m_sigma = np.nan
+                    b_sigma = np.nan
+                delta_ci_X_plot = np.arange(min(delta_ci_X_list[~np.isnan(delta_ci_X_list)]) - 0.1, 
+                                    max(delta_ci_X_list[~np.isnan(delta_ci_X_list)]) + 0.1, step=0.01)
+                plt.plot(delta_ci_X_list, delta_mags_list, 'o', 
+                         fillstyle='none', label="Clipped Data")
+                plt.plot(delta_ci_X_list[~nan_indices], filtered_data, 'o', color='#1f77b4', label="Fitted Data")
+                plt.plot(delta_ci_X_list, m * delta_ci_X_list + b, '-', label=f"k''={m:0.3f}, $\Delta{{{different_filter}}}_0$={b:0.3f}")
+                plt.ylabel(f'$\Delta{{{different_filter}}}$')
+                plt.xlabel(f"$\Delta({{{table_ci}}})$ $\cdot X$")
+                plt.title(f"Second Order extinction ($\Delta{{{different_filter}}}$ v. $\Delta$ $({{{table_ci}}})$ $\cdot X$)")
+                plt.legend()
+                if save_plots:
+                    save_loc = f"{os.path.join(kwargs.get('save_loc'), f'SecondOrderExtinction-delta_{different_filter}_{table_ci}_{field}')}.png"
+                    plt.savefig(save_loc)
+                plt.show()
+                plt.close()
+                # plt.plot(delta_ci_X_list, delta_mags_list, 'o')
+                # plt.show()
+                # plt.close()
+        # print(star_combinations)
+    return
+
+
+def extinction_calc_Buchheim_sect6(slopes_table, different_filter_list, save_plots, **kwargs):
     filter_column = []
     CI_column = []
     k_primeprime_column = []
@@ -6569,7 +6694,8 @@ def second_order_extinction_calc_Buchheim(slopes_table, different_filter_list, s
         ci = colour_index.lower()
         # ci = ci.lower()
         try:
-            ci_plot = np.arange(min(slopes_table[ci]) - 0.1, max(slopes_table[ci]) + 0.1, step=0.01)
+            ci_plot = np.arange(min(slopes_table[ci][~np.isnan(slopes_table[ci])]) - 0.1, 
+                                max(slopes_table[ci][~np.isnan(slopes_table[ci])]) + 0.1, step=0.01)
             table_ci = ci
             print(table_ci)
         except KeyError:
@@ -6578,12 +6704,13 @@ def second_order_extinction_calc_Buchheim(slopes_table, different_filter_list, s
             else:
                 table_ci = ci
             try:
-                ############ Fix bug.
-                ci_plot = np.arange(min(slopes_table[table_ci]) - 0.1, max(slopes_table[table_ci]) + 0.1, step=0.01)
+                ci_plot = np.arange(min(slopes_table[table_ci][~np.isnan(slopes_table[table_ci])]) - 0.1, 
+                                    max(slopes_table[table_ci][~np.isnan(slopes_table[table_ci])]) + 0.1, step=0.01)
             except KeyError:
                 if 'b' in ci:
                     table_ci = table_ci.replace('b', 'u')
-                ci_plot = np.arange(min(slopes_table[table_ci]) - 0.1, max(slopes_table[table_ci]) + 0.1, step=0.01)
+                ci_plot = np.arange(min(slopes_table[table_ci][~np.isnan(slopes_table[table_ci])]) - 0.1, 
+                                    max(slopes_table[table_ci][~np.isnan(slopes_table[table_ci])]) + 0.1, step=0.01)
         CI_column.append(table_ci)
         # ci_plot = np.arange(min(slopes_table[ci]) - 0.1, max(slopes_table[ci]) + 0.1, step=0.01)
         fit, or_fit, line_init = init_linear_fitting(niter=100, sigma=2.0, slope=0.0, intercept=0.5)
@@ -7492,6 +7619,7 @@ def verify_gb_transforms_auto(directory,
             continue
 
         large_table_columns = update_large_table_columns(large_table_columns,
+                                                         filepath,
                                                          matched_stars,
                                                          hdr,
                                                          exptime,
@@ -7635,7 +7763,7 @@ def _main_gb_transform_calc_Warner(directory,
                 filecount += 1
     "Split the files into those for calculation and those for verification."
     shuffle(file_paths)
-    split_decimal = 0.7
+    split_decimal = 1
     split_filecount_location = math.ceil(split_decimal * filecount)
     calculation_files = file_paths[:split_filecount_location]
     verification_files = file_paths[split_filecount_location:]
@@ -7751,6 +7879,7 @@ def _main_gb_transform_calc_Warner(directory,
             continue
         # Update the table that contains information on each detection of a reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
+                                                         filepath,
                                                          matched_stars,
                                                          hdr,
                                                          exptime,
@@ -7982,6 +8111,7 @@ def _main_gb_transform_calc_Buchheim(directory,
             continue
         # Update the table that contains information on each detection of a reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
+                                                         filepath,
                                                          matched_stars,
                                                          hdr,
                                                          exptime,
@@ -8013,7 +8143,9 @@ def _main_gb_transform_calc_Buchheim(directory,
     slopes_table = calculate_slopes_Buchheim(stars_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(slopes_table, os.path.join(save_loc, 'slopes_table.csv'), format='csv')
     # Calculate the first and second order extinctions.
-    extinction_table_Buckhheim = second_order_extinction_calc_Buchheim(slopes_table, different_filter_list, save_plots,
+    second_order_extinction_calc_Buchheim(stars_table, different_filter_list, save_plots,
+                                                                  save_loc=save_loc)
+    extinction_table_Buckhheim = extinction_calc_Buchheim_sect6(slopes_table, different_filter_list, save_plots,
                                                                   save_loc=save_loc)
     ascii.write(extinction_table_Buckhheim, os.path.join(save_loc, 'extinction_table_Buckhheim.csv'), format='csv')
     return
@@ -8288,6 +8420,7 @@ def _main_sb_transform_calc(directory,
                     continue
 
                 large_table_columns = update_large_table_columns(large_table_columns,
+                                                                 filepath,
                                                                  matched_stars,
                                                                  hdr,
                                                                  exptime,
