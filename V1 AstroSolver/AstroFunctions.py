@@ -8048,8 +8048,8 @@ def _main_gb_transform_calc_Warner(directory,
     
     ####### TRYING SOMETHING
     
-    stars_table = create_reformatted_large_table(large_stars_table, keys='Name')
-    ascii.write(stars_table, os.path.join(save_loc, 'reformatted_large_stars_table.csv'), format='csv')
+    # reformatted_large_stars_table = create_reformatted_large_table(large_stars_table, keys='Name')
+    # ascii.write(reformatted_large_stars_table, os.path.join(save_loc, 'reformatted_large_stars_table.csv'), format='csv')
     
     ############# Begin the Warner Transforms #############
     

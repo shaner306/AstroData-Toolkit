@@ -60,7 +60,7 @@ unique_id = subfolder
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
 directory = r'D:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
-save_loc = os.path.join(directory, 'Outputs_Warner_reformatted_large_table')
+save_loc = os.path.join(directory, 'Outputs_Warner')
 # try:
 Warner_final_transform_table = astro._main_gb_transform_calc_Warner(directory, 
                                                          ref_stars_file, 
