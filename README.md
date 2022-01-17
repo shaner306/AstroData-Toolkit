@@ -1,5 +1,11 @@
 # AstroSolve
 
+## Before you Start
+1. Download Astrosolver repo
+2. Download UCAC4 Catalog
+3. Have a registered copy of Pinpoint Astrometric Engine installed
+4. Have the properly formatted reference star .csv file
+
 
 ## GUI Workflow and Inputs
 To run the Image Processor “AstroSolver”, run the GUI python script. The GUI will open a popup window displaying the following screen.
