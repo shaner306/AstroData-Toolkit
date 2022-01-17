@@ -1,10 +1,10 @@
 # AstroSolve
 
 ## Before you Start
-1. Download Astrosolver repo
-2. Download UCAC4 Catalog
-3. Have a registered copy of Pinpoint Astrometric Engine installed
-4. Have the properly formatted reference star .csv file
+1. Download Astrosolver repo - V1 AstroSolver folder
+2. Download UCAC4 Catalog - http://forums.dc3.com/showthread.php?4694-Downloading-and-Using-PinPoint-Reference-Catalogs-(Updated-April-2021)
+3. Have a registered copy of Pinpoint Astrometric Engine installed http://pinpoint.dc3.com
+4. Have the properly formatted reference star .csv file - Reference Docs Folder
 
 
 ## GUI Workflow and Inputs
