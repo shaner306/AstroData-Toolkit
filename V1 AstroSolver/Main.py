@@ -102,6 +102,7 @@ AstroSolver
         avg_Airmass= get_avg_airmass(altazpositions)
 """
 
+
 def Gui():
     sg.theme("Default1")
 
@@ -117,15 +118,15 @@ def Gui():
                sg.FileBrowse(key="-IN6-")],
               [sg.Button("Submit")]]
 
-    # layout = [[sg.T(" ")], 
-    #           [sg.Text("Image Folder: "), 
-    #            sg.Input(key="-IN2-" ,change_submits=True), 
+    # layout = [[sg.T(" ")],
+    #           [sg.Text("Image Folder: "),
+    #            sg.Input(key="-IN2-" ,change_submits=True),
     #            sg.FolderBrowse(key="-IN1-")],
-    #           [sg.Text("Catalog Folder: "), 
-    #            sg.Input(key="-IN3-" ,change_submits=True), 
+    #           [sg.Text("Catalog Folder: "),
+    #            sg.Input(key="-IN3-" ,change_submits=True),
     #            sg.FolderBrowse(key="-IN4-")],
-    #           [sg.Text("Reference Stars: "), 
-    #            sg.Input(key="-IN5-" ,change_submits=True), 
+    #           [sg.Text("Reference Stars: "),
+    #            sg.Input(key="-IN5-" ,change_submits=True),
     #            sg.FileBrowse(key="-IN6-")],
     #          [sg.T("                   "), sg.Checkbox('Print On:', default=True, key="-IN7-")],
     #           [sg.T("         "), sg.Radio('Permission Granted', "RADIO1", default=False, key="-IN8-")],
@@ -134,7 +135,7 @@ def Gui():
     #            sg.Radio('Star Stare Mode', "RADIO3", default=True)],
     #           [sg.Button("Submit")]]
 
-    ###Building Window
+    # Building Window
     window = sg.Window('My File Browser', layout, size=(600, 250))
 
     while True:
@@ -152,6 +153,8 @@ def Gui():
             return imagefolder, catalogfolder, refdoc
 
 # Calculate Various Image Background Values
+
+
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     # Specify Sigma Clipping Value and Calculate the Background using "SExtractor Algorithm"
     sigma_clip = SigmaClip(sigma=2.5)
@@ -174,7 +177,8 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
 
     # Remove Background Value
     # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
-    bkg = Background2D(fitsdata, (50, 50), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    bkg = Background2D(fitsdata, (50, 50), filter_size=(
+        3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
     bg_rem = fitsdata - bkg.background
 
     if printval == 1:
@@ -195,6 +199,8 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         return
 
 # Read Reference Star File and Extract Data
+
+
 def ref_star_folder_read(refstars_doc):
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
@@ -208,6 +214,8 @@ def ref_star_folder_read(refstars_doc):
     return HIP, erad, edec, vref, bvindex, vrindex, refstarsfin
 
 # Use Pinpoint to Locate Reference Stars on Image
+
+
 def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
     refx = []
     refy = []
@@ -219,7 +227,7 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
     for s in range(89):
 
         try:
-            f.SkyToXy(erad[s], edec[s]);
+            f.SkyToXy(erad[s], edec[s])
             refSTAR_X = f.ScratchX  # the x result of skytoxy
             refSTAR_Y = f.ScratchY
             if refSTAR_X > 0 and refSTAR_X < 1900:
@@ -239,7 +247,7 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
             #     print('Pinpoint can''t process coords')
 
     nmstars = f.MatchedStars.Count
-    mstars = f.MatchedStars;
+    mstars = f.MatchedStars
     print("Matched Stars:" + str(nmstars))
     print("Reference Stars Located:")
     print("")
@@ -254,8 +262,8 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
         length = len(refx)
 
         exptime = f.ExposureInterval
-        rawflux = mstar.RawFlux;
-        Zp = f.MagZeroPoint;
+        rawflux = mstar.RawFlux
+        Zp = f.MagZeroPoint
 
         vmag = Zp - 2.5 * (math.log10(rawflux / exptime))
         # starx= mstar.X
@@ -269,11 +277,13 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
                 if (refy[j] > Y_min) and (refy[j] < Y_max):
                     if abs(vmag - vref2[j]) < 0.5:
                         print("HIP: " + str(HIP2[j]))
-                        print("Located at: X: " + str(mstar.X) + " Y: " + str(mstar.Y))
+                        print("Located at: X: " + str(mstar.X) +
+                              " Y: " + str(mstar.Y))
                         # print("matched X:" + str(X_max))
                         # print(str(vref2[j]))
                         # print(mstar.ColorMagnitude)
-                        print("Reference Mag: " + str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
+                        print(
+                            "Reference Mag: " + str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
                         print("")
                         Bvtransform = (vref2[j] - vmag) / bvindexdet[j]
                         print("B-V Transform: " + str(Bvtransform))
@@ -295,7 +305,7 @@ def getFileList(inbox):
     listSize = len(list1)  # Number of Files
     c = list1
 
-    for i in range(1, listSize):
+    for i in range(0, listSize):
         filepath2 = inbox + "\\" + c[i]
         filepathall.append(filepath2)
     return filepathall
@@ -334,6 +344,8 @@ def fits_header_import(filepath, sb, filter_key='FILTER'):
     return imagehdularray, date, exposuretime, imagesizeX, imagesizeY, fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs
 
 # Convert Image Size from Pixel to Arc Seconds and Ratio ArcSec/pix
+
+
 def calc_ArcsecPerPixel(header):
     focal_Length = header['FOCALLEN']
     xpix_size = header['XPIXSZ']
@@ -347,8 +359,10 @@ def calc_ArcsecPerPixel(header):
     return x_arcsecperpixel, y_arcsecperpixel
 
 # Clip Edges on Image for Source detection
+
+
 def edge_Protect(bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
-    bg_rem[1:edge_protect, 1:edge_protect] = 0;
+    bg_rem[1:edge_protect, 1:edge_protect] = 0
     bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
     bg_rem[:, 1:edge_protect] = 0
     bg_rem[:, imagesizeY - edge_protect:imagesizeY] = 0
@@ -357,12 +371,10 @@ def edge_Protect(bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
     return im_mean, bg_rem, im_rms
 
 
-
-
 # inbox, catloc, refstars_doc = Gui()
 # print(imagefolder, catalogfolder, refdoc)
-
-inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'  # Image Location of .fits Format
+# Image Location of .fits Format
+inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
 inbox1 = r'D:\NEOSSat-SA-111\test'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
 
@@ -379,7 +391,7 @@ run_master_bias = 1
 run_master_dark = 1
 run_master_flat = 1
 correct_light_frames = 1
-OutputsaveLoc = 0;  # 0 Default will save outputs in image folder
+OutputsaveLoc = 0  # 0 Default will save outputs in image folder
 reduce_dir = 'D:\Image Reduction Test Images'
 
 # Start Pinpoint Software in Python
@@ -387,9 +399,9 @@ f = pinpoint_init()  # Start Pinpoint
 
 # Set Image Processing Variables
 streak_array = []  # Streak Detection for Track Rate Mode
-edge_protect = 10;  # Img Edge Clipping
+edge_protect = 10  # Img Edge Clipping
 min_obj_pixels = 5  # Min Pixels to qualify as a Point Source
-SNRLimit = 0;  # Signal-To-Noise Ratio
+SNRLimit = 0  # Signal-To-Noise Ratio
 
 # Set Ground-Based or Space-Based, Chose only one
 ground_based = False
@@ -397,21 +409,23 @@ space_based = False  # TODO Add Ground Based Selection Input
 
 # Whether to Solve in Pinpoint before conducting Photometry
 pinpoint = True  # TODO Add Pinpoint Solve or Not to GUI
-plot_results = True # Plot results on a light curve
-TRM = False # Conduct Astrometry or not
-save_plots = True # Save PNG files in directory after Photometry processing
+plot_results = True  # Plot results on a light curve
+TRM = False  # Conduct Astrometry or not
+save_plots = True  # Save PNG files in directory after Photometry processing
 remove_large_airmass = False
-image_reduce = False # Reduce Images before Solving
+image_reduce = False  # Reduce Images before Solving
 
 # Function #1: Pinpoint Solving
+
+
 def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor, all_sky_solve):
-    f = pinpoint_init()
-    filepathall = getFileList(inbox)
-    file_suffix = ".fit"
+    f = pinpoint_init()  # FIXME: Doesn't do anything
+    filepathall = getFileList(inbox)  # FIXME: Doesn't Do Anything
+    file_suffices = [".fits", ".fit", ".fts"]
 
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
-            if filename.endswith(file_suffix):
+            if (filename.endswith(any(file_suffices))):
                 filepath = os.path.join(dirpath, filename)
                 f = win32com.client.Dispatch("Pinpoint.plate")
                 print("Processing Image: " + filepath)
@@ -422,13 +436,15 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                     filepath, sb)
 
                 """Pinpoint Solve"""
+                # FIXME: Why is pinpont variable here when always TRUE?
                 if pinpoint:
                     try:
                         f.AttachFITS(filepath)
                         f.Declination = f.targetDeclination
                         f.RightAscension = f.targetRightAscension
 
-                        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(header)
+                        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(
+                            header)
                         # yBin = 4.33562092816E-004*3600;
                         # xBin =  4.33131246330E-004*3600;
                         # f.ArcsecperPixelHoriz  = 4.556
@@ -443,7 +459,6 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                         # f.ArcsecperPixelVert = yBin
                         f.ArcsecperPixelHoriz = x_arcsecperpixel  # %CCD Pixel scale on CD
                         f.ArcsecperPixelVert = y_arcsecperpixel
-
 
                         "Pinpoint Solve Inputs"
                         # TODO Add Inputs for pinpoint solving to GUI
@@ -477,6 +492,8 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                         continue
 
 # Calculate Ground-Based Transforms
+
+
 def Ground_based_transforms(directory, ref_stars_file):
     plot_results = True
     save_plots = True
@@ -496,24 +513,28 @@ def Ground_based_transforms(directory, ref_stars_file):
     save_loc = os.path.join(directory, 'Outputs')
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
-    gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(directory,
-                                                                              ref_stars_file,
-                                                                              plot_results=plot_results,
-                                                                              save_plots=save_plots,
-                                                                              remove_large_airmass_bool=remove_large_airmass,
-                                                                              file_suffix=file_suffix,
-                                                                              exposure_key=exposure_key,
-                                                                              lat_key=lat_key,
-                                                                              lon_key=lon_key,
-                                                                              elev_key=elev_key,
-                                                                              name_key=name_key,
-                                                                              save_loc=save_loc)
+    gb_final_transforms, \
+        auxiliary_data_table = \
+        astro._main_gb_transform_calc(directory,
+                                      ref_stars_file,
+                                      plot_results=plot_results,
+                                      save_plots=save_plots,
+                                      remove_large_airmass_bool=remove_large_airmass,
+                                      file_suffix=file_suffix,
+                                      exposure_key=exposure_key,
+                                      lat_key=lat_key,
+                                      lon_key=lon_key,
+                                      elev_key=elev_key,
+                                      name_key=name_key,
+                                      save_loc=save_loc)
 
     gb_final_transforms.pprint_all()
     auxiliary_data_table.pprint_all()
     return
 
 # Calculate Space-Based Transforms
+
+
 def space_based_transform(directory, ref_stars_file):
     plot_results = True
     save_plots = True
@@ -529,21 +550,24 @@ def space_based_transform(directory, ref_stars_file):
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
 
-    sb_final_transform_table = astro._main_sb_transform_calc(directory,
-                                                             ref_stars_file,
-                                                             plot_results=plot_results,
-                                                             save_plots=save_plots,
-                                                             file_suffix=file_suffix,
-                                                             exposure_key=exposure_key,
-                                                             name_key=name_key,
-                                                             transform_index_list=transform_index_list,
-                                                             save_loc=save_loc,
-                                                             unique_id=unique_id)
+    sb_final_transform_table =\
+        astro._main_sb_transform_calc(directory,
+                                      ref_stars_file,
+                                      plot_results=plot_results,
+                                      save_plots=save_plots,
+                                      file_suffix=file_suffix,
+                                      exposure_key=exposure_key,
+                                      name_key=name_key,
+                                      transform_index_list=transform_index_list,
+                                      save_loc=save_loc,
+                                      unique_id=unique_id)
     sb_final_transform_table.pprint_all()
 
     return
 
 # Conduct Track Rate Mode (TRM) Photometry on satellites
+
+
 def trm_photometry(directory):
 
     # Set
@@ -567,10 +591,13 @@ def trm_photometry(directory):
     sats_table.pprint_all()
 
 # Function #6: GB Image Reduction
+
+
 def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_master_bias, create_master_dir=True):
 
     if os.path.isdir(reduce_dir) == False:
-        raise RuntimeError('WARNING -- Directory of .fits files does not exist')
+        raise RuntimeError(
+            'WARNING -- Directory of .fits files does not exist')
 
     # Create output directory for master files
     if create_master_dir == True:
@@ -585,7 +612,8 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
 
     # master_frame_directory = 'C:\\pineapple\\is_a_fruit'
     if os.path.isdir(master_frame_directory) == False:
-        raise RuntimeError('WARNING -- Directory of Master .fits files does not exist')
+        raise RuntimeError(
+            'WARNING -- Directory of Master .fits files does not exist')
 
     # The extension to search for
     exten = '.fits'
@@ -596,7 +624,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
     # Track the Runtime
     start_time = time.time()
 
-    #Find all fits files in subdirectories
+    # Find all fits files in subdirectories
     for dirpath, dirnames, files in os.walk(reduce_dir):
         for name in files:
             if name.lower().endswith(exten):
@@ -621,13 +649,13 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
         print('Calling run_master_dark')
         IR.create_master_dark(all_fits, master_frame_directory)
 
-    #Create Master Flat
+    # Create Master Flat
     if run_master_flat == True:
         print('\n')
         print('Calling run_master_flat')
         IR.create_master_flat(all_fits, master_frame_directory)
 
-    #Correct Light Frames with Master Files
+    # Correct Light Frames with Master Files
     if correct_light_frames == True:
         print('\n')
         print('Creating output directory:', reduce_dir + '\corrected_lights')
@@ -644,7 +672,8 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
         # correct_light_directory = 'C:\\apple\\is_also_a_fruit'
 
         #  Call function
-        IR.correct_lights(all_fits, master_frame_directory, correct_light_directory)
+        IR.correct_lights(all_fits, master_frame_directory,
+                          correct_light_directory)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time
@@ -652,6 +681,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
     print('Elapsed time:', elapsed_time, 'seconds.')
 
     # %% NEOSSAT Dark Subtraction
+
 
 def DarkSub(target, obspath, **kwargs):
     """Process all observations of a specific target in a specific directory."""
@@ -692,9 +722,11 @@ def DarkSub(target, obspath, **kwargs):
             xsc, ysc = dark_table['xsc'][i], dark_table['ysc'][i]
             xov, yov = dark_table['xov'][i], dark_table['yov'][i]
 
-            args = (obspath, darkfile, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
+            args = (obspath, darkfile, xsc, ysc, xov, yov,
+                    snrcut, fmax, xoff, yoff, T, bpix)
 
-            results.append(p.apply_async(SBDarkSub.darkprocess, args=args, callback=lambda x: pbar.update()))
+            results.append(p.apply_async(SBDarkSub.darkprocess,
+                           args=args, callback=lambda x: pbar.update()))
 
         p.close()
         p.join()
@@ -732,9 +764,11 @@ def DarkSub(target, obspath, **kwargs):
             xsc, ysc = light_table['xsc'][i], light_table['ysc'][i]
             xov, yov = light_table['xov'][i], light_table['yov'][i]
 
-            args = (filename, save_loc, masterdark, xsc, ysc, xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
+            args = (filename, save_loc, masterdark, xsc, ysc,
+                    xov, yov, snrcut, fmax, xoff, yoff, T, bpix)
 
-            p.apply_async(SBDarkSub.lightprocess_save, args=args, callback=lambda x: pbar.update())
+            p.apply_async(SBDarkSub.lightprocess_save, args=args,
+                          callback=lambda x: pbar.update())
 
         p.close()
         p.join()
@@ -742,6 +776,7 @@ def DarkSub(target, obspath, **kwargs):
     pbar.close()
 
     return
+
 
 class AstroReducer:
 

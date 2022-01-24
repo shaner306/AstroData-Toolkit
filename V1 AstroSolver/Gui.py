@@ -31,58 +31,61 @@ refdoc = 0
 def Gui():
     windowopen = False
     sg.theme("Default1")
+
+    # Pinpoint Solve Parameters
     column2 = [[sg.Text(
-                        'Pinpoint Solve Parameters',
-                        background_color='#F7F3EC',
-                        justification='center',
-                        size=(30, 1))],
-               [sg.T("Maximum Mag.:"),
-                sg.T("     "),
-                sg.InputText('13', size=(5, 5),
-                             key="-IN51-"),
-                sg.T("Sigma Above Mean:  "),
-                sg.InputText('3.0',
-                             size=(5, 5),
-                             key="-IN52-")],
-               [sg.T("Max Solve Time (sec):"),
-                sg.InputText('60',
-                             size=(5, 5),
-                             key="-IN56-"),
-                sg.T("Max Match Residual:"),
-                sg.InputText('1.5',
-                             size=(5, 5),
-                             key="-IN53-")],
-               [sg.T("Catalog Expansion:"),
-                sg.T(""),
-                sg.InputText('0.8',
-                             size=(5, 5),
-                             key="-IN55-"),
-                sg.T("Catalog:"),
-                sg.T("            "),
-                sg.InputText('UCAC4',
-                             size=(7, 5),
-                             disabled=True,
-                             key="-IN54-")],
-               [sg.T("Use SExtractor?       "),
-                sg.Radio('Yes',
-                         "RADIO2",
-                         default=False,
-                         key="-IN57-"),
-                sg.T(" "),
-                sg.Radio('No',
-                         "RADIO2",
-                         default=True,
-                         key="-IN58-")],
-               [sg.T("All Sky Solve?          "),
-                sg.Radio('Yes',
-                         "RADIO4",
-                         default=False,
-                         key="-IN59-"),
-                sg.T(" "),
-                sg.Radio('No',
-                         "RADIO4",
-                         default=True,
-                         key="-IN60-")]]
+        'Pinpoint Solve Parameters',
+        background_color='#F7F3EC',
+        justification='center',
+        size=(30, 1))],
+        [sg.T("Maximum Mag.:"),
+         sg.T("     "),
+         sg.InputText('13', size=(5, 5),
+                      key="-IN51-"),
+         sg.T("Sigma Above Mean:  "),
+         sg.InputText('3.0',
+                      size=(5, 5),
+                      key="-IN52-")],
+        [sg.T("Max Solve Time (sec):"),
+         sg.InputText('60',
+                      size=(5, 5),
+                      key="-IN56-"),
+         sg.T("Max Match Residual:"),
+         sg.InputText('1.5',
+                      size=(5, 5),
+                      key="-IN53-")],
+        [sg.T("Catalog Expansion:"),
+         sg.T(""),
+         sg.InputText('0.8',
+                      size=(5, 5),
+                      key="-IN55-"),
+         sg.T("Catalog:"),
+         sg.T("            "),
+         sg.InputText('UCAC4',
+                      size=(7, 5),
+                      disabled=True,
+                      key="-IN54-")],
+        [sg.T("Use SExtractor?       "),
+         sg.Radio('Yes',
+                  "RADIO2",
+                  default=False,
+                  key="-IN57-"),
+         sg.T(" "),
+         sg.Radio('No',
+                  "RADIO2",
+                  default=True,
+                  key="-IN58-")],
+        [sg.T("All Sky Solve?          "),
+         sg.Radio('Yes',
+                  "RADIO4",
+                  default=False,
+                  key="-IN59-"),
+         sg.T(" "),
+         sg.Radio('No',
+                  "RADIO4",
+                  default=True,
+                  key="-IN60-")]]
+    # Analysis Parameters
     column1 = [[sg.Text('Analysis Parameters',
                         background_color='#F7F3EC',
                         justification='center',
@@ -114,19 +117,18 @@ def Gui():
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
                    [sg.Text("Image Folder:      "),
-                    sg.Input("D:\Solved Stars\Tycho 3023_1724",
+                    sg.Input("C:\\Users\\mstew\\Documents\\Astro2_Files\\StJohnsTargets\\2021_04_25_StJohns_Targets\\2021_04_25_StJohns_Targets\\2021-04-25 - unprocessed\\Tycho 3023_1724_2",
                              key="-IN2-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
                    [sg.Text("Catalog Folder:    "),
-                    sg.Input("D:\\squid\\UCAC4",
+                    sg.Input("C:\\Users\\mstew\\Documents\\Astro2_Files\\FTPFiles\\USNO UCAC4",
                              key="-IN3-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN4-")],
                    [sg.Text("Reference Stars:  "),
                     sg.Input
-                    (r'D:\Astro2\Reference Star Files\
-                     Reference_stars_Apr29.txt',
+                    (r'C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_Apr29.txt',
                      key="-IN5-", change_submits=True),
                     sg.FileBrowse(key="-IN6-")],
                    [sg.T(""), sg.Checkbox('Save Data to Folder',
@@ -135,54 +137,55 @@ def Gui():
                    [sg.T(""), sg.Checkbox('Pinpoint Solve',
                                           default=False,
                                           key="-IN100-")],
+                   # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
     tab2_layout = [
-                   [sg.T('Image Reduction Script')],
-                   [sg.T("   ")],
-                   [sg.Text("Image Folder:    "),
-                    sg.Input(key="-IN200-",
-                             change_submits=True),
-                    sg.FolderBrowse(key="-IN120-"), sg.Text('')],
-              # [sg.Text("Bias Images:    "), 
-              #  sg.Input(key="-IN20-" ,change_submits=True), 
-              #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
-              # [sg.Text("Dark Images:    "), 
-              #  sg.Input(key="-IN30-" ,change_submits=True), 
-              #  sg.FolderBrowse(key="-IN40-")],
-              # [sg.Text("Flat Images:     "), 
-              #  sg.Input(key="-IN50-" ,change_submits=True), 
-              #  sg.FileBrowse(key="-IN60-")],
-                  [sg.T(""), sg.Checkbox('Use Flats', 
-                                         default=True, 
-                                         key="-IN71-"),
-                   sg.T(""), sg.Checkbox('Use Darks', 
-                                         default=True,
-                                         key="-IN1010-"),
-                     sg.T(""), sg.Checkbox('Use Bias',
-                                           default=True,
-                                           key="-IN1011-")],
-                  [sg.T(""), sg.Checkbox('Space Based',
-                                         default=True,
-                                         key="-IN1012-"),
-                       sg.T("Target:"),
-                       sg.InputText('SA-111',
-                                    size=(10, 5),
-                                    key="-IN1013-")],
-                  [sg.T("   ")],
-                  [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
+        [sg.T('Image Reduction Script')],
+        [sg.T("   ")],
+        [sg.Text("Image Folder:    "),
+         sg.Input(key="-IN200-",
+                  change_submits=True),
+         sg.FolderBrowse(key="-IN120-"), sg.Text('')],
+        # [sg.Text("Bias Images:    "),
+        #  sg.Input(key="-IN20-" ,change_submits=True),
+        #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+        # [sg.Text("Dark Images:    "),
+        #  sg.Input(key="-IN30-" ,change_submits=True),
+        #  sg.FolderBrowse(key="-IN40-")],
+        # [sg.Text("Flat Images:     "),
+        #  sg.Input(key="-IN50-" ,change_submits=True),
+        #  sg.FileBrowse(key="-IN60-")],
+        [sg.T(""), sg.Checkbox('Use Flats',
+                               default=True,
+                               key="-IN71-"),
+         sg.T(""), sg.Checkbox('Use Darks',
+                               default=True,
+                               key="-IN1010-"),
+         sg.T(""), sg.Checkbox('Use Bias',
+                               default=True,
+                               key="-IN1011-")],
+        [sg.T(""), sg.Checkbox('Space Based',
+                               default=True,
+                               key="-IN1012-"),
+         sg.T("Target:"),
+         sg.InputText('SA-111',
+                      size=(10, 5),
+                      key="-IN1013-")],
+        [sg.T("   ")],
+        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
                sg.Tab('Image Reduction', tab2_layout)
-                   ]])]]
+    ]])]]
     if windowopen is False:
         window = sg.Window('AstroSolver', layout)
         windowopen is True
-    while True:
+    while True:  # Read Events
         window.Refresh()
         event, values = window.read()
         # window["-IN56-"].update("hello")
@@ -199,7 +202,7 @@ def Gui():
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
             target = values["-IN1013-"]
-            if values["-IN1012-"]:
+            if values["-IN1012-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
                                  'D:\\NEOSSat-SA-111\\test')
@@ -226,13 +229,13 @@ def Gui():
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
             plot_data = values["-IN1013-"]
-            
-            if values["-IN82-"] is True:
-                sb = 0
+
+            if values["-IN82-"] is True:  # Ground Based Observation
+                space_based_bool = 0   # Space Based Boolean=0
             else:
-                sb = 1
+                space_based_bool = 1
             window.Refresh()
-            if values["-IN100-"]:
+            if values["-IN100-"]:  # PinPoint Solve Key is True
                 max_mag = values["-IN51-"]
                 sigma = values["-IN52-"]
                 match_residual = values["-IN53-"]
@@ -247,30 +250,30 @@ def Gui():
                     all_sky_solve = True
                 else:
                     all_sky_solve = False
-                # try:    
-                Main.pinpoint_solve(image_dir,
-                                    catalog_dir,
-                                    max_mag,
-                                    sigma,
-                                    catalog_exp,
-                                    match_residual,
-                                    max_solve_time,
-                                    catalog,
-                                    sb,
-                                    use_sextractor,
-                                    all_sky_solve)
-                # print ("Reducing Images ---- Started")
-                window.close()
-                # except:
-                #     print("Pinpoint Error. Please See Instructions")
-                #     window.refresh()
+                try:
+                    print("Reducing Images ---- Started")
+                    Main.pinpoint_solve(image_dir,
+                                        catalog_dir,
+                                        max_mag,
+                                        sigma,
+                                        catalog_exp,
+                                        match_residual,
+                                        max_solve_time,
+                                        catalog,
+                                        space_based_bool,
+                                        use_sextractor,
+                                        all_sky_solve)
+                    window.close()
+                except:
+                    print("Pinpoint Error. Please See Instructions")
+                    window.refresh()
             else:
                 # print("yes")
                 pass
                 # Main.Ground_based_transforms(image_dir,refstar_dir)
             # print("yes")
-            if values["-IN91-"] is True:
-                if values["-IN82-"] is True:
+            if values["-IN91-"] is True:  # Star Stare Mode is True
+                if values["-IN82-"] is True:  # Ground Based is True
                     try:
                         plot_results = True
                         save_plots = True
@@ -293,22 +296,21 @@ def Gui():
                         # elev_key = 'OBSGEO-H'
                         save_loc = os.path.join(image_dir, 'Outputs')
                         Warner_final_transform_table =\
-                            astro._main_gb_transform_calc_Warner\
-                            (image_dir,
-                             refstar_dir,
-                             plot_results=plot_results,
-                             save_plots=save_plots,
-                             file_suffix=file_suffix,
-                             exposure_key=exposure_key,
-                             name_key=name_key, lat_key=lat_key,
-                             lon_key=lon_key, elev_key=elev_key,
-                             save_loc=save_loc, unique_id=unique_id)
+                            astro._main_gb_transform_calc_Warner(image_dir,
+                                                                 refstar_dir,
+                                                                 plot_results=plot_results,
+                                                                 save_plots=save_plots,
+                                                                 file_suffix=file_suffix,
+                                                                 exposure_key=exposure_key,
+                                                                 name_key=name_key, lat_key=lat_key,
+                                                                 lon_key=lon_key, elev_key=elev_key,
+                                                                 save_loc=save_loc, unique_id=unique_id)
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
                         window.close()
                     except Exception as e:
                         print(e)
-                        print("Input Error. Please See Instructions")
+                        print("Input Error. Please See Instructions1")
                         # window.update()
                 else:
                     try:
@@ -331,8 +333,7 @@ def Gui():
                         sat_fwhm_table = \
                         astro._main_sc_lightcurve(image_dir,
                                                   temp_dir=temp_dir,
-                                                  max_distance_from_sat=
-                                                  max_distance_from_sat,
+                                                  max_distance_from_sat=max_distance_from_sat,
                                                   size=size,
                                                   max_num_nan=max_num_nan,
                                                   plot_results=plot_results)
@@ -343,8 +344,10 @@ def Gui():
                     print(image_dir)
                     window.close()
                 except:
-                    print("Input Error. Please See Instructions")
+                    print("Input Error. Please See Instructions2")
                     # window.update()
                     continue
     window.close()
+
+
 GUI = Gui()
