@@ -4006,7 +4006,7 @@ def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_
 
 
 def copy_and_rename(directory,
-                    file_suffix=".fits",
+                    file_suffix=[".fits", ".fit", ".fts"],
                     time_key='DATE-OBS',
                     filter_key='FILTER',
                     temp_dir='tmp',
@@ -4051,7 +4051,7 @@ def copy_and_rename(directory,
     filecount = 0
     for dirpth, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(file_suffix):
+            if file.endswith(any(file_suffix)):
                 image = fits.open(os.path.join(dirpth, file))
                 hdr = image[0].header
                 image.close()
@@ -5621,7 +5621,7 @@ def _main_gb_transform_calc(directory,
                             plot_results=False,
                             save_plots=False,
                             remove_large_airmass_bool=False,
-                            file_suffix=".fits",
+                            file_suffix=[".fits",".fit",".fts"],
                             exposure_key='EXPTIME',
                             lat_key='SITELAT',
                             lon_key='SITELONG',
@@ -5640,7 +5640,7 @@ def _main_gb_transform_calc(directory,
 
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
-            if filename.endswith(file_suffix):
+            if filename.endswith(any(file_suffix)):
                 filepath = os.path.join(dirpath, filename)
                 print(filepath)
                 hdr, imgdata = read_fits_file(filepath)
@@ -5890,7 +5890,7 @@ def verify_gb_transforms(directory,
                          gb_final_transforms,
                          plot_results=False,
                          save_plots=False,
-                         file_suffix=".fits",
+                         file_suffix=[".fits",".fit",".fts"],
                          exposure_key='EXPTIME',
                          name_key='Name',
                          **kwargs):
@@ -5906,7 +5906,7 @@ def verify_gb_transforms(directory,
 
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
-            if filename.endswith(file_suffix):
+            if filename.endswith(any(file_suffix)):
                 filepath = os.path.join(dirpath, filename)
                 hdr, imgdata = read_fits_file(filepath)
                 exptime = hdr[exposure_key]
@@ -6068,7 +6068,7 @@ def _main_gb_transform_calc_TEST(directory,
                                  ref_stars_file,
                                  plot_results=False,
                                  save_plots=False,
-                                 file_suffix=".fits",
+                                 file_suffix=[".fits",".fit",".fts"],
                                  exposure_key='EXPTIME',
                                  name_key='Name',
                                  **kwargs):
@@ -6096,7 +6096,7 @@ def _main_gb_transform_calc_TEST(directory,
     file_names = []
     for dirpth, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(file_suffix):
+            if file.endswith(any(file_suffix)):
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
                 filecount += 1
@@ -7709,7 +7709,7 @@ def verify_gb_transforms_auto(directory,
                          hidden_transform_table,
                          plot_results=False,
                          save_plots=False,
-                         file_suffix=".fits",
+                         file_suffix=[".fits",".fit",".fts"],
                          exposure_key='EXPTIME',
                          name_key='Name',
                          lat_key='SITELAT',
@@ -7860,7 +7860,7 @@ def _main_gb_transform_calc_Warner(directory,
                                    ref_stars_file,
                                    plot_results=False,
                                    save_plots=False,
-                                   file_suffix=".fits",
+                                   file_suffix=[".fits",".fit",".fts"],
                                    exposure_key='EXPTIME',
                                    name_key='Name',
                                    lat_key='SITELAT',
@@ -7899,7 +7899,7 @@ def _main_gb_transform_calc_Warner(directory,
     file_names = []
     for dirpth, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(file_suffix):
+            if file.endswith(any(file_suffix)):
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
                 filecount += 1
@@ -8097,7 +8097,7 @@ def _main_gb_transform_calc_Buchheim(directory,
                                    ref_stars_file,
                                    plot_results=False,
                                    save_plots=False,
-                                   file_suffix=".fits",
+                                   file_suffix=[".fits",".fit",".fts"],
                                    exposure_key='EXPTIME',
                                    name_key='Name',
                                    lat_key='SITELAT',
@@ -8136,7 +8136,7 @@ def _main_gb_transform_calc_Buchheim(directory,
     file_names = []
     for dirpth, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(file_suffix):
+            if file.endswith(any(file_suffix)):
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
                 filecount += 1
@@ -8335,7 +8335,7 @@ def _main_gb_transform_calc_Buchheim(directory,
 def _sky_survey_calc(directory,
                      plot_results=False,
                      save_plots=False,
-                     file_suffix=".fits",
+                     file_suffix=[".fits",".fit",".fts"],
                      exposure_key='EXPTIME',
                      gb_final_transforms=None,
                      lat_key='SITELAT',
@@ -8352,7 +8352,7 @@ def _sky_survey_calc(directory,
     file_names = []
     for dirpth, _, files in os.walk(directory):
         for file in files:
-            if file.endswith(file_suffix):
+            if file.endswith(eny(file_suffix)):
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
     #             filecount += 1
@@ -8525,7 +8525,7 @@ def _main_sb_transform_calc(directory,
                             ref_stars_file,
                             plot_results=False,
                             save_plots=False,
-                            file_suffix=".fits",
+                            file_suffix=[".fits",".fit",".fts"],
                             exposure_key='EXPTIME',
                             name_key='Name',
                             transform_index_list=['(B-V)', '(V-R)', '(V-I)'],
@@ -8540,7 +8540,7 @@ def _main_sb_transform_calc(directory,
 
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
-            if filename.endswith(file_suffix):
+            if filename.endswith(any(file_suffix)):
                 filepath = os.path.join(dirpath, filename)
                 hdr, imgdata = read_fits_file(filepath)
                 exptime = hdr[exposure_key]
@@ -8626,7 +8626,7 @@ def _main_sc_lightcurve(directory,
                         gb_final_transforms=None,
                         temp_dir='tmp',
                         save_loc='Outputs',
-                        file_suffix=".fits",
+                        file_suffix=[".fits",".fit",".fts"],
                         ecct_cut=0.5,
                         max_distance_from_sat=20,
                         size=25,
