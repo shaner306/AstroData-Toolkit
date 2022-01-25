@@ -33,7 +33,7 @@ gb_final_transforms = None
 
 temp_dir = 'tmp'
 save_loc = 'Outputs_Warner'
-file_suffix = '.fits'
+file_suffix = [".fits", ".fit", ".fts"]
 ecct_cut=0.5
 max_distance_from_sat = 20
 size = 20

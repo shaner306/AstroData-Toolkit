@@ -62,7 +62,7 @@ ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined
 
 plot_results = True
 save_plots = True
-file_suffix = ".fits"
+file_suffix = [".fits", ".fit", ".fts"]
 exposure_key = 'EXPTIME'
 name_key = 'Name'
 

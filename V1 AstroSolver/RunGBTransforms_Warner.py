@@ -22,7 +22,7 @@ ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference S
 
 plot_results = True
 save_plots = True
-file_suffix = ".fits"
+file_suffix = [".fits", ".fit", ".fts"]
 exposure_key = 'EXPTIME'
 name_key = 'Name'
 lat_key = 'SITELAT'
