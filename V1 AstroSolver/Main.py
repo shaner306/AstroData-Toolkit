@@ -32,13 +32,13 @@ import utils
 AstroSolver
 ---------------------
     Functions:
-        1. GUI Creation 
-        2. Pinpoint Solver 
+        1. GUI Creation
+        2. Pinpoint Solver
         3. Ground-Based Transform Calculation
         4. Space-Based Transform Calculation
         5. Track Rate Mode Photometry and Lightcurve Generator
         6. Track Rate Mode Astrometry (Experimental) - NOT WORKING CURRENTLY
-        7. Ground-Based Image Reduction and Master Files Creation 
+        7. Ground-Based Image Reduction and Master Files Creation
         8. NEOSSAT Dark Subtraction
         
         
@@ -53,7 +53,7 @@ AstroSolver
 1. Space Based - Airmass not a factor in determining transforms
 2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
 
-        ------------------------    
+        ------------------------ 
         STAR STARE MODE (SSM)
         ------------------------
             1.Solve Using pinpoint and IRAF
@@ -63,13 +63,15 @@ AstroSolver
                 - skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
             
             3.Convert RA Dec to Altitude and Azimuth
-                - altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
+                - altazpositions = convert_ra_dec_to_alt_az(skypositions,
+                                                            header)
             
             4.Calculate FWHM
                 - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
             
             5.Produce Photometry data Fluxes and Centroids
-                - photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
+                - photometry_result= perform_photometry(iraf_Sources, fwhm, 
+                                                        fitsdata, bkg)
             
             6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
                 - calculate_magnitudes(photometry_result, exposure_Time)
@@ -80,12 +82,19 @@ AstroSolver
                 a. Space Based Sensor
                    
                     Construct Tables to Store Data
-                        large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
-                        large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
-                        stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
+                        large_table_columns= update_large_table_columns
+                        (large_table_columns, iraf_Sources, header, 
+                         exposure_Time, ground_based=False, name_key='Name')
+                        large_stars_table = create_large_stars_table
+                        (large_table_columns, ground_based=False)
+                        stars_table= group_each_star(large_stars_table, 
+                                                     ground_based=False, 
+                                                     keys='Name')
 
                     Calculate Space Based Transforms    
-                        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False,index='(B-V)', app_filter='V', instr_filter='clear', field=None)
+                        filter_fci, zprime_fci = space_based_transform(
+                            stars_table, plot_results=False,index='(B-V)',
+                            app_filter='V', instr_filter='clear', field=None)
 
                     Calculate Standard Magnitude
 
@@ -339,8 +348,8 @@ def calc_ArcsecPerPixel(header):
     focal_Length = header['FOCALLEN']
     xpix_size = header['XPIXSZ']
     ypix_size = header['XPIXSZ']
-    xbin = header['XPIXSZ']
-    ybin = header['XPIXSZ']
+    # xbin = header['XPIXSZ']
+    # ybin = header['XPIXSZ']
     print(str(focal_Length) + " " + str(xpix_size))
     x_arcsecperpixel = math.atan(xpix_size / (focal_Length)) * 206.265
     y_arcsecperpixel = math.atan(ypix_size / (focal_Length)) * 206.265
@@ -408,7 +417,8 @@ image_reduce = False  # Reduce Images before Solving
 
 
 def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
-                   max_solve_time, cat, space_based_bool, use_sextractor, all_sky_solve):
+                   max_solve_time, cat, space_based_bool, use_sextractor,
+                   all_sky_solve):
     file_suffix = [".fits", ".fit", ".fts"]
 
     for dirpath, dirnames, filenames in os.walk(inbox):
@@ -432,21 +442,31 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                         f.Declination = f.targetDeclination
                         f.RightAscension = f.targetRightAscension
 
-                        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(
-                            header)
+                        x_arcsecperpixel, y_arcsecperpixel =\
+                            calc_ArcsecPerPixel(header)
                         # yBin = 4.33562092816E-004*3600;
                         # xBin =  4.33131246330E-004*3600;
                         # f.ArcsecperPixelHoriz  = 4.556
                         # f.ArcsecperPixelVert =  4.556
                         # if space_based_bool==1:
-                        #     yBin = 4.33562092816E-004*3600*2 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        #     xBin =  4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                        #     yBin = 4.33562092816E-004*3600*2
+# %Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
+                        #     xBin =\
+# 4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
                         # else:
-                        #     yBin = 4.33562092816E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        #     xBin =  4.33131246330E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        # f.ArcsecperPixelHoriz  = xBin    #%CCD Pixel scale on CD
+                        #     yBin = 4.33562092816E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        #     xBin =  4.33131246330E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        # f.ArcsecperPixelHoriz  = xBin
+                        # %CCD Pixel scale on CD
                         # f.ArcsecperPixelVert = yBin
-                        f.ArcsecperPixelHoriz = x_arcsecperpixel  # %CCD Pixel scale on CD
+                        f.ArcsecperPixelHoriz = x_arcsecperpixel
+                        # %CCD Pixel scale on CD
                         f.ArcsecperPixelVert = y_arcsecperpixel
 
                         "Pinpoint Solve Inputs"
@@ -498,7 +518,8 @@ def Ground_based_transforms(directory, ref_stars_file):
     # lon_key='SITELONG'
     # elev_key='SITEELEV'
     name_key = 'Name'
-    # ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
+    # ref_stars_file =\
+    # r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
     save_loc = os.path.join(directory, 'Outputs')
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
@@ -508,7 +529,8 @@ def Ground_based_transforms(directory, ref_stars_file):
                                       ref_stars_file,
                                       plot_results=plot_results,
                                       save_plots=save_plots,
-                                      remove_large_airmass_bool=remove_large_airmass,
+                                      remove_large_airmass_bool=
+                                      remove_large_airmass,
                                       file_suffix=file_suffix,
                                       exposure_key=exposure_key,
                                       lat_key=lat_key,
@@ -547,7 +569,8 @@ def space_based_transform(directory, ref_stars_file):
                                       file_suffix=file_suffix,
                                       exposure_key=exposure_key,
                                       name_key=name_key,
-                                      transform_index_list=transform_index_list,
+                                      transform_index_list=
+                                      transform_index_list,
                                       save_loc=save_loc,
                                       unique_id=unique_id)
     sb_final_transform_table.pprint_all()
