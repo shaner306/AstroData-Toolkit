@@ -4595,7 +4595,7 @@ def apply_gb_timeseries_transforms(gb_final_transforms,
 
 
 def copy_and_rename(directory,
-                    file_suffix=".fits",
+                    file_suffix=[".fits", ".fit", ".fts"],
                     time_key='DATE-OBS',
                     filter_key='FILTER',
                     temp_dir='tmp',
@@ -8765,6 +8765,7 @@ def verify_gb_transforms_auto(directory,
                               lon_key='SITELONG',
                               elev_key='SITEELEV',
                               **kwargs):
+
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
@@ -9211,6 +9212,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
 
 
 def _main_gb_transform_calc_Buchheim(directory,
+
                                      ref_stars_file,
                                      plot_results=False,
                                      save_plots=False,
@@ -9221,6 +9223,7 @@ def _main_gb_transform_calc_Buchheim(directory,
                                      lon_key='SITELONG',
                                      elev_key='SITEELEV',
                                      **kwargs):
+
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
     """
@@ -9511,6 +9514,7 @@ def _sky_survey_calc(directory,
     for dirpth, _, files in os.walk(directory):
         for file in files:
             if file.endswith(any(file_suffix)):
+
                 file_paths.append(os.path.join(dirpth, file))
                 file_names.append(file)
     #             filecount += 1

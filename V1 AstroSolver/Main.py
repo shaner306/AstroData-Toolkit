@@ -416,14 +416,17 @@ image_reduce = False  # Reduce Images before Solving
 # Function #1: Pinpoint Solving
 
 
+
 def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                    max_solve_time, cat, space_based_bool, use_sextractor,
                    all_sky_solve):
+
     file_suffix = [".fits", ".fit", ".fts"]
 
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
             if (filename.endswith(any(file_suffix))):
+
                 filepath = os.path.join(dirpath, filename)
                 f = win32com.client.Dispatch("Pinpoint.plate")
                 print("Processing Image: " + filepath)
@@ -512,7 +515,9 @@ def Ground_based_transforms(directory, ref_stars_file):
     lat_key = 'OBSGEO-B'
     lon_key = 'OBSGEO-L'
     elev_key = 'OBSGEO-H'
+
     file_suffix = [".fits",".fit",".fts"]
+
     exposure_key = 'EXPTIME'
     # lat_key='SITELAT'
     # lon_key='SITELONG'
