@@ -4,6 +4,8 @@ Created on Fri Sep 24 11:26:24 2021
 
 @author: jmwawrow
 """
+from datetime import timedelta
+import time
 import AstroFunctions as astro
 import os
 from astropy.io import ascii
@@ -12,8 +14,6 @@ warnings.filterwarnings('ignore')
 # from astropy.wcs import FITSFixedWarning
 # warnings.filterwarnings('default', category=FITSFixedWarning)
 warnings.filterwarnings('default', category=UserWarning)
-import time
-from datetime import timedelta
 start_time = time.time()
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
@@ -22,7 +22,7 @@ ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference S
 
 plot_results = True
 save_plots = True
-file_suffix = [".fits", ".fit", ".fts"]
+file_suffix = (".fits", ".fit", ".fts")
 exposure_key = 'EXPTIME'
 name_key = 'Name'
 lat_key = 'SITELAT'
@@ -30,25 +30,25 @@ lon_key = 'SITELONG'
 elev_key = 'SITEELEV'
 
 # subfolder_list = [
-#     # '2020 10 23 - 2x2 - unprocessed', 
-#     # '2020 10 31 - 2x2 - unprocessed', 
-#     # '2020 11 04 - 2x2 - unprocessed', 
-#     # '2020 11 10 - 2x2 - unprocessed', 
-#     # '2020 11 21 - 2x2 - unprocessed', 
-#     # '2020 11 30 - 2x2 - unprocessed', 
-#     # '2020-12-12 - unprocessed', 
-#     # '2020-12-24 - unprocessed', 
-#     # '2020-12-25 - unprocessed', 
-#     # '2020-12-28 - unprocessed', 
-#     # '2021-02-07 - unprocessed', 
-#     # '2021-03-10 - unprocessed', 
-#     # '2021-03-20 - unprocessed', 
-#     # '2021-03-21 - unprocessed', 
-#     # '2021-03-22 - unprocessed', 
-#     # '2021-03-23 - unprocessed', 
-#     # '2021-03-31 - unprocessed', 
-#     '2021-04-21 - unprocessed', 
-#     '2021-04-24 - unprocessed', 
+#     # '2020 10 23 - 2x2 - unprocessed',
+#     # '2020 10 31 - 2x2 - unprocessed',
+#     # '2020 11 04 - 2x2 - unprocessed',
+#     # '2020 11 10 - 2x2 - unprocessed',
+#     # '2020 11 21 - 2x2 - unprocessed',
+#     # '2020 11 30 - 2x2 - unprocessed',
+#     # '2020-12-12 - unprocessed',
+#     # '2020-12-24 - unprocessed',
+#     # '2020-12-25 - unprocessed',
+#     # '2020-12-28 - unprocessed',
+#     # '2021-02-07 - unprocessed',
+#     # '2021-03-10 - unprocessed',
+#     # '2021-03-20 - unprocessed',
+#     # '2021-03-21 - unprocessed',
+#     # '2021-03-22 - unprocessed',
+#     # '2021-03-23 - unprocessed',
+#     # '2021-03-31 - unprocessed',
+#     '2021-04-21 - unprocessed',
+#     '2021-04-24 - unprocessed',
 #     '2021-04-25 - unprocessed'
 #     ]
 
@@ -62,18 +62,19 @@ unique_id = subfolder
 directory = r'D:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
 save_loc = os.path.join(directory, 'Outputs_Warner')
 # try:
-Warner_final_transform_table = astro._main_gb_transform_calc_Warner(directory, 
-                                                         ref_stars_file, 
-                                                         plot_results=plot_results, 
-                                                         save_plots=save_plots,
-                                                         file_suffix=file_suffix, 
-                                                         exposure_key=exposure_key,  
-                                                         name_key=name_key,
-                                                         lat_key=lat_key,
-                                                         lon_key=lon_key,
-                                                         elev_key=elev_key,
-                                                         save_loc=save_loc,
-                                                         unique_id=unique_id)
+Warner_final_transform_table = astro._main_gb_transform_calc_Warner(
+    directory,
+    ref_stars_file,
+    plot_results=plot_results,
+    save_plots=save_plots,
+    file_suffix=file_suffix,
+    exposure_key=exposure_key,
+    name_key=name_key,
+    lat_key=lat_key,
+    lon_key=lon_key,
+    elev_key=elev_key,
+    save_loc=save_loc,
+    unique_id=unique_id)
 end_time = time.time()
 # except Exception as e:
 #     print(e)
