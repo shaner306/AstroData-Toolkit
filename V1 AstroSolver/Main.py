@@ -70,12 +70,12 @@ AstroSolver
                 - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
             
             5.Produce Photometry data Fluxes and Centroids
-                - photometry_result= perform_photometry(iraf_Sources, fwhm, 
+                - photometry_result= perform_photometry(iraf_Sources, fwhm,
                                                         fitsdata, bkg)
             
             6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
                 - calculate_magnitudes(photometry_result, exposure_Time)
-                - calculate_magnitudes_sigma(photometry_result, exposure_Time)          
+                - calculate_magnitudes_sigma(photometry_result, exposure_Time)
                 
             7. Calculate Transforms
 
@@ -416,16 +416,15 @@ image_reduce = False  # Reduce Images before Solving
 # Function #1: Pinpoint Solving
 
 
-
 def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                    max_solve_time, cat, space_based_bool, use_sextractor,
                    all_sky_solve):
 
-    file_suffix = [".fits", ".fit", ".fts"]
+    file_suffix = (".fits", ".fit", ".fts")
 
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
-            if (filename.endswith(any(file_suffix))):
+            if (filename.endswith(file_suffix)):
 
                 filepath = os.path.join(dirpath, filename)
                 f = win32com.client.Dispatch("Pinpoint.plate")
@@ -516,7 +515,7 @@ def Ground_based_transforms(directory, ref_stars_file):
     lon_key = 'OBSGEO-L'
     elev_key = 'OBSGEO-H'
 
-    file_suffix = [".fits",".fit",".fts"]
+    file_suffix = [".fits", ".fit", ".fts"]
 
     exposure_key = 'EXPTIME'
     # lat_key='SITELAT'
@@ -534,8 +533,7 @@ def Ground_based_transforms(directory, ref_stars_file):
                                       ref_stars_file,
                                       plot_results=plot_results,
                                       save_plots=save_plots,
-                                      remove_large_airmass_bool=
-                                      remove_large_airmass,
+                                      remove_large_airmass_bool=remove_large_airmass,
                                       file_suffix=file_suffix,
                                       exposure_key=exposure_key,
                                       lat_key=lat_key,
@@ -554,7 +552,7 @@ def Ground_based_transforms(directory, ref_stars_file):
 def space_based_transform(directory, ref_stars_file):
     plot_results = True
     save_plots = True
-    file_suffix = ["_clean.fits","_clean.fit","_clean.fts"]
+    file_suffix = ("_clean.fits", "_clean.fit", "_clean.fts")
     exposure_key = 'AEXPTIME'
     name_key = 'Name'
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
@@ -574,8 +572,7 @@ def space_based_transform(directory, ref_stars_file):
                                       file_suffix=file_suffix,
                                       exposure_key=exposure_key,
                                       name_key=name_key,
-                                      transform_index_list=
-                                      transform_index_list,
+                                      transform_index_list=transform_index_list,
                                       save_loc=save_loc,
                                       unique_id=unique_id)
     sb_final_transform_table.pprint_all()
@@ -648,7 +645,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     # Find all fits files in subdirectories
     for dirpath, dirnames, files in os.walk(reduce_dir):
         for name in files:
-            if name.lower().endswith(any(exten)):
+            if name.lower().endswith(exten[0]):
                 results.append('%s' % os.path.join(dirpath, name))
     print('Have list of all .fits files')
 
