@@ -1,5 +1,11 @@
 # AstroSolve
 
+## Before you Start
+1. Download Astrosolver repo - V1 AstroSolver folder
+2. Download UCAC4 Catalog - http://forums.dc3.com/showthread.php?4694-Downloading-and-Using-PinPoint-Reference-Catalogs-(Updated-April-2021)
+3. Have a registered copy of Pinpoint Astrometric Engine installed http://pinpoint.dc3.com
+4. Have the properly formatted reference star .csv file - Reference Docs Folder
+
 
 ## GUI Workflow and Inputs
 To run the Image Processor “AstroSolver”, run the GUI python script. The GUI will open a popup window displaying the following screen.
@@ -102,66 +108,11 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 8. Click Solve.
 9. Return to Python and monitor the console for the image processing program to run.
 
-# Functions
-
-
+<hr>
 
 # Notes
 * We use pinpoint which is a paid software for astrometric plate solving, however we will explore other options such as astrometry.net and astropy libraries such as astroquery.
-* There is really no good free solution for astrometic plate solving right now, especially for a large imageset.
-* GUI will be upgraded and improved in the future, right now it was made through simpleGUI for the sake of ease of use and time, however when the program is packaged in 2022 it will have a new UI made with either QT or javascript.
-* 
-
-### 1. Photometry Program
-#### Instructions
-1. Select your top-level folder which contains all the images you want to process.
-2. 
-<hr>
-
-![image](https://user-images.githubusercontent.com/75094714/121441888-98a22400-c958-11eb-8cbc-653281fc1729.png)
-
-### 2. Image Reduction Program
-<hr>
-
-![image](https://user-images.githubusercontent.com/75094714/121441947-aeafe480-c958-11eb-98cd-58181c794109.png)
-
-<hr>
-
-
-
-### AstroSolver (In Progress)
-1. Stage 1 - Data Input 
-    - Enter Image Folders (Decide on Parameters, different filtered images)
-    - Execute Program
-    - Read Folder and FITS files, save HEADER data of first file
-    - Generate Output Logs
-    - Import Reference Star Database data for searching
- 
-2. Stage 2 - Data Processing
-    - Solve image with pinpoint and IRAFstarfinder (data from both)
-    - Scan image for ref star
-    - Report pinpoint and IRAF data to report log and table
-      - FWHM
-      - Magnitudes
-      - Instrumental Mag
-      - Flux, Stellar Flux, Visual Magnitude, gaussian data, errors
-      - Location
-
-3. Stage 3 - Data Output
-    - Calculate first, second order transforms and coeffieicents if possible (GBO only?)
-    - Background subtraction and estimation
-    - Fit Moffat, gaussian profiles for PSF
-    - Output all data to spread sheet
-
-3. Stage 4 - Data Visualization
-    - Light Curves and Plots
-    - PSF Plots
-    - Images saved to output folder with spreadsheets
-
-
-### AstroReducer (In Progress)
-
-<hr>
+* There are no good free solutions for astrometic plate solving, especially for a large imageset.
 
 ## Upcoming in V2
 - Integrate errors, std dev
@@ -191,9 +142,6 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
     - Astrometric Data
     - Photometric Data
     - Astrodynamic Data
-
-
-<hr>
 
 ### Recently added functions/Capabilities (Shane): Sorted most recent first
 - Gaussian and Moffat Fitting of PSF

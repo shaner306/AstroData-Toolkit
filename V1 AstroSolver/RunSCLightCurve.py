@@ -23,18 +23,18 @@ directory = r'F:\Intelsat 10-02\2021-11-21\Intelsat 10-02'
 gb_final_transforms = None
 
 # subfolder_list = [
-#     '2020-12-28 - unprocessed', 
-#     '2021-03-10 - unprocessed', 
-#     '2021-03-20 - unprocessed', 
-#     '2021-03-31 - unprocessed'#, 
-#     # '2021-04-21 - unprocessed', 
+#     '2020-12-28 - unprocessed',
+#     '2021-03-10 - unprocessed',
+#     '2021-03-20 - unprocessed',
+#     '2021-03-31 - unprocessed'#,
+#     # '2021-04-21 - unprocessed',
 #     # '2021-04-25 - unprocessed'
 #     ]
 
 temp_dir = 'tmp'
 save_loc = 'Outputs_Warner'
-file_suffix = '.fits'
-ecct_cut=0.5
+file_suffix = (".fits", ".fit", ".fts")
+ecct_cut = 0.5
 max_distance_from_sat = 20
 size = 20
 max_num_nan = 5
@@ -47,16 +47,16 @@ transforms_file = r"F:\Intelsat 10-02\2021-11-21\Landolt Stars\Outputs_Warner\_g
 gb_final_transforms = ascii.read(transforms_file)
 # directory = f"F:\\Intelsat 10-02\\{subfolder}\\Intelsat 10-02\\corrected_lights"
 save_loc = os.path.join(directory, 'Outputs_Warner_Test')
-sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table = astro._main_sc_lightcurve(directory, 
-                                                                          gb_final_transforms=gb_final_transforms,
-                                                                          temp_dir=temp_dir, 
-                                                                          save_loc=save_loc,
-                                                                          file_suffix=file_suffix,
-                                                                          ecct_cut=ecct_cut,
-                                                                          max_distance_from_sat=max_distance_from_sat, 
-                                                                          size=size, 
-                                                                          max_num_nan=max_num_nan, 
-                                                                          plot_results=plot_results)
+sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table = astro._main_sc_lightcurve(directory,
+                                                                                                       gb_final_transforms=gb_final_transforms,
+                                                                                                       temp_dir=temp_dir,
+                                                                                                       save_loc=save_loc,
+                                                                                                       file_suffix=file_suffix,
+                                                                                                       ecct_cut=ecct_cut,
+                                                                                                       max_distance_from_sat=max_distance_from_sat,
+                                                                                                       size=size,
+                                                                                                       max_num_nan=max_num_nan,
+                                                                                                       plot_results=plot_results)
 
 # print(sat_dict)
 # sat_auxiliary_table.pprint_all()
