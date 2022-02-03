@@ -23,6 +23,7 @@ import os
 import os.path
 import Main
 import AstroFunctions as astro
+
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -159,13 +160,13 @@ def Gui():
         # [sg.Text("Flat Images:     "),
         #  sg.Input(key="-IN50-" ,change_submits=True),
         #  sg.FileBrowse(key="-IN60-")],
-        [sg.T(""), sg.Checkbox('Use Flats',
+        [sg.T(""), sg.Checkbox('Create Master Flats',
                                default=True,
                                key="-IN71-"),
-         sg.T(""), sg.Checkbox('Use Darks',
+         sg.T(""), sg.Checkbox('Create Master Darks',
                                default=True,
                                key="-IN1010-"),
-         sg.T(""), sg.Checkbox('Use Bias',
+         sg.T(""), sg.Checkbox('Create Master Bias',
                                default=True,
                                key="-IN1011-")],
         [sg.T(""), sg.Checkbox('Space Based',
@@ -296,15 +297,16 @@ def Gui():
                         # elev_key = 'OBSGEO-H'
                         save_loc = os.path.join(image_dir, 'Outputs')
                         Warner_final_transform_table =\
-                            astro._main_gb_transform_calc_Warner(image_dir,
-                                                                 refstar_dir,
-                                                                 plot_results=plot_results,
-                                                                 save_plots=save_plots,
-                                                                 file_suffix=file_suffix,
-                                                                 exposure_key=exposure_key,
-                                                                 name_key=name_key, lat_key=lat_key,
-                                                                 lon_key=lon_key, elev_key=elev_key,
-                                                                 save_loc=save_loc, unique_id=unique_id)
+                            astro._main_gb_transform_calc_Warner(
+                                image_dir,
+                                refstar_dir,
+                                plot_results=plot_results,
+                                save_plots=save_plots,
+                                file_suffix=file_suffix,
+                                exposure_key=exposure_key,
+                                name_key=name_key, lat_key=lat_key,
+                                lon_key=lon_key, elev_key=elev_key,
+                                save_loc=save_loc, unique_id=unique_id)
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
                         window.close()

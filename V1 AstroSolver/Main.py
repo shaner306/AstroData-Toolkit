@@ -384,12 +384,12 @@ catloc2 = 'D:\\squid\\UCAC4'
 save_loc = os.path.join(inbox, 'Outputs')  # Output Folder for Files
 
 # Switches for Master Frame creation: 0 is Do Not Run, 1 is Run
-create_master_dir = 1
-run_master_bias = 1
-run_master_dark = 1
-run_master_flat = 1
-correct_light_frames = 1
-OutputsaveLoc = 0  # 0 Default will save outputs in image folder
+create_master_dir = True
+run_master_bias = True
+run_master_dark = True
+run_master_flat = True
+correct_light_frames = True
+OutputsaveLoc = False  # 0 Default will save outputs in image folder
 reduce_dir = 'D:\\Image Reduction Test Images'
 
 # Start Pinpoint Software in Python
@@ -427,7 +427,9 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
             if (filename.endswith(file_suffix)):
 
                 filepath = os.path.join(dirpath, filename)
+                # Creates an instance of a plate object
                 f = win32com.client.Dispatch("Pinpoint.plate")
+
                 print("Processing Image: " + filepath)
 
                 "Import Data from FITS Image"
@@ -440,7 +442,9 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                 # FIXME: Why is pinpont variable here when always TRUE?
                 if pinpoint:
                     try:
+                        # Attaches FITS image to the created Plate
                         f.AttachFITS(filepath)
+# We set the declination of the image to the target object's declination
                         f.Declination = f.targetDeclination
                         f.RightAscension = f.targetRightAscension
 
@@ -634,7 +638,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
             'WARNING -- Directory of Master .fits files does not exist')
 
     # The extension to search for
-    exten = ['.fits', '.fit', '.fts']
+    exten = ('.fits', '.fit', '.fts')
 
     # Fits files found through directory search
     results = []
@@ -645,7 +649,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     # Find all fits files in subdirectories
     for dirpath, dirnames, files in os.walk(reduce_dir):
         for name in files:
-            if name.lower().endswith(exten[0]):
+            if name.lower().endswith(exten):
                 results.append('%s' % os.path.join(dirpath, name))
     print('Have list of all .fits files')
 
@@ -656,7 +660,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
 
     # %% Image Reduction
     # Create Master Bias
-    if run_master_bias is True:
+    if create_master_bias is True:
         print('\n')
         print('Calling run_master_bias')
         IR.create_master_bias(all_fits, master_frame_directory)
