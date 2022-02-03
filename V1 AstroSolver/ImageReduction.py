@@ -153,23 +153,14 @@ def create_master_dark(all_fits, master_dir):
     try:
         # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
         # combined=True))
-        master_bias = CCDData.read(master_dir + '\master_bias.fits')
+        master_bias = CCDData.read(master_dir + '\\master_bias.fits')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
     # Dynamic Dark Imagetype Reader
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
-    bias_imgtype_matches = [
-        s for s in unique_imagetype_list if "bias" in s.lower()]
-    bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
     dark_imgtype_matches = [
         s for s in unique_imagetype_list if "dark" in s.lower()]
     dark_imgtypes_concatenateded = '|'.join(dark_imgtype_matches)
-    flat_imgtype_matches = [
-        s for s in unique_imagetype_list if "flat" in s.lower()]
-    flat_imgtypes_concatenateded = '|'.join(flat_imgtype_matches)
-    light_imgtype_matches = [
-        s for s in unique_imagetype_list if "light" in s.lower()]
-    light_imgtypes_concatenateded = '|'.join(light_imgtype_matches)
 
     # Enables different datasets with different dark headers
 
@@ -206,7 +197,7 @@ def create_master_dark(all_fits, master_dir):
 
         master_dark.meta['combined'] = True
 
-        dark_file_name = '\master_dark_{:6.3f}.fits'.format(exp_time)
+        dark_file_name = '\\master_dark_{:6.3f}.fits'.format(exp_time)
         master_dark.write(master_dir + dark_file_name)
         print('Saving ', dark_file_name)
 
@@ -256,7 +247,7 @@ def create_master_flat(all_fits, master_dir):
     )
     try:
         # combined_bias = CCDData.read(master_files_list)
-        combined_bias = CCDData.read(master_dir + '\master_bias.fits')
+        combined_bias = CCDData.read(master_dir + '\\master_bias.fits')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
 
@@ -318,7 +309,7 @@ def create_master_flat(all_fits, master_dir):
                                      )
 
         combined_flat.meta['combined'] = True
-        flat_file_name = '\master_flat_filter_{}.fits'.format(
+        flat_file_name = '\\master_flat_filter_{}.fits'.format(
             frame_filter.replace("''", "p"))
         combined_flat.write(master_dir + flat_file_name)
         print('Saving ', flat_file_name)
