@@ -30891,9 +30891,11 @@ def read_ref_stars(ref_stars_file):
     reference_stars : astropy.table.Table
         Table with the data extracted from ref_stars_file.
     ref_star_positions : astropy.coordinates.sky_coordinate.SkyCoord
+
         AstroPy SkyCoord object containing the RA/dec positions of all
         reference stars in the file.
 
+       
     """
     try:
         reference_stars = ascii.read(
@@ -31456,7 +31458,7 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
     snr = (fluxes / flux_uncs).value
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
-    return instr_mags_sigma
+    return instr_mags_sigma, snr
 
 
 def calculate_background_sky_brightness(bkg, hdr, exptime,
@@ -31545,7 +31547,9 @@ def find_ref_stars(reference_stars,
                    skypositions,
                    instr_mags,
                    instr_mags_sigma,
+                   snrs,
                    fluxes,
+                   fluxes_unc,
                    ground_based=False,
                    altazpositions=None,
                    max_ref_sep=1.0):
@@ -31647,7 +31651,9 @@ def find_ref_stars(reference_stars,
     # ang_separation = sep2d[ref_star_index]
     img_instr_mag = instr_mags[img_star_index]
     img_instr_mag_sigma = instr_mags_sigma[img_star_index]
+    img_snr = snrs[img_star_index]
     img_fluxes = fluxes[img_star_index]
+    img_fluxes_unc = fluxes_unc[img_star_index]
     img_star_altaz = None
     img_star_airmass = None
     if ground_based:
@@ -31665,7 +31671,9 @@ def find_ref_stars(reference_stars,
                                 'ang_separation',
                                 'img_instr_mag',
                                 'img_instr_mag_sigma',
+                                'SNR',
                                 'flux',
+                                'flux_unc',
                                 'img_star_altaz',
                                 'img_star_airmass'])
     return matched_stars(
@@ -31677,7 +31685,9 @@ def find_ref_stars(reference_stars,
         ang_separation,
         img_instr_mag,
         img_instr_mag_sigma,
+        img_snr,
         img_fluxes,
+        img_fluxes_unc,
         img_star_altaz,
         img_star_airmass)
 
@@ -32020,6 +32030,7 @@ def init_large_table_columns():
     ref_star_name = []
     times = []
     flux_table = []
+    flux_unc_table = []
     exposure = []
     ref_star_RA = []
     ref_star_dec = []
@@ -32029,6 +32040,7 @@ def init_large_table_columns():
     V_apparents = []
     img_star_mag = []
     img_star_mag_sigma = []
+    snrs = []
     filters = []
     B_V_apparents = []
     U_B_apparents = []
@@ -32040,6 +32052,8 @@ def init_large_table_columns():
     V_R_sigma_apparents = []
     V_I_sigma_apparents = []
     img_star_airmass = []
+    # fits_column_airmass = []
+    num_stars = []
     img_names = []
     # X_rounded = []
     large_table_columns = namedtuple('large_table_columns',
@@ -32047,6 +32061,7 @@ def init_large_table_columns():
                                       'ref_star_name',
                                       'times',
                                       'flux_table',
+                                      'flux_unc_table',
                                       'exposure',
                                       'ref_star_RA',
                                       'ref_star_dec',
@@ -32055,6 +32070,7 @@ def init_large_table_columns():
                                       'angular_separation',
                                       'img_star_mag',
                                       'img_star_mag_sigma',
+                                      'SNR',
                                       'filters',
                                       'V_apparents',
                                       'B_V_apparents',
@@ -32067,6 +32083,8 @@ def init_large_table_columns():
                                       'V_R_sigma_apparents',
                                       'V_I_sigma_apparents',
                                       'img_star_airmass',
+                                      # 'fits_column_airmass',
+                                      'num_stars',
                                       'img_name'
                                       # 'X_rounded'
                                       ])
@@ -32074,6 +32092,7 @@ def init_large_table_columns():
                                ref_star_name,
                                times,
                                flux_table,
+                               flux_unc_table,
                                exposure,
                                ref_star_RA,
                                ref_star_dec,
@@ -32082,6 +32101,7 @@ def init_large_table_columns():
                                angular_separation,
                                img_star_mag,
                                img_star_mag_sigma,
+                               snrs,
                                filters,
                                V_apparents,
                                B_V_apparents,
@@ -32094,6 +32114,8 @@ def init_large_table_columns():
                                V_R_sigma_apparents,
                                V_I_sigma_apparents,
                                img_star_airmass,
+                               # fits_column_airmass,
+                               num_stars,
                                img_names
                                # X_rounded
                                )
@@ -32277,6 +32299,7 @@ def update_large_table_columns(large_table_columns, filename,
         updated_large_table_columns.ref_star_name.extend(
             matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
+        updated_large_table_columns.flux_unc_table.extend(matched_stars.flux_unc)
         time = Time(hdr['DATE-OBS'], format='fits')
         time_repeat = np.full(num_stars, time.jd)
         updated_large_table_columns.times.extend(time_repeat)
@@ -32296,6 +32319,8 @@ def update_large_table_columns(large_table_columns, filename,
             matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.extend(
             matched_stars.img_instr_mag_sigma)
+        updated_large_table_columns.SNR.extend(
+            matched_stars.SNR)
         filter_name_repeat = np.full(num_stars, hdr['FILTER'][0])
         updated_large_table_columns.filters.extend(filter_name_repeat)
         filename_repeat = np.full(num_stars, filename)
@@ -32340,12 +32365,16 @@ def update_large_table_columns(large_table_columns, filename,
                 matched_stars.ref_star['e_V-R'])
             updated_large_table_columns.V_I_sigma_apparents.extend(
                 matched_stars.ref_star['e_V-I'])
+        num_stars_repeat = np.full(num_stars, num_stars)
+        updated_large_table_columns.num_stars.extend(num_stars_repeat)
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.extend(
             matched_stars.img_star_airmass)
-        # updated_large_table_columns.X_rounded.extend
-        # (round(matched_stars.img_star_airmass, 1))
+        # fits_column_airmass_repeat = np.full(num_stars, matched_stars.fits_column_airmass)
+        # updated_large_table_columns.fits_column_airmass.extend(
+        #     fits_column_airmass_repeat)
+        # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
         split_string = re.split(
             '[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
@@ -32359,6 +32388,7 @@ def update_large_table_columns(large_table_columns, filename,
         updated_large_table_columns.ref_star_name.append(
             matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.append(matched_stars.flux)
+        updated_large_table_columns.flux_unc_table.append(matched_stars.flux_unc)
         time = Time(hdr['DATE-OBS'], format='fits')
         updated_large_table_columns.times.append(time.jd)
         updated_large_table_columns.exposure.append(exptime)
@@ -32376,6 +32406,8 @@ def update_large_table_columns(large_table_columns, filename,
             matched_stars.img_instr_mag)
         updated_large_table_columns.img_star_mag_sigma.append(
             matched_stars.img_instr_mag_sigma)
+        updated_large_table_columns.SNR.append(
+            matched_stars.SNR)
         updated_large_table_columns.filters.append(hdr['FILTER'][0])
         updated_large_table_columns.img_name.append(filename)
         updated_large_table_columns.V_apparents.append(
@@ -32418,12 +32450,14 @@ def update_large_table_columns(large_table_columns, filename,
                 matched_stars.ref_star['e_V-R'])
             updated_large_table_columns.V_I_sigma_apparents.append(
                 matched_stars.ref_star['e_V-I'])
+        updated_large_table_columns.num_stars.append(num_stars)
         if not ground_based:
             return updated_large_table_columns
         updated_large_table_columns.img_star_airmass.append(
             matched_stars.img_star_airmass)
-        # updated_large_table_columns.X_rounded.append
-        # (round(matched_stars.img_star_airmass, 1))
+        # updated_large_table_columns.fits_column_airmass.append(
+        #     matched_stars.fits_column_airmass)
+        # updated_large_table_columns.X_rounded.append(round(matched_stars.img_star_airmass, 1))
     else:
         return
     return updated_large_table_columns
@@ -32558,9 +32592,11 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.img_star_dec,
                 large_table_columns.angular_separation,
                 large_table_columns.flux_table,
+                large_table_columns.flux_unc_table,
                 large_table_columns.exposure,
                 large_table_columns.img_star_mag,
                 large_table_columns.img_star_mag_sigma,
+                large_table_columns.SNR,
                 large_table_columns.filters,
                 large_table_columns.V_apparents,
                 large_table_columns.B_V_apparents,
@@ -32573,6 +32609,8 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.V_R_sigma_apparents,
                 large_table_columns.V_I_sigma_apparents,
                 large_table_columns.img_star_airmass,
+                # large_table_columns.fits_column_airmass,
+                large_table_columns.num_stars,
                 large_table_columns.img_name
                 # large_table_columns.X_rounded
             ],
@@ -32586,9 +32624,11 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'dec_img',
                 'angular_separation',
                 'flux',
+                'flux_unc',
                 'exposure',
                 'mag_instrumental',
                 'mag_instrumental_sigma',
+                'SNR',
                 'filter',
                 'V_ref',
                 'B-V',
@@ -32601,6 +32641,8 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'e_V-R',
                 'e_V-I',
                 'X',
+                # 'X_from_FITS_hdr',
+                'Num_stars',
                 'img_name'
                 # 'X_rounded'
             ]
@@ -32617,9 +32659,11 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.img_star_dec,
                 large_table_columns.angular_separation,
                 large_table_columns.flux_table,
+                large_table_columns.flux_unc_table,
                 large_table_columns.exposure,
                 large_table_columns.img_star_mag,
                 large_table_columns.img_star_mag_sigma,
+                large_table_columns.SNR,
                 large_table_columns.filters,
                 large_table_columns.V_apparents,
                 large_table_columns.B_V_apparents,
@@ -32630,7 +32674,10 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 large_table_columns.B_V_sigma_apparents,
                 large_table_columns.U_B_sigma_apparents,
                 large_table_columns.V_R_sigma_apparents,
-                large_table_columns.V_I_sigma_apparents
+                large_table_columns.V_I_sigma_apparents,
+                large_table_columns.num_stars,
+                large_table_columns.img_name
+                # large_table_columns.X_rounded
             ],
             names=[
                 'Field',
@@ -32642,20 +32689,25 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 'dec_img',
                 'angular_separation',
                 'flux',
+                'flux_unc',
                 'exposure',
                 'mag_instrumental',
                 'mag_instrumental_sigma',
+                'SNR',
                 'filter',
                 'V_ref',
-                '(B-V)',
-                '(U-B)',
-                '(V-R)',
-                '(V-I)',
+                'B-V',
+                'U-B',
+                'V-R',
+                'V-I',
                 'V_sigma',
-                '(B-V)_sigma',
-                '(U-B)_sigma',
-                '(V-R)_sigma',
-                '(V-I)_sigma',
+                'e_B-V',
+                'e_U-B',
+                'e_V-R',
+                'e_V-I',
+                'Num_stars',
+                'img_name'
+                # 'X_rounded'
             ]
         )
     return large_stars_table
@@ -32855,8 +32907,10 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     filter_X_sigma_table = Table(
         data=different_filter_data, names=filter_X_sigma_list)
     all_indices, all_indices_formatted = get_all_indicies_combinations(
+
         different_filter_list, len(different_filter_list),
         multiple_filters=True)
+
     data_instr_index_table = [
         nan_array for different_index in all_indices_formatted]
     instr_index_table = Table(
@@ -33179,6 +33233,7 @@ def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc,
                 except TypeError:
                     print(f"Only 1 star at airmass: {avg_airmass:0.3f}.")
                     continue
+
                 gb_transform_table_columns =\
                     update_gb_transform_table_columns_AVG(
                         gb_transform_table_columns,
@@ -33189,6 +33244,7 @@ def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc,
                         different_filter,
                         colour_index,
                         avg_airmass)
+
     gb_transform_table = create_gb_transform_table_AVG(
         gb_transform_table_columns)
     return gb_transform_table
@@ -33224,12 +33280,14 @@ def get_app_mag_and_index_AVG(stars_table, instr_filter):
         colour_index = 'B-V'
         app_filter = 'B'
         app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
+
         app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
                                       nan=max(stars_table['V_sigma'])) + \
             np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(
                 stars_table[f'e_{colour_index}']))
         # app_mag_sigma =\
         # np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
+
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
         app_filter = 'V'
@@ -36389,7 +36447,7 @@ def change_sat_positions(filenames,
             photometry_result = perform_photometry_sat(
                 sat_x, sat_y, fwhm, imgdata, bkg_trm)
             instr_mags = calculate_magnitudes(photometry_result, exptime)
-            instr_mags_sigma = calculate_magnitudes_sigma(
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
                 photometry_result, exptime)
             sat_information = check_if_sat(sat_information,
                                            filenum - reversing_index,
@@ -37122,8 +37180,9 @@ def _main_gb_transform_calc(directory,
                 photometry_result = perform_photometry(
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
+                fluxes_unc = np.array(photometry_result['flux_unc'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(
+                instr_mags_sigma, snr = calculate_magnitudes_sigma(
                     photometry_result, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
@@ -37142,7 +37201,9 @@ def _main_gb_transform_calc(directory,
                                                skypositions,
                                                instr_mags,
                                                instr_mags_sigma,
+                                               snr,
                                                fluxes,
+                                               fluxes_unc,
                                                ground_based=True,
                                                altazpositions=altazpositions)
                 if not matched_stars:
@@ -37283,7 +37344,7 @@ def _main_gb_transform_calc(directory,
     #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
     #             fluxes = np.array(photometry_result['flux_fit'])
     #             instr_mags = calculate_magnitudes(photometry_result, exptime)
-    #             instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+    #             instr_mags_sigma, snr = calculate_magnitudes_sigma(photometry_result, exptime)
     #             wcs = WCS(hdr)
     #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
     #             altazpositions = None
@@ -37434,8 +37495,9 @@ def verify_gb_transforms(directory,
                 photometry_result = perform_photometry(
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
+                fluxes_unc = np.array(photometry_result['flux_unc'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(
+                instr_mags_sigma, snr = calculate_magnitudes_sigma(
                     photometry_result, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
@@ -37454,7 +37516,9 @@ def verify_gb_transforms(directory,
                                                skypositions,
                                                instr_mags,
                                                instr_mags_sigma,
+                                               snr,
                                                fluxes,
+                                               fluxes_unc,
                                                ground_based=True,
                                                altazpositions=altazpositions)
                 if not matched_stars:
@@ -37678,8 +37742,9 @@ def _main_gb_transform_calc_TEST(directory,
         photometry_result = perform_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
         instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma = calculate_magnitudes_sigma(
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
             photometry_result, exptime)
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
@@ -37701,7 +37766,9 @@ def _main_gb_transform_calc_TEST(directory,
                                        skypositions,
                                        instr_mags,
                                        instr_mags_sigma,
+                                       snr,
                                        fluxes,
+                                       fluxes_unc,
                                        ground_based=True,
                                        altazpositions=altazpositions)
         if not matched_stars:
@@ -39416,7 +39483,6 @@ def verify_gb_transforms_auto(directory,
                               lon_key='SITELONG',
                               elev_key='SITEELEV',
                               **kwargs):
-
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
@@ -39439,6 +39505,7 @@ def verify_gb_transforms_auto(directory,
         photometry_result = perform_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
         instr_mags = calculate_magnitudes(photometry_result, exptime)
         instr_mags_sigma = calculate_magnitudes_sigma(
             photometry_result, exptime)
@@ -39461,7 +39528,9 @@ def verify_gb_transforms_auto(directory,
                                        skypositions,
                                        instr_mags,
                                        instr_mags_sigma,
+                                       snr,
                                        fluxes,
+                                       fluxes_unc,
                                        ground_based=True,
                                        altazpositions=altazpositions)
         if not matched_stars:
@@ -39672,11 +39741,12 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         # Do PSF photometry on the detected sources.
         photometry_result = perform_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
-        # Store the flux of the stars in a separate variable.
+        # Store the flux and uncertainty of the stars in a separate variable.
         fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
         # Convert the flux and uncertainty to magnitude and its uncertainty.
         instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma = calculate_magnitudes_sigma(
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
             photometry_result, exptime)
         # Read the World Coordinate System transformation added to the fits header
         # by a plate solving software (external to this program, e.g. PinPoint).
@@ -39690,8 +39760,6 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         try:
             # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B', lon_key='OBSGEO-L',
             #                                           elev_key='OBSGEO-H')
-
-            # FIXME: SkyCoord System does not work
 
             # Convert the stars' (RA,dec) location to (Azimuth,Elevation).
             altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key=lat_key, lon_key=lon_key,
@@ -39750,7 +39818,9 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                                        skypositions,
                                        instr_mags,
                                        instr_mags_sigma,
+                                       snr,
                                        fluxes,
+                                       fluxes_unc,
                                        ground_based=True,
                                        altazpositions=altazpositions)
         # If no image star corresponds to a reference star, log it and go to the next image.
@@ -39802,8 +39872,8 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
 
     ############# Begin the Warner Transforms #############
 
-    # Calculate the slope of each star's instrumental magnitude vs airmass,
-    # store it in a table, and write it to a .csv file.
+    # Calculate the slope of each star's instrumental magnitude vs airmass, store it in a table,
+    # and write it to a .csv file.
     slopes_table = calculate_slopes_Warner(
         stars_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(slopes_table, os.path.join(
@@ -39863,7 +39933,6 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
 
 
 def _main_gb_transform_calc_Buchheim(directory,
-
                                      ref_stars_file,
                                      plot_results=False,
                                      save_plots=False,
@@ -39874,7 +39943,6 @@ def _main_gb_transform_calc_Buchheim(directory,
                                      lon_key='SITELONG',
                                      elev_key='SITEELEV',
                                      **kwargs):
-
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
     """
@@ -39950,14 +40018,14 @@ def _main_gb_transform_calc_Buchheim(directory,
         # Do PSF photometry on the detected sources.
         photometry_result = perform_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
-        # Store the flux of the stars in a separate variable.
+        # Store the flux and uncertainty of the stars in a separate variable.
         fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
         # Convert the flux and uncertainty to magnitude and its uncertainty.
         instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma = calculate_magnitudes_sigma(
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
             photometry_result, exptime)
-        # Read the World Coordinate System transformation added to the
-        # fits header
+        # Read the World Coordinate System transformation added to the fits header
         # by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
         # Convert the stars' (x,y) centroid locations to (RA,dec).
@@ -40028,7 +40096,9 @@ def _main_gb_transform_calc_Buchheim(directory,
                                        skypositions,
                                        instr_mags,
                                        instr_mags_sigma,
+                                       snr,
                                        fluxes,
+                                       fluxes_unc,
                                        ground_based=True,
                                        altazpositions=altazpositions)
         # If no image star corresponds to a reference star, log it and go to
@@ -40229,7 +40299,7 @@ def _sky_survey_calc(directory,
         # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
         # fluxes = np.array(photometry_result['flux_fit'])
         # instr_mags = calculate_magnitudes(photometry_result, exptime)
-        # instr_mags_sigma = calculate_magnitudes_sigma(photometry_result, exptime)
+        # instr_mags_sigma, snr = calculate_magnitudes_sigma(photometry_result, exptime)
         try:
             wcs = WCS(hdr)
             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
@@ -40380,7 +40450,7 @@ def _main_sb_transform_calc(directory,
 
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
-            if filename.endswith((file_suffix)):
+            if filename.endswith(file_suffix):
                 filepath = os.path.join(dirpath, filename)
                 hdr, imgdata = read_fits_file(filepath)
                 exptime = hdr[exposure_key]
@@ -40393,8 +40463,9 @@ def _main_sb_transform_calc(directory,
                 photometry_result = perform_photometry(
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
+                fluxes_unc = np.array(photometry_result['flux_unc'])
                 instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma = calculate_magnitudes_sigma(
+                instr_mags_sigma, snr = calculate_magnitudes_sigma(
                     photometry_result, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
@@ -40403,7 +40474,9 @@ def _main_sb_transform_calc(directory,
                                                skypositions,
                                                instr_mags,
                                                instr_mags_sigma,
+                                               snr,
                                                fluxes,
+                                               fluxes_unc,
                                                ground_based=False,
                                                altazpositions=None)
                 if not matched_stars:
@@ -40556,7 +40629,7 @@ def _main_sc_lightcurve(directory,
         photometry_result = perform_photometry_sat(
             sat_x, sat_y, fwhm, imgdata, bkg_trm)
         instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma = calculate_magnitudes_sigma(
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
             photometry_result, exptime)
         sat_information = check_if_sat(sat_information,
                                        filenum,

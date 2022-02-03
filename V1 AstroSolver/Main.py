@@ -518,9 +518,7 @@ def Ground_based_transforms(directory, ref_stars_file):
     lat_key = 'OBSGEO-B'
     lon_key = 'OBSGEO-L'
     elev_key = 'OBSGEO-H'
-
-    file_suffix = [".fits", ".fit", ".fts"]
-
+    file_suffix = (".fits", ".fit", ".fts")
     exposure_key = 'EXPTIME'
     # lat_key='SITELAT'
     # lon_key='SITELONG'
