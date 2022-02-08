@@ -6165,7 +6165,7 @@ def create_master_flat(all_fits, master_dir):
 
     try:
         # combined_bias = CCDData.read(master_files_list)
-        combined_bias = CCDData.read(master_dir + '\master_bias.fits')
+        combined_bias = CCDData.read(master_dir + '\\master_bias.fits')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
 

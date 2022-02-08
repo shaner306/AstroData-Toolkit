@@ -489,9 +489,11 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                         f.RemoveHotPixels()
 
                         "Pinpoint Solving"
-                        f.FindCatalogStars()
+
+                        # FIXME f.Solve intronsicly calls Find Catalog Stars and Image Stars
+                        # f.FindCatalogStars()
                         # print(f.CatalogStars.Count)
-                        f.FindImageStars()
+                        # f.FindImageStars()
                         # print(f.ImageStars.Count)
                         f.Solve()
                         f.UpdateFITS()
