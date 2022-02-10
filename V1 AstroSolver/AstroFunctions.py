@@ -8983,7 +8983,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                 filecount += 1
     "Split the files into those for calculation and those for verification."
 
-    # FIXME What is this?
+    # What is this?
     shuffle(file_paths)
     split_decimal = 1
     split_filecount_location = math.ceil(split_decimal * filecount)
