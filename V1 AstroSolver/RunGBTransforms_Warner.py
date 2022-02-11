@@ -25,12 +25,12 @@ save_plots = True
 file_suffix = (".fits", ".fit", ".fts")
 exposure_key = 'EXPTIME'
 name_key = 'Name'
-# lat_key = 'SITELAT'
-# lon_key = 'SITELONG'
-# elev_key = 'SITEELEV'
-lat_key = 'OBSGEO-B'
-lon_key = 'OBSGEO-L'
-elev_key = 'OBSGEO-H'
+lat_key = 'SITELAT'
+lon_key = 'SITELONG'
+elev_key = 'SITEELEV'
+# lat_key = 'OBSGEO-B'
+# lon_key = 'OBSGEO-L'
+# elev_key = 'OBSGEO-H'
 
 # subfolder_list = [
 #     # '2020 10 23 - 2x2 - unprocessed',
@@ -62,8 +62,8 @@ unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-directory = r'D:\2021 - Suffield Sky Survey\2021 10 26 - ZWO with C14\Landolts\corrected_lights'
-save_loc = os.path.join(directory, 'Outputs')
+directory = r'F:\Intelsat 10-02\2021-04-24 - unprocessed\Stars\corrected_lights'
+save_loc = os.path.join(directory, 'Outputs_Warner')
 # try:
 Warner_final_transform_table = astro._main_gb_transform_calc_Warner(directory,
                                                                     ref_stars_file,
