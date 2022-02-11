@@ -17,17 +17,20 @@ warnings.filterwarnings('default', category=UserWarning)
 start_time = time.time()
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
-ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
-# ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
+# ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
+ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 
 plot_results = True
 save_plots = True
 file_suffix = (".fits", ".fit", ".fts")
 exposure_key = 'EXPTIME'
 name_key = 'Name'
-lat_key = 'SITELAT'
-lon_key = 'SITELONG'
-elev_key = 'SITEELEV'
+# lat_key = 'SITELAT'
+# lon_key = 'SITELONG'
+# elev_key = 'SITEELEV'
+lat_key = 'OBSGEO-B'
+lon_key = 'OBSGEO-L'
+elev_key = 'OBSGEO-H'
 
 # subfolder_list = [
 #     # '2020 10 23 - 2x2 - unprocessed',
@@ -59,22 +62,21 @@ unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-directory = r'D:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
-save_loc = os.path.join(directory, 'Outputs_Warner')
+directory = r'D:\2021 - Suffield Sky Survey\2021 10 26 - ZWO with C14\Landolts\corrected_lights'
+save_loc = os.path.join(directory, 'Outputs')
 # try:
-Warner_final_transform_table = astro._main_gb_transform_calc_Warner(
-    directory,
-    ref_stars_file,
-    plot_results=plot_results,
-    save_plots=save_plots,
-    file_suffix=file_suffix,
-    exposure_key=exposure_key,
-    name_key=name_key,
-    lat_key=lat_key,
-    lon_key=lon_key,
-    elev_key=elev_key,
-    save_loc=save_loc,
-    unique_id=unique_id)
+Warner_final_transform_table = astro._main_gb_transform_calc_Warner(directory,
+                                                                    ref_stars_file,
+                                                                    plot_results=plot_results,
+                                                                    save_plots=save_plots,
+                                                                    file_suffix=file_suffix,
+                                                                    exposure_key=exposure_key,
+                                                                    name_key=name_key,
+                                                                    lat_key=lat_key,
+                                                                    lon_key=lon_key,
+                                                                    elev_key=elev_key,
+                                                                    save_loc=save_loc,
+                                                                    unique_id=unique_id)
 end_time = time.time()
 # except Exception as e:
 #     print(e)
