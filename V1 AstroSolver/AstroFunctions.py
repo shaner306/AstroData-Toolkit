@@ -5568,12 +5568,9 @@ def check_if_sat(sat_information,
         for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
             sat_x = sat[0]
             sat_y = sat[1]
-            if abs(sat_x - obj_x) < max_distance_from_sat and\
-                    abs(sat_y - obj_y) < max_distance_from_sat:
-                sat_information.sats_table[index][sat_num] =\
-                    instr_mags[obj_index]
-                sat_information.uncertainty_table[index][sat_num] =\
-                    instr_mags_sigma[obj_index]
+            if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
+                sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
+                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index].value
                 sat[0] = obj_x
                 sat[1] = obj_y
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
