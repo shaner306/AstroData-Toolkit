@@ -9683,25 +9683,25 @@ def _sky_survey_calc(directory,
     ascii.write(star_aux_table, os.path.join(
         save_loc, 'auxiliary_table.csv'), format='csv')
     with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
-        f.write('File')
+        f.write('Parameter')
         f.write('\t')
-        f.write('Reason')
+        f.write('Value')
         f.write('\n')
     # TODO: Make these weighted means
-    min_bsb = min(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
-    max_bsb = max(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    min_bsb = max(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    max_bsb = min(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     mean_bsb = np.mean(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     std_bsb = np.std(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     
-    min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'])
-    max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'])
-    mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'])
-    std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'])
+    min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     
-    min_fwhm_pixel = min(star_aux_table['FWHM_pixel'])
-    max_fwhm_pixel = max(star_aux_table['FWHM_pixel'])
-    mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'])
-    std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'])
+    min_fwhm_pixel = min(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_pixel = max(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     
     with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
         f.write(f'Minimum BSB:\t{min_bsb}')
@@ -9752,7 +9752,7 @@ def _sky_survey_calc(directory,
     plt.close()
     
     
-    times_list = np.array(star_aux_table['Time (JD)'])
+    times_list = np.array(star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
     
@@ -9793,6 +9793,10 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'BSB_v_elevation.png'))
     plt.show()
     plt.close()
+    
+    times_list = np.array(star_aux_table['Time (JD)'])
+    times_obj = Time(times_list, format='jd', scale='utc')
+    times_datetime = times_obj.to_value('datetime')
 
     fwhm_arcsec = star_aux_table['FWHM_arcsec']
     fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
