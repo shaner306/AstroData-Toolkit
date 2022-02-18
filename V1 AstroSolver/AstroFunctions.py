@@ -9747,7 +9747,8 @@ def _sky_survey_calc(directory,
     ax.set_rlim(bottom=90, top=15)
     for label in rlabels:
         label.set_color('black')
-    plt.savefig(os.path.join(save_loc, 'BSB_plot.png'))
+    plt.title('BSB (mag/arcsec$^2$)')
+    plt.savefig(os.path.join(save_loc, 'BSB_polar.png'))
     plt.show()
     plt.close()
     
@@ -9787,7 +9788,7 @@ def _sky_survey_calc(directory,
                              capsize=0,
                              elinewidth=0.75)
     [bar.set_alpha(0.3) for bar in bars]
-    ax.set_xlabel('BSB (mag/arcsec^2)')
+    ax.set_xlabel('BSB (mag/arcsec$^2$)')
     ax.set_ylabel('Elevation')
     plt.title('BSB v. Elevation')
     plt.savefig(os.path.join(save_loc, 'BSB_v_elevation.png'))
@@ -9892,6 +9893,7 @@ def _sky_survey_calc(directory,
     ax.set_rlim(bottom=90, top=15)
     for label in rlabels:
         label.set_color('black')
+    plt.title('FWHM (arcsec)')
     plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_polar.png'))
     plt.show()
     plt.close()
@@ -9914,6 +9916,7 @@ def _sky_survey_calc(directory,
     ax.set_rlim(bottom=90, top=15)
     for label in rlabels:
         label.set_color('black')
+    plt.title('FWHM (pixels)')
     plt.savefig(os.path.join(save_loc, 'FWHM_pixel_polar.png'))
     plt.show()
     plt.close()
