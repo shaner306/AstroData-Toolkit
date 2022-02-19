@@ -5579,12 +5579,9 @@ def check_if_sat(sat_information,
         for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
             sat_x = sat[0]
             sat_y = sat[1]
-            if abs(sat_x - obj_x) < max_distance_from_sat and\
-                    abs(sat_y - obj_y) < max_distance_from_sat:
-                sat_information.sats_table[index][sat_num] =\
-                    instr_mags[obj_index]
-                sat_information.uncertainty_table[index][sat_num] =\
-                    instr_mags_sigma[obj_index].value
+            if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
+                sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
+                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index].value
                 sat[0] = obj_x
                 sat[1] = obj_y
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
@@ -9710,6 +9707,52 @@ def _sky_survey_calc(directory,
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(
         save_loc, 'auxiliary_table.csv'), format='csv')
+    with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
+        f.write('Parameter')
+        f.write('\t')
+        f.write('Value')
+        f.write('\n')
+    # TODO: Make these weighted means
+    min_bsb = max(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    max_bsb = min(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    mean_bsb = np.mean(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    std_bsb = np.std(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    
+    min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    
+    min_fwhm_pixel = min(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_pixel = max(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    
+    with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
+        f.write(f'Minimum BSB:\t{min_bsb}')
+        f.write('\n')
+        f.write(f'Maximum BSB:\t{max_bsb}')
+        f.write('\n')
+        f.write(f'Mean BSB:\t{mean_bsb}')
+        f.write('\n')
+        f.write(f'Standard Deviation of BSB:\t{std_bsb}')
+        f.write('\n')
+        f.write(f'Minimum FWHM (arcsec):\t{min_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Maximum FWHM (arcsec):\t{max_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Mean FWHM (arcsec):\t{mean_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Standard Deviation of FWHM (arcsec):\t{std_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Minimum FWHM (pixels):\t{min_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Maximum FWHM (pixels):\t{max_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Mean FWHM (pixels):\t{mean_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Standard Deviation of FWHM (pixels):\t{std_fwhm_pixel}')
+        f.write('\n')
 
     theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
     r = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
@@ -9729,15 +9772,60 @@ def _sky_survey_calc(directory,
     ax.set_rlim(bottom=90, top=15)
     for label in rlabels:
         label.set_color('black')
-    plt.savefig(os.path.join(save_loc, 'BSB_plot.png'))
+    plt.title('BSB (mag/arcsec$^2$)')
+    plt.savefig(os.path.join(save_loc, 'BSB_polar.png'))
     plt.show()
     plt.close()
-
-    fwhm_arcsec = star_aux_table['FWHM_arcsec']
-    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
+    
+    
+    times_list = np.array(star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
+    times_obj = Time(times_list, format='jd', scale='utc')
+    times_datetime = times_obj.to_value('datetime')
+    
+    bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
+    bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(times_datetime,
+                             bsb,
+                             yerr=bsb_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.set_ylabel('BSB (mag/arcsec^2)')
+    ax.set_xlabel('Time (UTC)')
+    plt.title('BSB v. Time')
+    plt.savefig(os.path.join(save_loc, 'BSB_v_time.png'))
+    plt.show()
+    plt.close()
+    
+    bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
+    bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
+    elevation = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(bsb,
+                             elevation,
+                             xerr=bsb_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('BSB (mag/arcsec$^2$)')
+    ax.set_ylabel('Elevation')
+    plt.title('BSB v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'BSB_v_elevation.png'))
+    plt.show()
+    plt.close()
+    
     times_list = np.array(star_aux_table['Time (JD)'])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
+
+    fwhm_arcsec = star_aux_table['FWHM_arcsec']
+    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
     fig, ax = plt.subplots()
     _, _, bars = ax.errorbar(times_datetime,
                              fwhm_arcsec,
@@ -9771,6 +9859,90 @@ def _sky_survey_calc(directory,
     ax.set_xlabel('Time (UTC)')
     plt.title('FWHM (pixels) v. Time')
     plt.savefig(os.path.join(save_loc, 'FWHM.png'))
+    plt.show()
+    plt.close()
+    
+    fwhm_arcsec = star_aux_table['FWHM_arcsec']
+    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
+    elevation = star_aux_table['Elevation']
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(fwhm_arcsec,
+                             elevation,
+                             xerr=fwhm_arcsec_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('FWHM (arcsec)')
+    ax.set_ylabel('Elevation')
+    plt.title('FWHM (arcsec) v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_v_elevation.png'))
+    plt.show()
+    plt.close()
+    
+    fwhm = star_aux_table['FWHM_pixel']
+    fwhm_sigma = star_aux_table['FWHM_pixel_sigma']
+    elevation = star_aux_table['Elevation']
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(fwhm,
+                             elevation,
+                             xerr=fwhm_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('FWHM (pixel)')
+    ax.set_ylabel('Elevation')
+    plt.title('FWHM (pixel) v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pixel_v_elevation.png'))
+    plt.show()
+    plt.close()
+    
+    theta = star_aux_table['Azimuth']
+    r = star_aux_table['Elevation']
+    z = star_aux_table['FWHM_arcsec']
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
+                                       vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta,
+    # r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)],
+               cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90, top=15)
+    for label in rlabels:
+        label.set_color('black')
+    plt.title('FWHM (arcsec)')
+    plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_polar.png'))
+    plt.show()
+    plt.close()
+    
+    theta = star_aux_table['Azimuth']
+    r = star_aux_table['Elevation']
+    z = star_aux_table['FWHM_pixel']
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
+                                       vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta,
+    # r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)],
+               cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90, top=15)
+    for label in rlabels:
+        label.set_color('black')
+    plt.title('FWHM (pixels)')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pixel_polar.png'))
     plt.show()
     plt.close()
 
