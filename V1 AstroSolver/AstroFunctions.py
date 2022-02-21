@@ -244,6 +244,7 @@ def read_ref_stars(ref_stars_file):
         reference stars in the file.
 
     """
+
     try:
         reference_stars = ascii.read(
             ref_stars_file, format='basic',
@@ -254,6 +255,7 @@ def read_ref_stars(ref_stars_file):
     ref_star_positions = SkyCoord(
         ra=reference_stars['RA'],
         dec=reference_stars['Dec'], unit=(u.hourangle, u.deg))
+
     return reference_stars, ref_star_positions
 
 
@@ -9717,17 +9719,17 @@ def _sky_survey_calc(directory,
     max_bsb = min(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     mean_bsb = np.mean(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     std_bsb = np.std(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
-    
+
     min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    
+
     min_fwhm_pixel = min(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     max_fwhm_pixel = max(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    
+
     with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
         f.write(f'Minimum BSB:\t{min_bsb}')
         f.write('\n')
@@ -9776,12 +9778,11 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'BSB_polar.png'))
     plt.show()
     plt.close()
-    
-    
+
     times_list = np.array(star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
-    
+
     bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
     bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
     fig, ax = plt.subplots()
@@ -9800,7 +9801,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'BSB_v_time.png'))
     plt.show()
     plt.close()
-    
+
     bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
     bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
     elevation = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
@@ -9819,7 +9820,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'BSB_v_elevation.png'))
     plt.show()
     plt.close()
-    
+
     times_list = np.array(star_aux_table['Time (JD)'])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
@@ -9861,7 +9862,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'FWHM.png'))
     plt.show()
     plt.close()
-    
+
     fwhm_arcsec = star_aux_table['FWHM_arcsec']
     fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
     elevation = star_aux_table['Elevation']
@@ -9880,7 +9881,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_v_elevation.png'))
     plt.show()
     plt.close()
-    
+
     fwhm = star_aux_table['FWHM_pixel']
     fwhm_sigma = star_aux_table['FWHM_pixel_sigma']
     elevation = star_aux_table['Elevation']
@@ -9899,7 +9900,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'FWHM_pixel_v_elevation.png'))
     plt.show()
     plt.close()
-    
+
     theta = star_aux_table['Azimuth']
     r = star_aux_table['Elevation']
     z = star_aux_table['FWHM_arcsec']
@@ -9922,7 +9923,7 @@ def _sky_survey_calc(directory,
     plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_polar.png'))
     plt.show()
     plt.close()
-    
+
     theta = star_aux_table['Azimuth']
     r = star_aux_table['Elevation']
     z = star_aux_table['FWHM_pixel']
