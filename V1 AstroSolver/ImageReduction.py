@@ -8422,7 +8422,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
 
     # Create dictionaries of the dark and flat master frames in the master directory
 
-    master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
+    master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
         imagetyp=dark_imgtypes_concatenateded, combined=True)}
     master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
         imagetyp=flat_imgtypes_concatenateded, combined=True)}
