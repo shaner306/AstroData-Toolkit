@@ -4048,7 +4048,7 @@ def ground_based_second_order_transforms(gb_transform_table,
         else:
             fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0 / sigma)
         filtered_data_z = np.ma.masked_array(y, mask=mask)
-        kprime_f = fitted_line_z.slope.value
+        kprime_f = -fitted_line_z.slope.value
         zprime_f = fitted_line_z.intercept.value
         cov_z = fit.fit_info['param_cov']
         # a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'],
