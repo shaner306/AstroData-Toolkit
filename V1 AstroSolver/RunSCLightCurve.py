@@ -15,7 +15,7 @@ import os
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
 # directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Intelsat 10-02\corrected_lights'
-directory = r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\CodeTesting\AMAZONAS 2\LIGHT'
+directory = r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\CodeTesting\AMAZONAS 2'
 
 # transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
 # transforms_file = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Stars\corrected_lights\Outputs\_gb_final_transforms.csv'
@@ -44,8 +44,8 @@ plot_results = 0
 # for subfolder in reversed(subfolder_list):
 # print(subfolder)
 # transforms_file = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights\\Outputs_Warner\\_gb_final_transforms.csv'
-transforms_file = r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Suffield Data/2022-01-17 - Amazonas 2 and SA/CombinedSA26/SA26/LIGHT/Outputs/_gb_final_transforms.csv'
-gb_final_transforms = ascii.read(transforms_file)
+# transforms_file = r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Suffield Data/2022-01-17 - Amazonas 2 and SA/CombinedSA26/SA26/LIGHT/Outputs/_gb_final_transforms.csv'
+# gb_final_transforms = ascii.read(transforms_file)
 # directory = f"F:\\Intelsat 10-02\\{subfolder}\\Intelsat 10-02\\corrected_lights"
 save_loc = os.path.join(directory, 'Outputs_Warner_Test_TEMP')
 sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table = astro._main_sc_lightcurve(directory,

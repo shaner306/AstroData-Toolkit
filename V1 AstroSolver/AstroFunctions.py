@@ -4636,6 +4636,8 @@ def apply_gb_timeseries_transforms(gb_final_transforms,
                 positive_instr_mag = sat_table[CI[0]]
                 negative_instr_mag = sat_table[CI[1]]
             except KeyError:
+
+                # FIXME : This doesn't work for Amazonas Data
                 # table_ci = CI.replace('V', 'G')
                 if 'v' in ci:
                     table_ci = ci.replace('v', 'g')
@@ -10173,6 +10175,35 @@ def _main_sc_lightcurve(directory,
             sat_auxiliary_table.remove_column(aux_data)
     ascii.write(sat_auxiliary_table,
                 output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
+
+    # Place rows without nan or masked values into a new table which can be processed easier later
+    # TODO: Make this code more elegant
+    sats_table2 = Table(sats_table[0])
+    uncertainty_table2 = Table(uncertainty_table[0])
+    sat_auxiliary_table2 = Table(sat_auxiliary_table[0])
+    for row in range(1, len(sats_table)):
+        switch = True
+        for element in range(0, len(sats_table.columns)):
+            if ((str(sats_table[row][element]) == 'nan') or
+                    (bool(sats_table[row][element]) is False)):
+                switch = False
+        for element in range(0, len(uncertainty_table.columns)):
+            if ((str(uncertainty_table[row][element]) == 'nan') or
+                    (bool(uncertainty_table[row][element]) is False)):
+                switch = False
+        for element in range(0, len(sat_auxiliary_table.columns)):
+            if ((str(sat_auxiliary_table[row][element]) == 'nan') or
+                    (bool(sat_auxiliary_table[row][element]) is False)):
+                switch = False
+        if switch is True:
+            sats_table2.add_row(sats_table[row])
+            uncertainty_table2.add_row(uncertainty_table[row])
+            sat_auxiliary_table2.add_row(sat_auxiliary_table[row])
+        switch = True
+    sats_table = sats_table2
+    uncertainty_table = uncertainty_table2
+    sat_auxiliary_table = sat_auxiliary_table2
+
     unique_filters, num_filters, multiple_filters = determine_num_filters(
         sats_table)
     if multiple_filters:
