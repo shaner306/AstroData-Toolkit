@@ -118,18 +118,18 @@ def Gui():
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
                    [sg.Text("Image Folder:      "),
-                    sg.Input("C:\\Users\\mstew\\Documents\\Astro2_Files\\StJohnsTargets\\2021_04_25_StJohns_Targets\\2021_04_25_StJohns_Targets\\2021-04-25 - unprocessed\\Tycho 3023_1724_2",
+                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Suffield Data/2022-01-17 - Amazonas 2 and SA/SA26/LIGHT",
                              key="-IN2-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
                    [sg.Text("Catalog Folder:    "),
-                    sg.Input("C:\\Users\\mstew\\Documents\\Astro2_Files\\FTPFiles\\USNO UCAC4",
+                    sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Astro2_Files/FTPFiles/USNO UCAC4',
                              key="-IN3-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN4-")],
                    [sg.Text("Reference Stars:  "),
                     sg.Input
-                    (r'C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_Apr29.txt',
+                    (r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17.txt',
                      key="-IN5-", change_submits=True),
                     sg.FileBrowse(key="-IN6-")],
                    [sg.T(""), sg.Checkbox('Save Data to Folder',
@@ -284,17 +284,17 @@ def Gui():
                         # For St. John's
                         # # Uncomment these lines if you are processing
                         # data from St. John's.
-                        file_suffix = ".fits"
-                        # lat_key = 'SITELAT'
-                        # lon_key = 'SITELONG'
-                        # elev_key = 'SITEELEV'
+                        file_suffix = (".fits", ".fit", ".fts")
+                        lat_key = 'SITELAT'
+                        lon_key = 'SITELONG'
+                        elev_key = 'SITEELEV'
                         # For ORC GBO
                         # # Uncomment these lines if you are processing data
                         # from the ORC GBO.
                         # file_suffix = ".fit"
-                        lat_key = 'OBSGEO-B'
-                        lon_key = 'OBSGEO-L'
-                        elev_key = 'OBSGEO-H'
+                        # lat_key = 'OBSGEO-B'
+                        # lon_key = 'OBSGEO-L'
+                        # elev_key = 'OBSGEO-H'
                         save_loc = os.path.join(image_dir, 'Outputs')
                         Warner_final_transform_table =\
                             astro._main_gb_transform_calc_Warner(

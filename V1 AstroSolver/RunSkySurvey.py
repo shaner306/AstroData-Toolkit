@@ -16,7 +16,7 @@ import warnings
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('default', category=UserWarning)
 
-directory = r'C:\Users\jack.wawrow\Documents\2021 10 26 - Automated Pointing Run\ZWO\Pointing Run 1\corrected_lights'
+directory = r'D:\2021 - Suffield Sky Survey\2021 10 26 - ZWO with C14\Pointing Run\2021 10 26 - Pointing Run 1\corrected_lights'
 plot_results = True
 save_plots = True
 file_suffix = ".fits"

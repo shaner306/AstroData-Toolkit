@@ -244,6 +244,7 @@ def read_ref_stars(ref_stars_file):
         reference stars in the file.
 
     """
+
     try:
         reference_stars = ascii.read(
             ref_stars_file, format='basic',
@@ -254,6 +255,7 @@ def read_ref_stars(ref_stars_file):
     ref_star_positions = SkyCoord(
         ra=reference_stars['RA'],
         dec=reference_stars['Dec'], unit=(u.hourangle, u.deg))
+
     return reference_stars, ref_star_positions
 
 
@@ -434,7 +436,10 @@ def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT',
     obstime = Time(hdr['DATE-OBS'], format='fits')
     lat = hdr[lat_key]
     lon = hdr[lon_key]
-    height = hdr[elev_key]
+    try:
+        height = hdr[elev_key]
+    except:
+        height = 0
     location = EarthLocation.from_geodetic(lon=lon, lat=lat, height=height)
     current_aa = AltAz(location=location, obstime=obstime)
     altazpositions = skypositions.transform_to(current_aa)
@@ -2230,6 +2235,10 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
+    if len(different_filter_list) == 1:
+        multiple_filters = False
+    else:
+        multiple_filters = True
     different_filter_list = [different_filter.lower()
                              for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
@@ -2252,7 +2261,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         data=different_filter_data, names=filter_X_sigma_list)
     all_indices, all_indices_formatted = get_all_indicies_combinations(
         different_filter_list, len(different_filter_list),
-        multiple_filters=True)
+        multiple_filters)
     data_instr_index_table = [
         nan_array for different_index in all_indices_formatted]
     instr_index_table = Table(
@@ -2263,7 +2272,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                                 filter_X_table,
                                 filter_X_sigma_table,
                                 instr_index_table],
-                               join_type='exact')
+                               join_type='outer')
     num_columns = len(stars_table.columns)
     stars_table_nan_array = np.empty(num_columns)
     stars_table_nan_array.fill(np.nan)
@@ -2419,6 +2428,10 @@ def create_reformatted_large_table(large_stars_table, keys='Name'):
     )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
+    if len(different_filter_list) == 1:
+        multiple_filters = False
+    else:
+        multiple_filters = True
     different_filter_list = [different_filter.lower()
                              for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
@@ -2441,7 +2454,7 @@ def create_reformatted_large_table(large_stars_table, keys='Name'):
         data=different_filter_data, names=filter_X_sigma_list)
     all_indices, all_indices_formatted = get_all_indicies_combinations(
         different_filter_list, len(different_filter_list),
-        multiple_filters=True)
+        multiple_filters)
     data_instr_index_table = [
         nan_array for different_index in all_indices_formatted]
     instr_index_table = Table(
@@ -2452,7 +2465,7 @@ def create_reformatted_large_table(large_stars_table, keys='Name'):
                                                   filter_X_table,
                                                   filter_X_sigma_table,
                                                   instr_index_table],
-                                                 join_type='exact')
+                                                 join_type='outer')
     num_columns = len(reformatted_large_stars_table.columns)
     stars_table_nan_array = np.empty(num_columns)
     stars_table_nan_array.fill(np.nan)
@@ -4035,7 +4048,7 @@ def ground_based_second_order_transforms(gb_transform_table,
         else:
             fitted_line_z, mask = or_fit(line_init, x, y, weights=1.0 / sigma)
         filtered_data_z = np.ma.masked_array(y, mask=mask)
-        kprime_f = fitted_line_z.slope.value
+        kprime_f = -fitted_line_z.slope.value
         zprime_f = fitted_line_z.intercept.value
         cov_z = fit.fit_info['param_cov']
         # a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'],
@@ -4623,6 +4636,8 @@ def apply_gb_timeseries_transforms(gb_final_transforms,
                 positive_instr_mag = sat_table[CI[0]]
                 negative_instr_mag = sat_table[CI[1]]
             except KeyError:
+
+                # FIXME : This doesn't work for Amazonas Data
                 # table_ci = CI.replace('V', 'G')
                 if 'v' in ci:
                     table_ci = ci.replace('v', 'g')
@@ -5568,12 +5583,9 @@ def check_if_sat(sat_information,
         for sat_num, sat in enumerate(sat_information.sat_locs, start=2):
             sat_x = sat[0]
             sat_y = sat[1]
-            if abs(sat_x - obj_x) < max_distance_from_sat and\
-                    abs(sat_y - obj_y) < max_distance_from_sat:
-                sat_information.sats_table[index][sat_num] =\
-                    instr_mags[obj_index]
-                sat_information.uncertainty_table[index][sat_num] =\
-                    instr_mags_sigma[obj_index]
+            if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
+                sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
+                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index].value
                 sat[0] = obj_x
                 sat[1] = obj_y
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
@@ -5937,7 +5949,7 @@ def determine_num_filters(sats_table):
 
 def get_all_indicies_combinations(unique_filters,
                                   num_filters,
-                                  multiple_filters):
+                                  multiple_filters=True):
     if multiple_filters:
         all_indices = list(permutations(unique_filters, 2))
         all_indices_formatted = [
@@ -7587,8 +7599,12 @@ def calculate_slopes_Buchheim(stars_table,
     data_filter_table = [
         nan_array for different_filter in different_filter_list]
     num_filters = len(different_filter_list)
+    if num_filters == 1:
+        multiple_filters = False
+    else:
+        multiple_filters = True
     all_indices, all_indices_formatted = get_all_indicies_combinations(
-        different_filter_list, num_filters, multiple_filters=True)
+        different_filter_list, num_filters, multiple_filters)
     data_instr_index_table = [
         nan_array for different_index in all_indices_formatted]
 
@@ -9137,20 +9153,20 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
-        star_aux_table_columns =  update_star_aux_columns(star_aux_table_columns,
-                                                          file_names[file_num],
-                                                          time,
-                                                          img_filter,
-                                                          fwhm,
-                                                          fwhm_std,
-                                                          fwhm_arcsec,
-                                                          fwhms_arcsec_std,
-                                                          num_sources,
-                                                          background_sky_brightness,
-                                                          background_sky_brightness_sigma,
-                                                          azimuth,
-                                                          elevation,
-                                                          airmass)
+        star_aux_table_columns = update_star_aux_columns(star_aux_table_columns,
+                                                         file_names[file_num],
+                                                         time,
+                                                         img_filter,
+                                                         fwhm,
+                                                         fwhm_std,
+                                                         fwhm_arcsec,
+                                                         fwhms_arcsec_std,
+                                                         num_sources,
+                                                         background_sky_brightness,
+                                                         background_sky_brightness_sigma,
+                                                         azimuth,
+                                                         elevation,
+                                                         airmass)
         # Match the detected sources with a star from the reference stars file.
         matched_stars = find_ref_stars(reference_stars,
                                        ref_star_positions,
@@ -9183,20 +9199,25 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
         f.write('\t')
-        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+        f.write(
+            f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
     # Create an AstroPy table of the auxiliary data and write it to a .csv file.
     star_aux_table = create_star_aux_table(star_aux_table_columns)
-    ascii.write(star_aux_table, os.path.join(save_loc, 'auxiliary_table.csv'), format='csv')
+    ascii.write(star_aux_table, os.path.join(
+        save_loc, 'auxiliary_table.csv'), format='csv')
     # Create an AstroPy table of each reference star detection and write it to a .csv file.
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
+    ascii.write(large_stars_table, os.path.join(
+        save_loc, 'large_stars_table.csv'), format='csv')
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass,
     # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
     # This creates that table, stores the different filters used to take the images (e.g. BVRI or BGR),
     # and writes it to a .csv file.
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
-    ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+    ascii.write(stars_table, os.path.join(
+        save_loc, 'stars_table.csv'), format='csv')
 
     # TRYING SOMETHING
 
@@ -9207,32 +9228,37 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
 
     # Calculate the slope of each star's instrumental magnitude vs airmass,
     # store it in a table, and write it to a .csv file.
-    slopes_table = calculate_slopes_Warner(stars_table, different_filter_list, save_plots, save_loc=save_loc)
-    ascii.write(slopes_table, os.path.join(save_loc, 'slopes_table.csv'), format='csv')
+    slopes_table = calculate_slopes_Warner(
+        stars_table, different_filter_list, save_plots, save_loc=save_loc)
+    ascii.write(slopes_table, os.path.join(
+        save_loc, 'slopes_table.csv'), format='csv')
     # Calculate the first and second order extinctions.
     extinction_table_Warner = second_order_extinction_calc_Warner(slopes_table,
                                                                   different_filter_list,
                                                                   save_plots,
                                                                   save_loc=save_loc)
     # Calculate the exoatmospheric magnitudes (m_0).
-    exoatmospheric_table = exoatmospheric_mags_Warner(stars_table, extinction_table_Warner, different_filter_list)
+    exoatmospheric_table = exoatmospheric_mags_Warner(
+        stars_table, extinction_table_Warner, different_filter_list)
     # Finish the transform by calculating the colour transform and zero point.
     Warner_final_transform_table = colour_transform_and_zp_calc_Warner(exoatmospheric_table,
                                                                        different_filter_list,
                                                                        extinction_table_Warner, save_plots,
                                                                        save_loc=save_loc)
     # Save the transform table to a .csv file.
-    ascii.write(Warner_final_transform_table, os.path.join(save_loc, '_gb_final_transforms.csv'), format='csv')
+    ascii.write(Warner_final_transform_table, os.path.join(
+        save_loc, '_gb_final_transforms.csv'), format='csv')
     # Calculate the hidden transform and write it to a .csv file.
     hidden_transform_table = hidden_transform_Warner(exoatmospheric_table,
                                                      Warner_final_transform_table,
                                                      different_filter_list,
                                                      save_plots,
                                                      save_loc=save_loc)
-    ascii.write(hidden_transform_table, os.path.join(save_loc, 'hidden_transform_table.csv'), format='csv')
+    ascii.write(hidden_transform_table, os.path.join(
+        save_loc, 'hidden_transform_table.csv'), format='csv')
     exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(stars_table,
                                                                     extinction_table_Warner,
-                                                                    hidden_transform_table, 
+                                                                    hidden_transform_table,
                                                                     different_filter_list)
     # Verify the transforms.
     verify_save_loc = os.path.join(save_loc, 'Verification')
@@ -9685,6 +9711,52 @@ def _sky_survey_calc(directory,
     star_aux_table = create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(
         save_loc, 'auxiliary_table.csv'), format='csv')
+    with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
+        f.write('Parameter')
+        f.write('\t')
+        f.write('Value')
+        f.write('\n')
+    # TODO: Make these weighted means
+    min_bsb = max(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    max_bsb = min(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    mean_bsb = np.mean(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+    std_bsb = np.std(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
+
+    min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+
+    min_fwhm_pixel = min(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_pixel = max(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+
+    with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
+        f.write(f'Minimum BSB:\t{min_bsb}')
+        f.write('\n')
+        f.write(f'Maximum BSB:\t{max_bsb}')
+        f.write('\n')
+        f.write(f'Mean BSB:\t{mean_bsb}')
+        f.write('\n')
+        f.write(f'Standard Deviation of BSB:\t{std_bsb}')
+        f.write('\n')
+        f.write(f'Minimum FWHM (arcsec):\t{min_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Maximum FWHM (arcsec):\t{max_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Mean FWHM (arcsec):\t{mean_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Standard Deviation of FWHM (arcsec):\t{std_fwhm_arcsec}')
+        f.write('\n')
+        f.write(f'Minimum FWHM (pixels):\t{min_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Maximum FWHM (pixels):\t{max_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Mean FWHM (pixels):\t{mean_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Standard Deviation of FWHM (pixels):\t{std_fwhm_pixel}')
+        f.write('\n')
 
     theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
     r = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
@@ -9704,15 +9776,59 @@ def _sky_survey_calc(directory,
     ax.set_rlim(bottom=90, top=15)
     for label in rlabels:
         label.set_color('black')
-    plt.savefig(os.path.join(save_loc, 'BSB_plot.png'))
+    plt.title('BSB (mag/arcsec$^2$)')
+    plt.savefig(os.path.join(save_loc, 'BSB_polar.png'))
     plt.show()
     plt.close()
 
-    fwhm_arcsec = star_aux_table['FWHM_arcsec']
-    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
+    times_list = np.array(star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
+    times_obj = Time(times_list, format='jd', scale='utc')
+    times_datetime = times_obj.to_value('datetime')
+
+    bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
+    bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(times_datetime,
+                             bsb,
+                             yerr=bsb_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.set_ylabel('BSB (mag/arcsec^2)')
+    ax.set_xlabel('Time (UTC)')
+    plt.title('BSB v. Time')
+    plt.savefig(os.path.join(save_loc, 'BSB_v_time.png'))
+    plt.show()
+    plt.close()
+
+    bsb = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
+    bsb_sigma = star_aux_table['BSB_sigma'][star_aux_table['BSB'] > 5]
+    elevation = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(bsb,
+                             elevation,
+                             xerr=bsb_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('BSB (mag/arcsec$^2$)')
+    ax.set_ylabel('Elevation')
+    plt.title('BSB v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'BSB_v_elevation.png'))
+    plt.show()
+    plt.close()
+
     times_list = np.array(star_aux_table['Time (JD)'])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
+
+    fwhm_arcsec = star_aux_table['FWHM_arcsec']
+    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
     fig, ax = plt.subplots()
     _, _, bars = ax.errorbar(times_datetime,
                              fwhm_arcsec,
@@ -9746,6 +9862,90 @@ def _sky_survey_calc(directory,
     ax.set_xlabel('Time (UTC)')
     plt.title('FWHM (pixels) v. Time')
     plt.savefig(os.path.join(save_loc, 'FWHM.png'))
+    plt.show()
+    plt.close()
+
+    fwhm_arcsec = star_aux_table['FWHM_arcsec']
+    fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
+    elevation = star_aux_table['Elevation']
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(fwhm_arcsec,
+                             elevation,
+                             xerr=fwhm_arcsec_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('FWHM (arcsec)')
+    ax.set_ylabel('Elevation')
+    plt.title('FWHM (arcsec) v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_v_elevation.png'))
+    plt.show()
+    plt.close()
+
+    fwhm = star_aux_table['FWHM_pixel']
+    fwhm_sigma = star_aux_table['FWHM_pixel_sigma']
+    elevation = star_aux_table['Elevation']
+    fig, ax = plt.subplots()
+    _, _, bars = ax.errorbar(fwhm,
+                             elevation,
+                             xerr=fwhm_sigma,
+                             fmt='o',
+                             markersize=2,
+                             capsize=0,
+                             elinewidth=0.75)
+    [bar.set_alpha(0.3) for bar in bars]
+    ax.set_xlabel('FWHM (pixel)')
+    ax.set_ylabel('Elevation')
+    plt.title('FWHM (pixel) v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pixel_v_elevation.png'))
+    plt.show()
+    plt.close()
+
+    theta = star_aux_table['Azimuth']
+    r = star_aux_table['Elevation']
+    z = star_aux_table['FWHM_arcsec']
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
+                                       vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta,
+    # r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)],
+               cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90, top=15)
+    for label in rlabels:
+        label.set_color('black')
+    plt.title('FWHM (arcsec)')
+    plt.savefig(os.path.join(save_loc, 'FWHM_arcsec_polar.png'))
+    plt.show()
+    plt.close()
+
+    theta = star_aux_table['Azimuth']
+    r = star_aux_table['Elevation']
+    z = star_aux_table['FWHM_pixel']
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
+                                       vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta,
+    # r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)],
+               cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90, top=15)
+    for label in rlabels:
+        label.set_color('black')
+    plt.title('FWHM (pixels)')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pixel_polar.png'))
     plt.show()
     plt.close()
 
@@ -9975,6 +10175,35 @@ def _main_sc_lightcurve(directory,
             sat_auxiliary_table.remove_column(aux_data)
     ascii.write(sat_auxiliary_table,
                 output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
+
+    # Place rows without nan or masked values into a new table which can be processed easier later
+    # TODO: Make this code more elegant
+    sats_table2 = Table(sats_table[0])
+    uncertainty_table2 = Table(uncertainty_table[0])
+    sat_auxiliary_table2 = Table(sat_auxiliary_table[0])
+    for row in range(1, len(sats_table)):
+        switch = True
+        for element in range(0, len(sats_table.columns)):
+            if ((str(sats_table[row][element]) == 'nan') or
+                    (bool(sats_table[row][element]) is False)):
+                switch = False
+        for element in range(0, len(uncertainty_table.columns)):
+            if ((str(uncertainty_table[row][element]) == 'nan') or
+                    (bool(uncertainty_table[row][element]) is False)):
+                switch = False
+        for element in range(0, len(sat_auxiliary_table.columns)):
+            if ((str(sat_auxiliary_table[row][element]) == 'nan') or
+                    (bool(sat_auxiliary_table[row][element]) is False)):
+                switch = False
+        if switch is True:
+            sats_table2.add_row(sats_table[row])
+            uncertainty_table2.add_row(uncertainty_table[row])
+            sat_auxiliary_table2.add_row(sat_auxiliary_table[row])
+        switch = True
+    sats_table = sats_table2
+    uncertainty_table = uncertainty_table2
+    sat_auxiliary_table = sat_auxiliary_table2
+
     unique_filters, num_filters, multiple_filters = determine_num_filters(
         sats_table)
     if multiple_filters:

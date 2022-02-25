@@ -49,8 +49,8 @@ warnings.filterwarnings('default', category=UserWarning)
 
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
-ref_stars_file = r"C:\Users\jack.wawrow\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_Apr29.txt"
-# ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
+# ref_stars_file = r"C:\Users\jack.wawrow\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_Apr29.txt"
+ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_2022_02_17_a.txt"
 
 plot_results = True
 save_plots = True
@@ -63,7 +63,7 @@ subfolder = '2021-09-17'
 print(subfolder)
 unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
-directory = r'D:\Intelsat 10-02\2021-04-25\Stars\corrected_lights'
+directory = r'F:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
 save_loc = os.path.join(directory, 'Outputs_Boyd')
 
 sb_final_transform_table = astro._main_gb_transform_calc_TEST(
