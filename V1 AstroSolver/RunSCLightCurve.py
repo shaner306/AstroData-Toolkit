@@ -15,7 +15,7 @@ import os
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Intelsat 10-02 ALL'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\NEOSSat Observations\2016-072'
 # directory = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Intelsat 10-02\corrected_lights'
-directory = r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\CodeTesting\AMAZONAS 2'
+directory = r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Astro2_Files\StJohnsTargets\2021_04_25_StJohns_Targets\2021_04_25_StJohns_Targets\2021-04-25 - unprocessed\Intelsat 10-02\LIGHT'
 
 # transforms_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars\Outputs\gb_final_transforms.csv'
 # transforms_file = r'F:\Intelsat 10-02\2020 11 30 - 2x2 - unprocessed\Stars\corrected_lights\Outputs\_gb_final_transforms.csv'
