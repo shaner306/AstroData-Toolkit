@@ -409,6 +409,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir):
                 good_flat = master_flats[reduced.header['filter']]
                 reduced = ccdp.flat_correct(reduced, good_flat)
 
+                ########## Correct for Outliers ##########
+                # Not correcting for outliers means the user will need to use Ansvr/Astrometry.net
+                # Correcting for outliers means that photometric measurements could be messed up
+
+                # Calcualtions follow that of the AstroPy CCD Proc Notebook
+
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
