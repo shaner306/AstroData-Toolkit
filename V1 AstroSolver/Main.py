@@ -615,7 +615,7 @@ def trm_photometry(directory):
 
 
 def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
-                 create_master_bias, create_master_dir=True):
+                 create_master_bias, correct_outliers_params, create_master_dir=True):
 
     if os.path.isdir(reduce_dir) is False:
         raise RuntimeError(
@@ -669,7 +669,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     if run_master_dark is True:
         print('\n')
         print('Calling run_master_dark')
-        IR.create_master_dark(all_fits, master_frame_directory)
+        IR.create_master_dark(all_fits, master_frame_directory, correct_outliers_params)
 
     # Create Master Flat
     if run_master_flat is True:
@@ -696,7 +696,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory)
+                          correct_light_directory, correct_outliers_params)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time

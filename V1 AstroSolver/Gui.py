@@ -144,6 +144,30 @@ def Gui():
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
+    tab2_column1 = [[sg.Text('Correct Outliear Parameters',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Bright',
+                                 default=False,
+                                 key="-IN1012-1-")],
+                    [sg.Checkbox('Dark',
+                                 default=False,
+                                 key="-IN1012-2-")],
+
+                    [sg.T("Radius:"),
+                     sg.T("     "),
+                     sg.InputText('2', size=(5, 5),
+                                  key="-IN1012-3-")],
+                    [sg.T("Threshold:  "),
+                     sg.InputText('50',
+                                  size=(5, 5),
+                                  key="-IN1012-4-")],
+                    [sg.Checkbox("Dark Current Mask:",
+                     default=False,
+                     key="-IN1012-5-")]
+                    ]
+
     tab2_layout = [
         [sg.T('Image Reduction Script')],
         [sg.T("   ")],
@@ -168,16 +192,23 @@ def Gui():
                                key="-IN1010-"),
          sg.T(""), sg.Checkbox('Create Master Bias',
                                default=True,
-                               key="-IN1011-")],
+                               key="-IN1011-"),
+         sg.T(""), sg.Checkbox('Correct for Outliers',
+                               default=True,
+                               key="-IN1012-")],
+
+
         [sg.T(""), sg.Checkbox('Space Based',
                                default=True,
-                               key="-IN1012-"),
+                               key="-IN1013-"),
          sg.T("Target:"),
          sg.InputText('SA-111',
                       size=(10, 5),
-                      key="-IN1013-")],
+                      key="-IN1014-")],
+        [sg.Column(tab2_column1)],
         [sg.T("   ")],
-        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
+        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
+    ]
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
@@ -202,8 +233,17 @@ def Gui():
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
-            target = values["-IN1013-"]
-            if values["-IN1012-"]:  # Space Based Observations is True
+            correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
+
+                                       'Bright Boolean': values["-IN1012-1-"],
+                                       'Dark Boolean': values["-IN1012-2-"],
+                                       'Radius':  values["-IN1012-3-"],
+                                       'Threshold': values["-IN1012-4-"],
+                                       'Mask Boolean': values["-IN1012-5-"]
+                                       }
+
+            target = values["-IN1014-"]
+            if values["-IN1013-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
                                  'D:\\NEOSSat-SA-111\\test')
@@ -214,10 +254,13 @@ def Gui():
                     window.update()
             else:
                 try:
+
                     Main.Image_reduce(reduce_dir,
                                       create_master_dark,
                                       create_master_flat,
-                                      create_master_bias)
+                                      create_master_bias,
+                                      correct_outliers_params,
+                                      create_master_dir=True)
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
                 except:
@@ -229,7 +272,7 @@ def Gui():
             catalog_dir = values["-IN3-"]
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
-            plot_data = values["-IN1013-"]
+            plot_data = values["-IN1014-"]
 
             if values["-IN82-"] is True:  # Ground Based Observation
                 space_based_bool = 0   # Space Based Boolean=0
