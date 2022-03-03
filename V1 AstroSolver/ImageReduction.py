@@ -195,12 +195,6 @@ def create_master_dark(all_fits, master_dir, correct_outliers_params):
                                    mem_limit=1e9
                                    )
 
-        master_dark.meta['combined'] = True
-
-        dark_file_name = '\\master_dark_{:6.3f}.fits'.format(exp_time)
-        master_dark.write(master_dir + dark_file_name)
-        print('Saving ', dark_file_name)
-
         ########## Correct for Outliers ##########
         # Not correcting for outliers means the user will need to use Ansvr/Astrometry.net
         # Correcting for outliers means that photometric measurements could be messed up
@@ -216,7 +210,13 @@ def create_master_dark(all_fits, master_dir, correct_outliers_params):
                     float(master_dark.header['EGAIN'])*u.electron /
                     u.adu).divide(float(master_dark.header['EXPTIME'])*u.second)
                 hot_pixels = dark_current > np.mean(dark_current)
-                + 0.1 * np.mean(dark_current)
+                + 2 * np.mean(dark_current)
+                master_dark.mask = hot_pixels.data | hot_pixels.mask
+
+        master_dark.meta['combined'] = True
+        dark_file_name = '\\master_dark_{:6.3f}.fits'.format(exp_time)
+        master_dark.write(master_dir + dark_file_name)
+        print('Saving ', dark_file_name)
 
 
 def create_master_flat(all_fits, master_dir):
@@ -423,7 +423,11 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 ########## End ##########
 
                 good_flat = master_flats[reduced.header['filter']]
-                reduced = ccdp.flat_correct(reduced, good_flat)
+
+                flat_mean = np.nanmean(good_flat.data)*good_flat.unit
+                flat_normed = good_flat.divide(flat_mean)
+                reduced = reduced.divide(flat_normed)
+                reduced.mask = closest_dark.mask
 
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
