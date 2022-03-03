@@ -192,26 +192,8 @@ def create_master_dark(all_fits, master_dir, correct_outliers_params):
                                    sigma_clip_high_thresh=5,
                                    sigma_clip_func=np.ma.median,
                                    signma_clip_dev_func=np.ma.std,
-                                   mem_limit=1e9
+                                   mem_limit=1e9,
                                    )
-
-        ########## Correct for Outliers ##########
-        # Not correcting for outliers means the user will need to use Ansvr/Astrometry.net
-        # Correcting for outliers means that photometric measurements could be messed up
-
-        # Calcualtions follow that of the AstroPy CCD Proc Notebook
-        if correct_outliers_params['Outlier Boolean'] is True:
-            print('Correct Outliers')
-            if correct_outliers_params['Mask Boolean'] is True:
-                print('Mask Boolean is True')
-
-                # Calculate Dark Current to find hot pixels
-                dark_current = master_dark.multiply(
-                    float(master_dark.header['EGAIN'])*u.electron /
-                    u.adu).divide(float(master_dark.header['EXPTIME'])*u.second)
-                hot_pixels = dark_current > np.mean(dark_current)
-                + 2 * np.mean(dark_current)
-                master_dark.mask = hot_pixels.data | hot_pixels.mask
 
         master_dark.meta['combined'] = True
         dark_file_name = '\\master_dark_{:6.3f}.fits'.format(exp_time)
@@ -270,7 +252,7 @@ def create_master_flat(all_fits, master_dir):
 
     try:
         # Get the Master Darks
-        master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
+        master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
             imagetyp=dark_imgtypes_concatenateded, combined=True
         )}
         # Create Conditonal Array with different Dark Image Data Types
@@ -316,7 +298,7 @@ def create_master_flat(all_fits, master_dir):
             flats.append(flat)
 
         combined_flat = ccdp.combine(flats,
-                                     method='average',
+                                     method='median',
                                      sigma_clip=True,
                                      sigma_clip_low_thresh=5,
                                      sigma_clip_high_thresh=5,
@@ -360,7 +342,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         s for s in unique_imagetype_list if "bias" in s.lower()]
     bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
     dark_imgtype_matches = [
-        s for s in unique_imagetype_list if ("dark" in s.lower() and "mask" or "flat" not in s.lower())]
+        s for s in unique_imagetype_list if ("dark" in s.lower())]
     dark_imgtypes_concatenateded = '|'.join(dark_imgtype_matches)
     flat_imgtype_matches = [
         s for s in unique_imagetype_list if "flat" in s.lower()]
@@ -398,6 +380,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         light_ccds = []
         try:
             for file_name in lights_to_correct:
+
                 light = CCDData.read(file_name, unit='adu')
 
                 # Note that the first argument in the remainder of the ccdproc calls is
@@ -427,7 +410,32 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 flat_mean = np.nanmean(good_flat.data)*good_flat.unit
                 flat_normed = good_flat.divide(flat_mean)
                 reduced = reduced.divide(flat_normed)
-                reduced.mask = closest_dark.mask
+
+                ########## Correct for Outliers ##########
+                # Not correcting for outliers means the user will need to use Ansvr/Astrometry.net
+                # Correcting for outliers means that photometric measurements could be messed up
+
+                # Calcualtions follow that of the AstroPy CCD Proc Notebook
+                if correct_outliers_params['Outlier Boolean'] is True:
+                    print('Correct Outliers')
+                    if correct_outliers_params['Mask Boolean'] is True:
+                        print('Mask Boolean is True')
+
+                        # Calculate Dark Current to find hot pixels
+                        dark_current = master_darks[closest_dark].multiply(
+                            float(master_darks[closest_dark].header['EGAIN'])*u.electron /
+                            u.adu).divide(float(master_darks[closest_dark].header['EXPTIME'])*u.second)
+                        hot_pixels = dark_current > np.mean(dark_current)
+                        + 2 * np.mean(dark_current)
+
+                        # Calculate Threshold Pixel Values
+                        # Add Thresholds for Dark Current
+                        dark_pix_over_max = master_darks[closest_dark].data > 200
+                        dark_pix_under_min = master_darks[closest_dark].data < 0
+
+                        master_dark_mask = hot_pixels.data | dark_pix_over_max.data | dark_pix_under_min.data
+
+                        reduced.mask = master_dark_mask
 
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
