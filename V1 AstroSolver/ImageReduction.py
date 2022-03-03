@@ -370,6 +370,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
     light_filter = set(all_fits.summary['filter'][light_mask])
 
+    dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+    for dark_imgtypes in dark_imgtype_matches:
+        dark_mask = dark_mask +\
+            (all_fits.summary['imagetyp'] == (dark_imgtypes))
+    dark_times = set(all_fits.summary['exptime'][dark_mask])
+
     for frame_filter in sorted(light_filter):
 
         lights_to_correct = all_fits.files_filtered(
@@ -389,13 +395,33 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         include_path=True
                     )
                     # TODO: Add functionality for single flat frame
-                    flat_counts = {}
-                    for flat in flats_to_compare:
-                        flat_counts[flat] = (CCDData.read(flat, unit='adu')).data.mean()
-                    max_key = max(flat_counts, key=flat_counts.get)
-                    min_key = min(flat_counts, key=flat_counts.get)
-                    ratio = CCDData.read(max_key, unit='adu').divide(CCDData.read(min_key, unit='adu'))
-                    maskr = ccdp.ccdmask(ratio)
+                    if len(flats_to_compare) == 1:
+                        print('use one flat')
+
+                    elif len(flats_to_compare) > 1:
+                        # Creates Dictionary Object where key is the mean of the calibrated frame data
+                        calibrated_flats = {}
+                        # Calibrate Flats
+                        for flat in flats_to_compare:
+                            flatdata = CCDData.read(flat, unit='adu')
+                            flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                            closest_dark = find_nearest_dark_exposure(flatdata, dark_times,
+                                                                      tolerance=100
+                                                                      )
+
+                            ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                          exposure_time='exptime',
+                                                          exposure_unit=u.second,
+                                                          scale=True
+                                                          )
+
+                            calibrated_flats[flatdata.data.mean()] = flatdata
+
+                        max_key = max(calibrated_flats.keys())
+                        min_key = min(calibrated_flats.keys())
+                        ratio = calibrated_flats[max_key].divide(calibrated_flats[min_key])
+                        maskr = ccdp.ccdmask(ratio)
 
                     mask = mask | maskr
             for file_name in lights_to_correct:
@@ -443,7 +469,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         dark_current = master_darks[closest_dark].multiply(
                             float(master_darks[closest_dark].header['EGAIN'])*u.electron /
                             u.adu).divide(float(master_darks[closest_dark].header['EXPTIME'])*u.second)
-                        hot_pixels = dark_current > 3*np.nanmean(dark_current)
+                        hot_pixels = dark_current > 4*np.nanmean(dark_current)
                         mask = mask | hot_pixels
 
                     if correct_outliers_params['Dark Frame Threshold Bool']:
