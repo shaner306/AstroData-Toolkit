@@ -405,6 +405,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 ########## End ##########
 
+                # Flat Correction
                 good_flat = master_flats[reduced.header['filter']]
 
                 flat_mean = np.nanmean(good_flat.data)*good_flat.unit
@@ -418,24 +419,35 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 # Calcualtions follow that of the AstroPy CCD Proc Notebook
                 if correct_outliers_params['Outlier Boolean'] is True:
                     print('Correct Outliers')
-                    if correct_outliers_params['Mask Boolean'] is True:
-                        print('Mask Boolean is True')
+                    mask = np.empty(reduced.data.shape, dtype=bool)
+                    if correct_outliers_params['Hot Pixel'] is True:
 
                         # Calculate Dark Current to find hot pixels
                         dark_current = master_darks[closest_dark].multiply(
                             float(master_darks[closest_dark].header['EGAIN'])*u.electron /
                             u.adu).divide(float(master_darks[closest_dark].header['EXPTIME'])*u.second)
-                        hot_pixels = dark_current > np.mean(dark_current)
-                        + 2 * np.mean(dark_current)
+                        hot_pixels = dark_current > 3*np.nanmean(dark_current)
+                        mask = mask | hot_pixels
 
+                    if correct_outliers_params['Dark Frame Threshold Bool']:
                         # Calculate Threshold Pixel Values
                         # Add Thresholds for Dark Current
-                        dark_pix_over_max = master_darks[closest_dark].data > 200
-                        dark_pix_under_min = master_darks[closest_dark].data < 0
+                        dark_pix_over_max = master_darks[closest_dark].data > int(
+                            correct_outliers_params['Dark Frame Threshold Max'])
+                        dark_pix_under_min = master_darks[closest_dark].data < int(
+                            correct_outliers_params['Dark Frame Threshold Min'])
+                        mask = mask | dark_pix_over_max.data | dark_pix_under_min.data
+                    if correct_outliers_params['ccdmask']:
+                        # Based on IRAF ccdmask
 
-                        master_dark_mask = hot_pixels.data | dark_pix_over_max.data | dark_pix_under_min.data
+                        # TODO: Make this more elegant
+                        flat_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+                        for flat_imgtypes in flat_imgtype_matches:
+                            flat_mask = flat_mask +\
+                                (all_fits.summary['imagetyp'] == (flat_imgtypes))
+                        # flat_filters = set(all_fits.summary['filter'][flat_mask])
 
-                        reduced.mask = master_dark_mask
+                    reduced.mask = mask
 
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]

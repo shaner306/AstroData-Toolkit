@@ -148,24 +148,27 @@ def Gui():
                              background_color='#F7F3EC',
                              justification='center',
                              size=(30, 1))],
-                    [sg.Checkbox('Bright',
+                    [sg.Checkbox('Hot Pixel Removal',
                                  default=False,
                                  key="-IN1012-1-")],
-                    [sg.Checkbox('Dark',
+                    [sg.Checkbox('Dark Frame Threshold Bool',
                                  default=False,
                                  key="-IN1012-2-")],
 
-                    [sg.T("Radius:"),
+                    [sg.T("Dark Frame Threshold Min"),
                      sg.T("     "),
-                     sg.InputText('2', size=(5, 5),
+                     sg.InputText('0', size=(5, 5),
                                   key="-IN1012-3-")],
-                    [sg.T("Threshold:  "),
-                     sg.InputText('50',
+                    [sg.T("Dark Frame Threshold Max"),
+                     sg.InputText('100',
                                   size=(5, 5),
                                   key="-IN1012-4-")],
-                    [sg.Checkbox("Dark Current Mask:",
+                    [sg.Checkbox("ccdmask",
                      default=False,
-                     key="-IN1012-5-")]
+                     key="-IN1012-5-")],
+                    [sg.Checkbox("Cosmic Rays Removal",
+                     default=False,
+                     key="IN1012-6")]
                     ]
 
     tab2_layout = [
@@ -235,11 +238,12 @@ def Gui():
             create_master_bias = values["-IN1011-"]
             correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
 
-                                       'Bright Boolean': values["-IN1012-1-"],
-                                       'Dark Boolean': values["-IN1012-2-"],
-                                       'Radius':  values["-IN1012-3-"],
-                                       'Threshold': values["-IN1012-4-"],
-                                       'Mask Boolean': values["-IN1012-5-"]
+                                       'Hot Pixel': values["-IN1012-1-"],
+                                       'Dark Frame Threshold Bool': values["-IN1012-2-"],
+                                       'Dark Frame Threshold Min':  values["-IN1012-3-"],
+                                       'Dark Frame Threshold Max': values["-IN1012-4-"],
+                                       'ccdmask': values["-IN1012-5-"],
+                                       'Cosmic Rays Bool': values["IN1012-6"]
                                        }
 
             target = values["-IN1014-"]
