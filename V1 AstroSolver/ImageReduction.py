@@ -354,7 +354,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     master_files = ccdp.ImageFileCollection(master_dir)
 
     # Create dictionaries of the dark and flat master frames in the master directory
-
+    # TODO: Double Check Concatenation
     master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
         imagetyp=dark_imgtypes_concatenateded, combined=True)}
     master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
@@ -379,6 +379,25 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         )
         light_ccds = []
         try:
+            if correct_outliers_params['Outlier Boolean'] is True:
+                mask = np.empty(CCDData.read(lights_to_correct[0], unit='adu').data.shape, dtype=bool)
+                if correct_outliers_params['ccdmask']:
+                    # Based on IRAF ccdmask
+                    flats_to_compare = all_fits.files_filtered(
+                        imagetyp=flat_imgtypes_concatenateded,
+                        filter=frame_filter,
+                        include_path=True
+                    )
+                    # TODO: Add functionality for single flat frame
+                    flat_counts = {}
+                    for flat in flats_to_compare:
+                        flat_counts[flat] = (CCDData.read(flat, unit='adu')).data.mean()
+                    max_key = max(flat_counts, key=flat_counts.get)
+                    min_key = min(flat_counts, key=flat_counts.get)
+                    ratio = CCDData.read(max_key, unit='adu').divide(CCDData.read(min_key, unit='adu'))
+                    maskr = ccdp.ccdmask(ratio)
+
+                    mask = mask | maskr
             for file_name in lights_to_correct:
 
                 light = CCDData.read(file_name, unit='adu')
@@ -418,8 +437,6 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 # Calcualtions follow that of the AstroPy CCD Proc Notebook
                 if correct_outliers_params['Outlier Boolean'] is True:
-                    print('Correct Outliers')
-                    mask = np.empty(reduced.data.shape, dtype=bool)
                     if correct_outliers_params['Hot Pixel'] is True:
 
                         # Calculate Dark Current to find hot pixels
@@ -437,17 +454,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         dark_pix_under_min = master_darks[closest_dark].data < int(
                             correct_outliers_params['Dark Frame Threshold Min'])
                         mask = mask | dark_pix_over_max.data | dark_pix_under_min.data
-                    if correct_outliers_params['ccdmask']:
-                        # Based on IRAF ccdmask
-
-                        # TODO: Make this more elegant
-                        flat_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
-                        for flat_imgtypes in flat_imgtype_matches:
-                            flat_mask = flat_mask +\
-                                (all_fits.summary['imagetyp'] == (flat_imgtypes))
-                        # flat_filters = set(all_fits.summary['filter'][flat_mask])
-
-                    reduced.mask = mask
+                reduced.mask = mask
 
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
