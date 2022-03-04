@@ -497,16 +497,16 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             correct_outliers_params['Dark Frame Threshold Min'])
                         mask = mask | dark_pix_over_max.data | dark_pix_under_min.data
 
-                if correct_outliers_params['Outlier Boolean'] is True:
                     if correct_outliers_params['Cosmic Rays Bool']:
                         # Convert image to Electrons
                         reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
                         reduced_in_e.mask = mask
                         new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
-                        reduced = ccdp.gain_correct(reduced, (u.adu/(float(light.header['EGAIN']))*u.electron))
-                        mask = reduced.mask
+                        reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
+                        mask = reduced_in_e.mask
                         print('Removed Cosmic Rays')
-                reduced.mask = mask
+
+                    reduced.mask = mask
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
