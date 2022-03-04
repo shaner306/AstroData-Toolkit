@@ -424,6 +424,16 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         else:
                             maskr = ccdp.ccdmask(ratio)
 
+                            if correct_outliers_params['Replace Bool']:
+                                # Replaces the values in mask with a desired value
+                                if correct_outliers_params['Replace Mode'] is 'Ave':
+                                    print('Calculate Average Background')
+
+                                    print('Save New Master Flat')
+
+                                elif correct_outliers_params['Replace Mode'] is 'Interpolate':
+                                    print('Interpolation')
+
                     if (len(flats_to_compare) == 1) or (bad_ratio is True):
                         # Calibrate flat field
                         flatdata = CCDData.read(flats_to_compare[0], unit='adu')
@@ -440,7 +450,61 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                                       )
                         maskr = ccdp.ccdmask(flatdata)
 
+                        if correct_outliers_params['Replace Bool']:
+                            # Replaces the values in mask with a desired value
+                            if correct_outliers_params['Replace Mode'] is 'Ave':
+                                print('Calculate Average Background')
+                                # TODO: Add Script
+                            elif correct_outliers_params['Replace Mode'] is 'Interpolate':
+                                radius = 1
+                                coordinates = np.where(maskr == True)
+                                if len(flats_to_compare) == 1:
+                                    # TODO: Add Radius input
+                                    print('Interpolation')
+                                    for i in range(0, np.shape(coordinates)[1]):
+
+                                        # Create copy of flat to add mask to - To Avoid Masked Pixs
+                                        flatdata2 = flatdata.copy()
+                                        flatdata2.mask = maskr
+                                        try:
+                                            Replaceable_mean = np.nanmean(
+                                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                                        except:  # Except faulty pix is in the corner of the image
+                                            Replaceable_mean = np.nanmean(flatdata2)
+                                        # Set the Data
+                                        flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+
+                                        flat_file_name = '\\master_flat_outliercorrected_filter_{}.fits'.format(
+                                            frame_filter.replace("''", "p"))
+                                        flatdata.write(master_dir + flat_file_name)
+                                else:
+                                    for flat in flats_to_compare:
+                                        flatdata = CCDData.read(flat, unit='adu')
+                                        for i in range(0, np.shape(coordinates)[1]):
+
+                                            # Create copy of flat to add mask to - To Avoid Masked Pixs
+                                            flatdata2 = flatdata.copy()
+                                            flatdata2.mask = maskr
+                                            try:
+                                                Replaceable_mean = np.nanmean(
+                                                    flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                                            except:  # Except faulty pix is in the corner of the image
+                                                Replaceable_mean = np.nanmean(flatdata2)
+                                            flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+                                        # Save the Data
+
+                                        corrected_dir = master_dir.split('\\')[0]+'/corrected_flats'
+                                        if os.path.isdir(corrected_dir) is False:
+                                            os.mkdir(corrected_dir)
+                                        flat_name_dir = corrected_dir + '\\' + \
+                                            os.path.splitext(os.path.basename(flat))[0] + 'corrected.fits'
+
+                                        flatdata.write(flat_name_dir)
+                                # IF ratio of flats is bad or only one flat frame we can save the flat as the master
+                                    print('Saved New Flats')
+
                     mask = mask | maskr
+
             for file_name in lights_to_correct:
 
                 light = CCDData.read(file_name, unit='adu')

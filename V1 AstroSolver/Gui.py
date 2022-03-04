@@ -170,6 +170,23 @@ def Gui():
                      default=False,
                      key="IN1012-6")]
                     ]
+    tab2_column2 = [[sg.Text('Replace Outliers Options',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Replace Mask Values',
+                                 default=True,
+                                 key="1IN10121")],
+                    [sg.Radio('Average Background',
+                              "RADIO2",
+                              default=True,
+                              key="1IN10121-1"),
+
+                    sg.Radio('Local Interpolation',
+                             "RADIO2",
+                             default=False,
+                             key="1IN10121-2")]
+                    ]
 
     tab2_layout = [
         [sg.T('Image Reduction Script')],
@@ -208,7 +225,7 @@ def Gui():
          sg.InputText('SA-111',
                       size=(10, 5),
                       key="-IN1014-")],
-        [sg.Column(tab2_column1)],
+        [sg.Column(tab2_column1), sg.Column(tab2_column2)],
         [sg.T("   ")],
         [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
     ]
@@ -236,6 +253,10 @@ def Gui():
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
+            if values["1IN10121-1"]:
+                replace_mode = 'Ave'
+            elif values["1IN10121-2"]:
+                replace_moce = 'Interpolate'
             correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
 
                                        'Hot Pixel': values["-IN1012-1-"],
@@ -243,7 +264,9 @@ def Gui():
                                        'Dark Frame Threshold Min':  values["-IN1012-3-"],
                                        'Dark Frame Threshold Max': values["-IN1012-4-"],
                                        'ccdmask': values["-IN1012-5-"],
-                                       'Cosmic Rays Bool': values["IN1012-6"]
+                                       'Cosmic Rays Bool': values["IN1012-6"],
+                                       'Replace Bool': values["1IN10121"],
+                                       'Replace Mode': replace_mode
                                        }
 
             target = values["-IN1014-"]
