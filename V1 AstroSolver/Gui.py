@@ -157,7 +157,7 @@ def Gui():
 
                     [sg.T("Dark Frame Threshold Min"),
                      sg.T("     "),
-                     sg.InputText('0', size=(5, 5),
+                     sg.InputText('-50', size=(5, 5),
                                   key="-IN1012-3-")],
                     [sg.T("Dark Frame Threshold Max"),
                      sg.InputText('100',

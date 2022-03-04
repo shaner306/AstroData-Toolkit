@@ -469,10 +469,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 # Flat Correction
                 good_flat = master_flats[reduced.header['filter']]
-
-                flat_mean = np.nanmean(good_flat.data)*good_flat.unit
-                flat_normed = good_flat.divide(flat_mean)
-                reduced = reduced.divide(flat_normed)
+                redcued = ccdp.flat_correct(reduced, good_flat)
 
                 ########## Correct for Outliers ##########
                 # Not correcting for outliers means the user will need to use Ansvr/Astrometry.net
