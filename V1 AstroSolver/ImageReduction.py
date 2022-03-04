@@ -395,10 +395,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         include_path=True
                     )
                     # TODO: Add functionality for single flat frame
-                    if len(flats_to_compare) == 1:
-                        print('use one flat')
-
-                    elif len(flats_to_compare) > 1:
+                    bad_ratio = False
+                    if len(flats_to_compare) > 1:
                         # Creates Dictionary Object where key is the mean of the calibrated frame data
                         calibrated_flats = {}
                         # Calibrate Flats
@@ -421,7 +419,26 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         max_key = max(calibrated_flats.keys())
                         min_key = min(calibrated_flats.keys())
                         ratio = calibrated_flats[max_key].divide(calibrated_flats[min_key])
-                        maskr = ccdp.ccdmask(ratio)
+                        if (np.nanmean(ratio) < 1.1) and (np.nanmean(ratio) > 0.9):  # ratio thresholds
+                            bad_ratio = True
+                        else:
+                            maskr = ccdp.ccdmask(ratio)
+
+                    if (len(flats_to_compare) == 1) or (bad_ratio is True):
+                        # Calibrate flat field
+                        flatdata = CCDData.read(flats_to_compare[0], unit='adu')
+                        flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                        closest_dark = find_nearest_dark_exposure(flatdata, dark_times,
+                                                                  tolerance=100
+                                                                  )
+
+                        ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                        flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                      exposure_time='exptime',
+                                                      exposure_unit=u.second,
+                                                      scale=True
+                                                      )
+                        maskr = ccdp.ccdmask(flatdata)
 
                     mask = mask | maskr
             for file_name in lights_to_correct:
@@ -473,15 +490,23 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         mask = mask | hot_pixels
 
                     if correct_outliers_params['Dark Frame Threshold Bool']:
-                        # Calculate Threshold Pixel Values
-                        # Add Thresholds for Dark Current
-                        dark_pix_over_max = master_darks[closest_dark].data > int(
+
+                        dark_pix_over_max = master_darks[closest_dark].data > float(
                             correct_outliers_params['Dark Frame Threshold Max'])
-                        dark_pix_under_min = master_darks[closest_dark].data < int(
+                        dark_pix_under_min = master_darks[closest_dark].data < float(
                             correct_outliers_params['Dark Frame Threshold Min'])
                         mask = mask | dark_pix_over_max.data | dark_pix_under_min.data
-                reduced.mask = mask
 
+                if correct_outliers_params['Outlier Boolean'] is True:
+                    if correct_outliers_params['Cosmic Rays Bool']:
+                        # Convert image to Electrons
+                        reduced_in_e = ccdp.gain_corrected(reduced, float(reduced.header['EGAIN'])*u.electron/u.adu)
+                        reduced_in_e.mask = mask
+                        new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=56, verbose=True)
+                        reduced = ccdp.gain_corrected(reduced, float(u.adu/(reduced.header['EGAIN'])*u.electron))
+                        mask = reduced.mask
+                        print('Removed Cosmic Rays')
+                reduced.mask = mask
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
@@ -613,6 +638,7 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
 # elapsed_time = stop_time - start_time
 
 # print('Elapsed time:', elapsed_time, 'seconds.')
+# -*- coding: utf-8 -*-
 # -*- coding: utf-8 -*-
 # -*- coding: utf-8 -*-
 # -*- coding: utf-8 -*-
