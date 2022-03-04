@@ -500,10 +500,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 if correct_outliers_params['Outlier Boolean'] is True:
                     if correct_outliers_params['Cosmic Rays Bool']:
                         # Convert image to Electrons
-                        reduced_in_e = ccdp.gain_corrected(reduced, float(reduced.header['EGAIN'])*u.electron/u.adu)
+                        reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
                         reduced_in_e.mask = mask
-                        new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=56, verbose=True)
-                        reduced = ccdp.gain_corrected(reduced, float(u.adu/(reduced.header['EGAIN'])*u.electron))
+                        new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
+                        reduced = ccdp.gain_correct(reduced, (u.adu/(float(light.header['EGAIN']))*u.electron))
                         mask = reduced.mask
                         print('Removed Cosmic Rays')
                 reduced.mask = mask
