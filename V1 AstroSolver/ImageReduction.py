@@ -375,7 +375,42 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     for dark_imgtypes in dark_imgtype_matches:
         dark_mask = dark_mask +\
             (all_fits.summary['imagetyp'] == (dark_imgtypes))
+            
     dark_times = set(all_fits.summary['exptime'][dark_mask])
+    
+    
+    example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
+                                                filter=list(light_filter)[0],
+                                                include_path=True)[0]
+    
+    for dark_time in dark_times:
+        ### Dark Image Masking ###
+        mask = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
+        hot_pixels = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
+        dark_threshold_mask = np.zeros(CCDData.read(example_light
+            , unit='adu').data.shape, dtype=bool)
+        
+        
+        if correct_outliers_params['Hot Pixel'] is True:
+        
+            # Calculate Dark Current to find hot pixels
+            dark_current = master_darks[dark_time].multiply(
+                float(master_darks[dark_time].header['EGAIN'])*u.electron /
+                u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
+            hot_pixels = dark_current > 4*np.nanmean(dark_current)
+            mask = mask | hot_pixels
+        
+        if correct_outliers_params['Dark Frame Threshold Bool']:
+        
+            dark_pix_over_max = master_darks[dark_time].data > float(
+                correct_outliers_params['Dark Frame Threshold Max'])
+            dark_pix_under_min = master_darks[dark_time].data < float(
+                correct_outliers_params['Dark Frame Threshold Min'])
+            dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
+            mask = mask | dark_threshold_mask
+            
+            correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
+                                  master_darks, dark_time, master_dir)
 
     for frame_filter in sorted(light_filter):
 
@@ -387,7 +422,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         light_ccds = []
         try:
             if correct_outliers_params['Outlier Boolean'] is True:
-                mask = np.zeros(CCDData.read(lights_to_correct[0], unit='adu').data.shape, dtype=bool)
+                
 
                 ### Flat Image Masking ###
                 if correct_outliers_params['ccdmask']:
@@ -406,7 +441,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         for flat in flats_to_compare:
                             flatdata = CCDData.read(flat, unit='adu')
                             flatdata = ccdp.subtract_bias(flatdata, master_bias)
-                            closest_dark = find_nearest_dark_exposure(flatdata, dark_times,
+                            closest_dark = find_nearest_dark_exposure(CCDData.read(lights_to_correct[0], unit='adu'), dark_times,
                                                                       tolerance=100
                                                                       )
 
@@ -461,30 +496,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                     mask = mask | maskr
 
-                    ### Dark Image Masking ###
-                    hot_pixels = np.zeros(CCDData.read(lights_to_correct[0], unit='adu').data.shape, dtype=bool)
-                    dark_threshold_mask = np.zeros(CCDData.read(
-                        lights_to_correct[0], unit='adu').data.shape, dtype=bool)
-                if correct_outliers_params['Hot Pixel'] is True:
-
-                    # Calculate Dark Current to find hot pixels
-                    dark_current = master_darks[closest_dark].multiply(
-                        float(master_darks[closest_dark].header['EGAIN'])*u.electron /
-                        u.adu).divide(float(master_darks[closest_dark].header['EXPTIME'])*u.second)
-                    hot_pixels = dark_current > 4*np.nanmean(dark_current)
-                    mask = mask | hot_pixels
-
-                if correct_outliers_params['Dark Frame Threshold Bool']:
-
-                    dark_pix_over_max = master_darks[closest_dark].data > float(
-                        correct_outliers_params['Dark Frame Threshold Max'])
-                    dark_pix_under_min = master_darks[closest_dark].data < float(
-                        correct_outliers_params['Dark Frame Threshold Min'])
-                    dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
-                    mask = mask | dark_threshold_mask
                     
-                    correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
-                                          master_darks, closest_dark, master_dir)
             for file_name in lights_to_correct:
 
                 light = CCDData.read(file_name, unit='adu')
