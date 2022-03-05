@@ -482,6 +482,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         correct_outliers_params['Dark Frame Threshold Min'])
                     dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
                     mask = mask | dark_threshold_mask
+                    
                     correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
                                           master_darks, closest_dark, master_dir)
             for file_name in lights_to_correct:
@@ -633,18 +634,24 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
             darkdata = (master_dark[closest_dark])
             darkdata2 = darkdata.copy()  # copy since we don't want new values messing up new values
             darkdata2.mask = hot_pixels.data | dark_threshold_mask
-
+            average_dark_value=np.nanmean(darkdata2)
             for i in range(0, np.shape(coordinates)[1]):
                 try:
                     Replaceable_mean = np.nanmean(
                         darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
                 except RuntimeWarning:  # Mean of empty slice
-                    Replaceable_mean = np.nanmean(darkdata2)
+                    Replaceable_mean = average_dark_value
                 except ValueError:
-                    Replaceable_mean = np.nanmean((
-                        darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)]).data)
-                darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
-
+                    try:
+                        Replaceable_mean = float(np.mean((darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])).data)
+                    
+                    except RuntimeWarning:
+                        Replaceable_mean = average_dark_value
+                        
+                if str(Replaceable_mean)=='nan':
+                    Replaceable_mean=average_dark_value
+                    
+                darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean     
             coordinates = np.where(dark_threshold_mask == True)
             for i in range(0, np.shape(coordinates)[1]):
                 try:
@@ -654,5 +661,5 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
                     Replaceable_mean = np.nanmean(darkdata2)
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
 
-            dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
-            darkdata.write(dark_name_dir)
+        dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
+        darkdata.write(dark_name_dir)
