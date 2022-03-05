@@ -669,7 +669,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     if run_master_dark is True:
         print('\n')
         print('Calling run_master_dark')
-        IR.create_master_dark(all_fits, master_frame_directory, correct_outliers_params)
+        IR.create_master_dark(all_fits, master_frame_directory)
 
     # Create Master Flat
     if run_master_flat is True:

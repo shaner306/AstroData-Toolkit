@@ -253,10 +253,10 @@ def Gui():
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
-            if values["1IN10121-1"]:
+            if values["1IN10121-1"] is True:
                 replace_mode = 'Ave'
-            elif values["1IN10121-2"]:
-                replace_moce = 'Interpolate'
+            elif values["1IN10121-2"] is True:
+                replace_mode = 'Interpolate'
             correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
 
                                        'Hot Pixel': values["-IN1012-1-"],
