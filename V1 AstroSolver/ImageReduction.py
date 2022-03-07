@@ -378,11 +378,11 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             
     dark_times = set(all_fits.summary['exptime'][dark_mask])
     
-    
+    # Assumes all images in a dataset are the smae size
     example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
                                                 filter=list(light_filter)[0],
                                                 include_path=True)[0]
-    
+    corrected_master_dark={}
     for dark_time in dark_times:
         ### Dark Image Masking ###
         mask = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
@@ -409,9 +409,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
             mask = mask | dark_threshold_mask
             
-            correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
-                                  master_darks, dark_time, master_dir)
-
+        if correct_outliers_params['Outlier Boolean']:
+            
+            corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
+                              master_darks, dark_time, master_dir)
+            corrected_master_dark[dark_time] = corrected_master_dark_data
+            
     for frame_filter in sorted(light_filter):
 
         lights_to_correct = all_fits.files_filtered(
@@ -421,6 +424,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         )
         light_ccds = []
         try:
+            corrected_master_flat=[]
+            
             if correct_outliers_params['Outlier Boolean'] is True:
                 
 
@@ -434,6 +439,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                     )
                     # TODO: Add functionality for single flat frame
                     bad_ratio = False
+                    
+                    
+                    
                     if len(flats_to_compare) > 1:
                         # Creates Dictionary Object where key is the mean of the calibrated frame data
                         calibrated_flats = {}
@@ -487,8 +495,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                                       scale=True
                                                       )
                         maskr = ccdp.ccdmask(flatdata)
-
-                        correct_outlier_flats(correct_outliers_params,
+                        
+                        
+                        corrected_master_flat = correct_outlier_flats(correct_outliers_params,
                                               maskr,
                                               flats_to_compare,
                                               frame_filter,
@@ -506,13 +515,23 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 ########## For Scalable darks (i.e. Bias Frame provided) ##########
                 reduced = ccdp.subtract_bias(light, master_bias)
-
-                closest_dark = find_nearest_dark_exposure(
-                    reduced, master_darks.keys())
-
-                reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
-                                             exposure_time='exptime', exposure_unit=u.second,
-                                             scale=True)
+                
+                
+                if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                
+                    print('Hello')
+                    closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
+                    reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
+                                                exposure_time='exptime', exposure_unit=u.second,
+                                                scale=True)
+                else:
+                        
+                    closest_dark = find_nearest_dark_exposure(
+                        reduced, master_darks.keys())
+    
+                    reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
+                                                 exposure_time='exptime', exposure_unit=u.second,
+                                                 scale=True)
                 ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
                 #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
                 # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
@@ -524,8 +543,16 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 ########## End ##########
 
                 # Flat Correction
-                good_flat = master_flats[reduced.header['filter']]
-                redcued = ccdp.flat_correct(reduced, good_flat)
+                
+                if correct_outliers_params['ccdmask']:
+                    
+                    try:
+                        reduced = ccdp.flat_correct(reduced,corrected_master_flat)
+                    except: 
+                        print('Corrected Master Flat Not Found')
+                else :    
+                    good_flat = master_flats[reduced.header['filter']]
+                    reduced = ccdp.flat_correct(reduced, good_flat)
 
                 ### Cosmic Rays Outliers ###
                 if correct_outliers_params['Outlier Boolean'] is True:
@@ -603,7 +630,12 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
             radius = 1
             coordinates = np.where(maskr == True)
-
+            flats=[]
+            if correct_outliers_params['Multiple Flat Combination'] is False:
+                flats_to_compare=flats_to_compare[0]
+            
+                
+            # Correct Flats    
             for flat in flats_to_compare:
                 flatdata = CCDData.read(flat, unit='adu')
                 for i in range(0, np.shape(coordinates)[1]):
@@ -617,23 +649,47 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     except:  # Except faulty pix is in the corner of the image
                         Replaceable_mean = np.nanmean(flatdata2)
                     flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+                    
+                flats.append(flatdata)
+                
                 # Save the Data
                 if len(flats_to_compare) == 1:
-                    flat_file_name = '\\master_flat_outliercorrected_filter_{}.fits'.format(
+                    flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
                         frame_filter.replace("''", "p"))
                     flatdata.write(master_dir + flat_file_name)
+                    result= flatdata
                 else:
-
-                    corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
-                    if os.path.isdir(corrected_dir) is False:
-                        os.mkdir(corrected_dir)
-                    flat_name_dir = corrected_dir + '\\' + \
-                        os.path.splitext(os.path.basename(flat))[0] + 'corrected.fits'
-
-                    flatdata.write(flat_name_dir)
+                    if correct_outliers_params['Save Corrected Flats'] == True:
+                        corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
+                        if os.path.isdir(corrected_dir) is False:
+                            os.mkdir(corrected_dir)
+                        flat_name_dir = corrected_dir + '\\' + \
+                            os.path.splitext(os.path.basename(flat))[0] + 'corrected.fits'
+                        flatdata.write(flat_name_dir)
             # IF ratio of flats is bad or only one flat frame we can save the flat as the master
             print('Saved New Flats')
-
+            
+            # Combine Flats 
+            
+            
+            
+            if correct_outliers_params['Multiple Flat Combination'] == True:
+                corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
+                combined_flat = ccdp.combine(flats,
+                                             method='median',
+                                             sigma_clip=True,
+                                             sigma_clip_low_thresh=5,
+                                             sigma_clip_high_thresh=5,
+                                             sigma_clip_func=np.ma.median,
+                                             signma_clip_dev_func=np.ma.std,
+                                             mem_limit=1e9
+                                             )
+                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+                    frame_filter.replace("''", "p"))
+                combined_flat.write(master_dir + flat_file_name)
+                result=combined_flat
+    return result
+                
 
 def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask, master_dark, closest_dark, master_dir):
     if correct_outliers_params['Replace Bool']:
@@ -675,3 +731,4 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
 
         dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
         darkdata.write(dark_name_dir)
+    return darkdata

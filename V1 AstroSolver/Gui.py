@@ -185,7 +185,13 @@ def Gui():
                     sg.Radio('Local Interpolation',
                              "RADIO2",
                              default=False,
-                             key="1IN10121-2")]
+                             key="1IN10121-2")],
+                    [sg.Checkbox('Multiple Flat Combination',
+                                 default=False,
+                                 key='1IN10122')],
+                    [sg.Checkbox('Save Corrected Flats',
+                                default=False,
+                                key='1IN10123')],
                     ]
 
     tab2_layout = [
@@ -266,7 +272,9 @@ def Gui():
                                        'ccdmask': values["-IN1012-5-"],
                                        'Cosmic Rays Bool': values["IN1012-6"],
                                        'Replace Bool': values["1IN10121"],
-                                       'Replace Mode': replace_mode
+                                       'Replace Mode': replace_mode,
+                                       'Multiple Flat Combination':values["1IN10122"],
+                                       'Save Corrected Flats': values ["1IN10123"]
                                        }
 
             target = values["-IN1014-"]
