@@ -205,15 +205,15 @@ def Gui():
          sg.Input(key="-IN200-",
                   change_submits=True),
          sg.FolderBrowse(key="-IN120-"), sg.Text('')],
-        # [sg.Text("Bias Images:    "),
-        #  sg.Input(key="-IN20-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
-        # [sg.Text("Dark Images:    "),
-        #  sg.Input(key="-IN30-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN40-")],
-        # [sg.Text("Flat Images:     "),
-        #  sg.Input(key="-IN50-" ,change_submits=True),
-        #  sg.FileBrowse(key="-IN60-")],
+        [sg.Text("Bias Images:    "),
+          sg.Input(key="-IN20-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+        [sg.Text("Dark Images:    "),
+          sg.Input(key="-IN30-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN40-")],
+        [sg.Text("Flat Images:     "),
+          sg.Input(key="-IN50-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN60-")],
         [sg.T(""), sg.Checkbox('Create Master Flats',
                                default=True,
                                key="-IN71-"),
@@ -260,6 +260,7 @@ def Gui():
             break
         elif event == "Reduce":
             reduce_dir = values["-IN200-"]
+            redcued_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
@@ -295,7 +296,7 @@ def Gui():
             else:
                 try:
 
-                    Main.Image_reduce(reduce_dir,
+                    Main.Image_reduce(redcued_dirs,
                                       create_master_dark,
                                       create_master_flat,
                                       create_master_bias,

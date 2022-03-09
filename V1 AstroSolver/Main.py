@@ -614,12 +614,13 @@ def trm_photometry(directory):
 # Function #6: GB Image Reduction
 
 
-def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
+def Image_reduce(reduce_dirs, create_master_dark, create_master_flat,
                  create_master_bias, correct_outliers_params, create_master_dir=True):
 
-    if os.path.isdir(reduce_dir) is False:
-        raise RuntimeError(
-            'WARNING -- Directory of .fits files does not exist')
+    for reduce_dir in reduce_dirs:
+        if os.path.isdir(reduce_dir) is False:
+            raise RuntimeError(
+                'WARNING -- Directory of .fits files does not exist')
 
     # Create output directory for master files
     if create_master_dir is True:
@@ -647,11 +648,12 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     start_time = time.time()
 
     # Find all fits files in subdirectories
-    for dirpath, dirnames, files in os.walk(reduce_dir):
-        for name in files:
-            if name.lower().endswith(exten):
-                results.append('%s' % os.path.join(dirpath, name))
-    print('Have list of all .fits files')
+    for reduced_dir in reduce_dirs:
+        for dirpath, dirnames, files in os.walk(reduce_dir):
+            for name in files:
+                if name.lower().endswith(exten):
+                    results.append('%s' % os.path.join(dirpath, name))
+        print('Have list of all .fits files')
 
     # Using ImageFileCollection, gather all fits files
 
