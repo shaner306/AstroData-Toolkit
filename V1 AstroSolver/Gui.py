@@ -182,10 +182,14 @@ def Gui():
                               default=True,
                               key="1IN10121-1"),
 
-                    sg.Radio('Local Interpolation',
+                    sg.Radio('Local Averaging',
                              "RADIO2",
                              default=False,
                              key="1IN10121-2")],
+                    [sg.T("Radius of Local Averaging"),
+                     sg.T("     "),
+                     sg.InputText('1', size=(5, 5),
+                                  key="1IN10121-2-1")],
                     [sg.Checkbox('Multiple Flat Combination',
                                  default=False,
                                  key='1IN10122')],
@@ -274,7 +278,8 @@ def Gui():
                                        'Replace Bool': values["1IN10121"],
                                        'Replace Mode': replace_mode,
                                        'Multiple Flat Combination':values["1IN10122"],
-                                       'Save Corrected Flats': values ["1IN10123"]
+                                       'Save Corrected Flats': values ["1IN10123"],
+                                       'Radius of local Averaging': values["1IN10121-2-1"],
                                        }
 
             target = values["-IN1014-"]

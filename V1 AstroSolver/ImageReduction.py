@@ -519,7 +519,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 
                 if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
                 
-                    print('Hello')
+                    
                     closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
                     reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
                                                 exposure_time='exptime', exposure_unit=u.second,
@@ -628,7 +628,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
             print('Calculate Average Background')
             # TODO: Add Script
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
-            radius = 1
+            radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(maskr == True)
             flats=[]
             if correct_outliers_params['Multiple Flat Combination'] is False:
@@ -643,11 +643,18 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     # Create copy of flat to add mask to - To Avoid Masked Pixs
                     flatdata2 = flatdata.copy()
                     flatdata2.mask = maskr
+                    
+                        
                     try:
+                        
                         Replaceable_mean = np.nanmean(
                             flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                    except:  # Except faulty pix is in the corner of the image
-                        Replaceable_mean = np.nanmean(flatdata2)
+                    except:  # Except faulty pix is in the corner of the image on the right side of the image
+                        Replaceable_mean = np.nanmean(flatdata)
+                        
+                    if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
+                        # Condition for left most coordinates that have a radius beyond the left of the image
+                        Replaceable_mean = np.nanmean(flatdata)
                     flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                     
                 flats.append(flatdata)
@@ -697,12 +704,12 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
             print('Calculate Average Background')
             # TODO: Add Script
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
-            radius = 1
+            radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(hot_pixels == True)
             darkdata = (master_dark[closest_dark])
             darkdata2 = darkdata.copy()  # copy since we don't want new values messing up new values
             darkdata2.mask = hot_pixels.data | dark_threshold_mask
-            average_dark_value=np.nanmean(darkdata2)
+            average_dark_value=np.nanmean(darkdata)
             for i in range(0, np.shape(coordinates)[1]):
                 try:
                     Replaceable_mean = np.nanmean(
@@ -726,9 +733,11 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
                     Replaceable_mean = np.nanmean(
                         darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
                 except:  # Except faulty pix is in the corner of the image
-                    Replaceable_mean = np.nanmean(darkdata2)
+                    Replaceable_mean = average_dark_value
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
-
-        dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
-        darkdata.write(dark_name_dir)
+                
+            dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
+            darkdata.write(dark_name_dir)
+        
+       
     return darkdata
