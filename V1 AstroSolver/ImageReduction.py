@@ -726,6 +726,9 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
                 if str(Replaceable_mean)=='nan':
                     Replaceable_mean=average_dark_value
                     
+                if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
+                    Replaceable_mean=average_dark_value
+                    
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean     
             coordinates = np.where(dark_threshold_mask == True)
             for i in range(0, np.shape(coordinates)[1]):
