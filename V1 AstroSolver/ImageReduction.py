@@ -314,9 +314,9 @@ def create_master_flat(all_fits, master_dir):
                                      )
         try:
             combined_flat.meta['combined'] = True
-            flat_file_name = 'master_flat_filter_{}.fits'.format(
+            flat_file_name = '/master_flat_filter_{}.fits'.format(
                 frame_filter.replace("''", "p"))
-            combined_flat.write(os.path.join(master_dir , flat_file_name))
+            combined_flat.write((str(master_dir) + flat_file_name))
             print('Saving ', flat_file_name)
         except:
             raise RuntimeError('WARNING -- Could not Save Master Flat File')
@@ -404,8 +404,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             dark_current = master_darks[dark_time].multiply(
                 float(master_darks[dark_time].header['EGAIN'])*u.electron /
                 u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
-            hot_pixels = dark_current > 4*np.nanmean(dark_current)
-            mask = mask | hot_pixels
+            if (dark_current):
+                
+                hot_pixels = dark_current > 4*np.nanmean(dark_current)
+                mask = mask | hot_pixels
+            
+                
+            
         
         if correct_outliers_params['Dark Frame Threshold Bool']:
         
@@ -508,7 +513,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                               maskr,
                                               flats_to_compare,
                                               frame_filter,
-                                              master_dir)
+                                              master_dir,
+                                              corrected_light_dir)
 
                     mask = mask | maskr
 
@@ -577,12 +583,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
-                    reduced.write(os.path.join(corrected_light_dir ,  file_name))
+                    reduced.write(str(corrected_light_dir) +  file_name)
                 except OSError:
                     file_name = file_name[:-5]
                     print(file_name)
                     file_name = file_name + "1.fits"
-                    reduced.write(os.path.join(corrected_light_dir ,  file_name))
+                    reduced.write((str(corrected_light_dir) +  file_name))
 
                 print('Saving ', file_name)
         except Exception as e:
@@ -628,7 +634,7 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
     return closest_dark_exposure
 
 
-def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir):
+def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,corrected_light_dir):
     if correct_outliers_params['Replace Bool']:
         # Replaces the values in mask with a desired value
         if correct_outliers_params['Replace Mode'] == 'Ave':
@@ -638,12 +644,10 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
             radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(maskr == True)
             flats=[]
-            if correct_outliers_params['Multiple Flat Combination'] is False:
-                flats_to_compare=flats_to_compare[0]
-            
-                
-            # Correct Flats    
-            for flat in flats_to_compare:
+            if (correct_outliers_params['Multiple Flat Combination'] is False)  :
+                if (flats_to_compare != ()) :
+                    flats_to_compare = flats_to_compare[0]
+                flat=flats_to_compare
                 flatdata = CCDData.read(flat, unit='adu')
                 for i in range(0, np.shape(coordinates)[1]):
 
@@ -666,20 +670,47 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     
                 flats.append(flatdata)
                 
-                # Save the Data
-                if len(flats_to_compare) == 1:
-                    flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
-                        frame_filter.replace("''", "p"))
-                    flatdata.write(master_dir + flat_file_name)
-                    result= flatdata
-                else:
-                    if correct_outliers_params['Save Corrected Flats'] == True:
-                        corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
-                        if os.path.isdir(corrected_dir) is False:
-                            os.mkdir(corrected_dir)
-                        flat_name_dir = os.path.join(corrected_dir ,
-                            os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
-                        flatdata.write(flat_name_dir)
+            else:
+                
+            # Correct Flats    
+                for flat in flats_to_compare:
+                    flatdata = CCDData.read(flat, unit='adu')
+                    for i in range(0, np.shape(coordinates)[1]):
+    
+                        # Create copy of flat to add mask to - To Avoid Masked Pixs
+                        flatdata2 = flatdata.copy()
+                        flatdata2.mask = maskr
+                        
+                            
+                        try:
+                            
+                            Replaceable_mean = np.nanmean(
+                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                        except:  # Except faulty pix is in the corner of the image on the right side of the image
+                            Replaceable_mean = np.nanmean(flatdata)
+                            
+                        if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
+                            # Condition for left most coordinates that have a radius beyond the left of the image
+                            Replaceable_mean = np.nanmean(flatdata)
+                        flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+                        
+                    flats.append(flatdata)
+                
+            # Save the Data
+            if len(flats)==1:
+                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+                    frame_filter.replace("''", "p"))
+                flatdata.write(str(master_dir) + flat_file_name)
+                result = flatdata
+            else:
+                #TODO: Test This out
+                if correct_outliers_params['Save Corrected Flats'] == True:
+                    corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
+                    if os.path.isdir(corrected_dir) is False:
+                        os.mkdir(corrected_dir)
+                    flat_name_dir = os.path.join(corrected_dir ,
+                        os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
+                    flatdata.write(flat_name_dir)
             # IF ratio of flats is bad or only one flat frame we can save the flat as the master
             print('Saved New Flats')
             
@@ -698,18 +729,23 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                                              signma_clip_dev_func=np.ma.std,
                                              mem_limit=1e9
                                              )
-                flat_file_name = 'master_flat_filter_corrected_{}.fits'.format(
+                flat_file_name = '/master_flat_filter_corrected_{}.fits'.format(
                     frame_filter.replace("''", "p"))
-                combined_flat.write(os.path.join(master_dir , flat_file_name))
+                combined_flat.write((str(master_dir) + flat_file_name))
                 result=combined_flat
-    return result
+        return result
                 
 
 def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask, master_dark, closest_dark, master_dir):
     if correct_outliers_params['Replace Bool']:
         if correct_outliers_params['Replace Mode'] == 'Ave':
             print('Calculate Average Background')
-            # TODO: Add Script
+            coordinates = np.where(hot_pixels == True)
+            darkdata = (master_dark[closest_dark])
+            Replaceable_mean=np.nanmean(darkdata)
+            for i in range(0,np.shape(coordinates)[1]):
+                darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+            
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
             radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(hot_pixels == True)
@@ -737,16 +773,10 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
                     Replaceable_mean=average_dark_value
                     
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean     
-            coordinates = np.where(dark_threshold_mask == True)
-            for i in range(0, np.shape(coordinates)[1]):
-                try:
-                    Replaceable_mean = np.nanmean(
-                        darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                except:  # Except faulty pix is in the corner of the image
-                    Replaceable_mean = average_dark_value
-                darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+            
+            
                 
-            dark_name_dir = os.path.join(master_dir , 'master_dark_' , str(closest_dark) , 'corrected.fits')
+            dark_name_dir = (str(master_dir)+'/master_dark_'+str(closest_dark)+'corrected.fits')
             darkdata.write(dark_name_dir)
         
        

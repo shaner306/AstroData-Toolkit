@@ -226,7 +226,13 @@ def Gui():
          sg.T(""), sg.Checkbox('Correct for Outliers',
                                default=True,
                                key="-IN1012-")],
-
+        [sg.T(""),sg.Checkbox('Use Exisitng Masters',
+                              default=True,
+                              key='-1N109-'),
+         sg.Text("Master Images:    "),
+           sg.Input(key="-IN 109-1" ,change_submits=True),
+           sg.FolderBrowse(key="-1N109-2")],
+                                              
 
         [sg.T(""), sg.Checkbox('Space Based',
                                default=True,
@@ -262,8 +268,15 @@ def Gui():
             reduce_dir = values["-IN200-"]
             reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             create_master_flat = values["-IN71-"]
+            
+             
+            if values["-1N109-"] is True:
+                print('WIP Not Reducing')
+                
+                
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
+            
             if values["1IN10121-1"] is True:
                 replace_mode = 'Ave'
             elif values["1IN10121-2"] is True:

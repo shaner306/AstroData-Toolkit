@@ -621,6 +621,7 @@ def Image_reduce(reduce_dirs, create_master_dark, create_master_flat,
         if os.path.isdir(reduce_dir) is False:
             raise RuntimeError(
                 'WARNING -- Directory of .fits files does not exist')
+    
 
     # Create output directory for master files
     if create_master_dir is True:
@@ -682,13 +683,13 @@ def Image_reduce(reduce_dirs, create_master_dark, create_master_flat,
     # Correct Light Frames with Master Files
     if correct_light_frames is True:
         print('\n')
-        print('Creating output directory:', reduce_dir + '\\corrected_lights')
+        print('Creating output directory:', reduce_dirs[0] + '\\corrected_lights')
         print('Calling correct_light_frames')
 
         # Make output directory
-        correct_light_dir = Path(reduce_dir, 'corrected_lights')
+        correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
         correct_light_dir.mkdir(exist_ok=True)
-        correct_light_directory = reduce_dir + '\\corrected_lights'
+        correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
 
         #  If a specific directory is desired for the corrected light frames,
         # uncomment the following line and place the path as a string with
