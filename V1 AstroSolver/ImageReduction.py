@@ -322,7 +322,7 @@ def create_master_flat(all_fits, master_dir):
             raise RuntimeError('WARNING -- Could not Save Master Flat File')
 
 
-def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params):
+def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params, use_existing_masters):
     """
     Taking Master Bias, Master Darks and filter-specific Master Flats, create
     corrected individual light frames.
@@ -389,6 +389,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
                                                 filter=list(light_filter)[0],
                                                 include_path=True)[0]
+    
     corrected_master_dark={}
     for dark_time in dark_times:
         ### Dark Image Masking ###
@@ -396,6 +397,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         hot_pixels = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
         dark_threshold_mask = np.zeros(CCDData.read(example_light
             , unit='adu').data.shape, dtype=bool)
+        
+        
         
         
         if correct_outliers_params['Hot Pixel'] is True:
@@ -423,8 +426,15 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             
         if correct_outliers_params['Outlier Boolean']:
             
-            corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
-                              master_darks, dark_time, master_dir)
+            
+            # Check to see if corrected file already exists
+            corrected_dark_dir = (str(master_dir)+'/master_dark_'+str(dark_time)+'corrected.fits')
+            if os.path.isfile(corrected_dark_dir) is False:
+                
+                corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
+                                  master_darks, dark_time, master_dir)
+            else:
+                    corrected_master_dark_data=CCDData.read(corrected_dark_dir,unit='adu')
             corrected_master_dark[dark_time] = corrected_master_dark_data
             
     for frame_filter in sorted(light_filter):
@@ -509,12 +519,18 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         maskr = ccdp.ccdmask(flatdata)
                         
                         
-                        corrected_master_flat = correct_outlier_flats(correct_outliers_params,
-                                              maskr,
-                                              flats_to_compare,
-                                              frame_filter,
-                                              master_dir,
-                                              corrected_light_dir)
+                        flat_file_name = '/master_flat_filter_corrected_{}.fits'.format(
+                            frame_filter.replace("''", "p"))
+                        if os.path.isfile((str(master_dir) + flat_file_name)) is False:
+                        
+                            corrected_master_flat = correct_outlier_flats(correct_outliers_params,
+                                                  maskr,
+                                                  flats_to_compare,
+                                                  frame_filter,
+                                                  master_dir,
+                                                  corrected_light_dir)
+                        else:
+                            corrected_master_flat=CCDData.read((str(master_dir) + flat_file_name),unit='adu')
 
                     mask = mask | maskr
 

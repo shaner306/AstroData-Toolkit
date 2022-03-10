@@ -265,15 +265,36 @@ def Gui():
             window.close()
             break
         elif event == "Reduce":
+             
+            use_existing_masters = values['-1N109-']
+            exisiting_masters_dir = values['-1N109-2']
+            
             reduce_dir = values["-IN200-"]
-            reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
-            create_master_flat = values["-IN71-"]
+            if use_existing_masters is True:
+                reduced_dirs = [values["-IN200-"],exisiting_masters_dir] 
+            else:
+                reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
+            
+            
+            
+            
+            use_existing_masters = values['-1N109-']
+            exisiting_masters_dir = values['-1N109-2']
+            
+            
+            # FIXME : Come up with better methods for improving this
+            
+            if (use_existing_masters is True):
+                
+                    create_master_dir=False
+            else:
+                    create_master_dir=True
             
              
             if values["-1N109-"] is True:
                 print('WIP Not Reducing')
                 
-                
+            create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
             
@@ -281,6 +302,7 @@ def Gui():
                 replace_mode = 'Ave'
             elif values["1IN10121-2"] is True:
                 replace_mode = 'Interpolate'
+                
             correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
 
                                        'Hot Pixel': values["-IN1012-1-"],
@@ -317,7 +339,10 @@ def Gui():
                                       create_master_flat,
                                       create_master_bias,
                                       correct_outliers_params,
-                                      create_master_dir=True)
+                                      create_master_dir,
+                                      use_existing_masters,
+                                      exisiting_masters_dir
+                                      )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
                 except:
