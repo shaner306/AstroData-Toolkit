@@ -583,12 +583,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
-                    reduced.write(str(corrected_light_dir) +  file_name)
+                    reduced.write(str(corrected_light_dir) +'\\' + file_name)
                 except OSError:
                     file_name = file_name[:-5]
                     print(file_name)
                     file_name = file_name + "1.fits"
-                    reduced.write((str(corrected_light_dir) +  file_name))
+                    reduced.write((str(corrected_light_dir) + '\\' + file_name))
 
                 print('Saving ', file_name)
         except Exception as e:
