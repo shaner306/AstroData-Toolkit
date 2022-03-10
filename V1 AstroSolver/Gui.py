@@ -23,7 +23,7 @@ import os
 import os.path
 import Main
 import AstroFunctions as astro
-
+from astropy.nddata import CCDData
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -325,12 +325,46 @@ def Gui():
                     window.refresh()
 
         elif event == "Solve":
+            
             image_dir = values["-IN2-"]
             catalog_dir = values["-IN3-"]
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
             plot_data = values["-IN1014-"]
-
+            
+            # Check to See if image has been corrected already
+            for dirpath,dirnames,files in os.walk(image_dir):
+                for name in files:
+                    if name.lower().endswith(('.fits','.fit','.fts')):
+                        sample_image=os.path.join(dirpath,name)
+                        break
+            Sample_image = CCDData.read(sample_image,unit='adu')
+            try: 
+                if Sample_image.header['Correctd'] is False:
+                    Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                    if Popup_string=='No':
+                        window.close()
+                    else:
+                        continue
+                
+                # Do Nothing if Image is already Reduced
+                
+            except:
+                Sample_image.meta['Correctd'] = False
+                
+                # Prompt User about Confirming to Solve the image despite it not being redcued
+                Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                if Popup_string=='No':
+                    window.close()
+                    quit()
+                else:
+                    continue
+                
+                        
+                
+            
+            
+            
             if values["-IN82-"] is True:  # Ground Based Observation
                 space_based_bool = 0   # Space Based Boolean=0
             else:
@@ -352,7 +386,7 @@ def Gui():
                 else:
                     all_sky_solve = False
                 try:
-                    print("Reducing Images ---- Started")
+                    print("Pinpoint Solve Images ---- Started")
                     Main.pinpoint_solve(image_dir,
                                         catalog_dir,
                                         max_mag,
