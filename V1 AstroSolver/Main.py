@@ -614,20 +614,21 @@ def trm_photometry(directory):
 # Function #6: GB Image Reduction
 
 
-def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
-                 create_master_bias, create_master_dir=True):
+def Image_reduce(reduce_dirs, create_master_dark, create_master_flat,
+                 create_master_bias, correct_outliers_params, create_master_dir=True):
 
-    if os.path.isdir(reduce_dir) is False:
-        raise RuntimeError(
-            'WARNING -- Directory of .fits files does not exist')
+    for reduce_dir in reduce_dirs:
+        if os.path.isdir(reduce_dir) is False:
+            raise RuntimeError(
+                'WARNING -- Directory of .fits files does not exist')
 
     # Create output directory for master files
     if create_master_dir is True:
-        master_frame_dir = Path(reduce_dir, 'master_frame_data')
+        master_frame_dir = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
         master_frame_dir.mkdir(exist_ok=True)
-
+    
     #  Select directory for master frames
-    master_frame_directory = reduce_dir + '\\master_frame_data'
+    master_frame_directory = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
 
     #  If a directory already exists containing the master files, uncomment the
     #  following line and place the path as a string with double backslashes.
@@ -647,11 +648,12 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     start_time = time.time()
 
     # Find all fits files in subdirectories
-    for dirpath, dirnames, files in os.walk(reduce_dir):
-        for name in files:
-            if name.lower().endswith(exten):
-                results.append('%s' % os.path.join(dirpath, name))
-    print('Have list of all .fits files')
+    for reduce_dir in reduce_dirs:
+        for dirpath, dirnames, files in os.walk(reduce_dir):
+            for name in files:
+                if name.lower().endswith(exten):
+                    results.append('%s' % os.path.join(dirpath, name))
+        print('Have list of all .fits files')
 
     # Using ImageFileCollection, gather all fits files
 
@@ -696,7 +698,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory)
+                          correct_light_directory, correct_outliers_params)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time

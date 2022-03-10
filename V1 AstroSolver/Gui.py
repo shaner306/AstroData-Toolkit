@@ -144,6 +144,60 @@ def Gui():
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
+    tab2_column1 = [[sg.Text('Correct Outliear Parameters',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Hot Pixel Removal',
+                                 default=False,
+                                 key="-IN1012-1-")],
+                    [sg.Checkbox('Dark Frame Threshold Bool',
+                                 default=False,
+                                 key="-IN1012-2-")],
+
+                    [sg.T("Dark Frame Threshold Min"),
+                     sg.T("     "),
+                     sg.InputText('-50', size=(5, 5),
+                                  key="-IN1012-3-")],
+                    [sg.T("Dark Frame Threshold Max"),
+                     sg.InputText('100',
+                                  size=(5, 5),
+                                  key="-IN1012-4-")],
+                    [sg.Checkbox("ccdmask",
+                     default=False,
+                     key="-IN1012-5-")],
+                    [sg.Checkbox("Cosmic Rays Removal",
+                     default=False,
+                     key="IN1012-6")]
+                    ]
+    tab2_column2 = [[sg.Text('Replace Outliers Options',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Replace Mask Values',
+                                 default=True,
+                                 key="1IN10121")],
+                    [sg.Radio('Average Background',
+                              "RADIO2",
+                              default=True,
+                              key="1IN10121-1"),
+
+                    sg.Radio('Local Averaging',
+                             "RADIO2",
+                             default=False,
+                             key="1IN10121-2")],
+                    [sg.T("Radius of Local Averaging"),
+                     sg.T("     "),
+                     sg.InputText('1', size=(5, 5),
+                                  key="1IN10121-2-1")],
+                    [sg.Checkbox('Multiple Flat Combination',
+                                 default=False,
+                                 key='1IN10122')],
+                    [sg.Checkbox('Save Corrected Flats',
+                                default=False,
+                                key='1IN10123')],
+                    ]
+
     tab2_layout = [
         [sg.T('Image Reduction Script')],
         [sg.T("   ")],
@@ -151,15 +205,15 @@ def Gui():
          sg.Input(key="-IN200-",
                   change_submits=True),
          sg.FolderBrowse(key="-IN120-"), sg.Text('')],
-        # [sg.Text("Bias Images:    "),
-        #  sg.Input(key="-IN20-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
-        # [sg.Text("Dark Images:    "),
-        #  sg.Input(key="-IN30-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN40-")],
-        # [sg.Text("Flat Images:     "),
-        #  sg.Input(key="-IN50-" ,change_submits=True),
-        #  sg.FileBrowse(key="-IN60-")],
+        [sg.Text("Bias Images:    "),
+          sg.Input(key="-IN20-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+        [sg.Text("Dark Images:    "),
+          sg.Input(key="-IN30-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN40-")],
+        [sg.Text("Flat Images:     "),
+          sg.Input(key="-IN50-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN60-")],
         [sg.T(""), sg.Checkbox('Create Master Flats',
                                default=True,
                                key="-IN71-"),
@@ -168,16 +222,23 @@ def Gui():
                                key="-IN1010-"),
          sg.T(""), sg.Checkbox('Create Master Bias',
                                default=True,
-                               key="-IN1011-")],
+                               key="-IN1011-"),
+         sg.T(""), sg.Checkbox('Correct for Outliers',
+                               default=True,
+                               key="-IN1012-")],
+
+
         [sg.T(""), sg.Checkbox('Space Based',
                                default=True,
-                               key="-IN1012-"),
+                               key="-IN1013-"),
          sg.T("Target:"),
          sg.InputText('SA-111',
                       size=(10, 5),
-                      key="-IN1013-")],
+                      key="-IN1014-")],
+        [sg.Column(tab2_column1), sg.Column(tab2_column2)],
         [sg.T("   ")],
-        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
+        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
+    ]
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
@@ -199,11 +260,31 @@ def Gui():
             break
         elif event == "Reduce":
             reduce_dir = values["-IN200-"]
+            reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
-            target = values["-IN1013-"]
-            if values["-IN1012-"]:  # Space Based Observations is True
+            if values["1IN10121-1"] is True:
+                replace_mode = 'Ave'
+            elif values["1IN10121-2"] is True:
+                replace_mode = 'Interpolate'
+            correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
+
+                                       'Hot Pixel': values["-IN1012-1-"],
+                                       'Dark Frame Threshold Bool': values["-IN1012-2-"],
+                                       'Dark Frame Threshold Min':  values["-IN1012-3-"],
+                                       'Dark Frame Threshold Max': values["-IN1012-4-"],
+                                       'ccdmask': values["-IN1012-5-"],
+                                       'Cosmic Rays Bool': values["IN1012-6"],
+                                       'Replace Bool': values["1IN10121"],
+                                       'Replace Mode': replace_mode,
+                                       'Multiple Flat Combination':values["1IN10122"],
+                                       'Save Corrected Flats': values ["1IN10123"],
+                                       'Radius of local Averaging': values["1IN10121-2-1"],
+                                       }
+
+            target = values["-IN1014-"]
+            if values["-IN1013-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
                                  'D:\\NEOSSat-SA-111\\test')
@@ -214,22 +295,28 @@ def Gui():
                     window.update()
             else:
                 try:
-                    Main.Image_reduce(reduce_dir,
+                    
+                    
+                    
+                    
+                    Main.Image_reduce(reduced_dirs,
                                       create_master_dark,
                                       create_master_flat,
-                                      create_master_bias)
+                                      create_master_bias,
+                                      correct_outliers_params,
+                                      create_master_dir=True)
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
                 except:
                     print("Input Error")
-                    window.update()
+                    window.refresh()
 
         elif event == "Solve":
             image_dir = values["-IN2-"]
             catalog_dir = values["-IN3-"]
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
-            plot_data = values["-IN1013-"]
+            plot_data = values["-IN1014-"]
 
             if values["-IN82-"] is True:  # Ground Based Observation
                 space_based_bool = 0   # Space Based Boolean=0
