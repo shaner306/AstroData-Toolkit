@@ -116,12 +116,13 @@ def create_master_bias(all_fits, master_dir):
                                sigma_clip_dev_func=np.ma.std,
                                mem_limit=1e9
                                )
-
-    master_bias.meta['combined'] = True
-    bias_file_name = '\master_bias.fits'
-    master_bias.write(master_dir + bias_file_name)
-    print('Saving ', bias_file_name)
-
+    try:
+        master_bias.meta['combined'] = True
+        bias_file_name = 'master_bias.fits'
+        master_bias.write(os.path.join(master_dir, bias_file_name))
+        print('Saving ', bias_file_name)
+    except OSError:
+        raise RuntimeError('WARNING -- Could not Save Master Bias File')
 
 def create_master_dark(all_fits, master_dir):
     """
@@ -153,7 +154,7 @@ def create_master_dark(all_fits, master_dir):
     try:
         # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
         # combined=True))
-        master_bias = CCDData.read(master_dir + '\\master_bias.fits', unit='adu')
+        master_bias = CCDData.read(os.path.join(master_dir ,'master_bias.fits'), unit='adu')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
     # Dynamic Dark Imagetype Reader
@@ -194,11 +195,15 @@ def create_master_dark(all_fits, master_dir):
                                    signma_clip_dev_func=np.ma.std,
                                    mem_limit=1e9,
                                    )
-
-        master_dark.meta['combined'] = True
-        dark_file_name = '\\master_dark_{:6.3f}.fits'.format(exp_time)
-        master_dark.write(master_dir + dark_file_name)
-        print('Saving ', dark_file_name)
+        try:
+            master_dark.meta['combined'] = True
+            dark_file_name = 'master_dark_{:6.3f}.fits'.format(exp_time)
+            master_dark.write(os.path.join(master_dir , dark_file_name))
+        except: 
+            raise RuntimeError('WARNING -- Could not Save Master Dark File')
+            
+        
+        
 
 
 def create_master_flat(all_fits, master_dir):
@@ -247,7 +252,7 @@ def create_master_flat(all_fits, master_dir):
     )
     try:
         # combined_bias = CCDData.read(master_files_list)
-        combined_bias = CCDData.read(master_dir + '\\master_bias.fits', unit='adu')
+        combined_bias = CCDData.read(os.path.join(master_dir , 'master_bias.fits'), unit='adu')
     except:
         raise RuntimeError('WARNING -- Could not open Master Bias file')
 
@@ -307,12 +312,14 @@ def create_master_flat(all_fits, master_dir):
                                      signma_clip_dev_func=np.ma.std,
                                      mem_limit=1e9
                                      )
-
-        combined_flat.meta['combined'] = True
-        flat_file_name = '\\master_flat_filter_{}.fits'.format(
-            frame_filter.replace("''", "p"))
-        combined_flat.write(master_dir + flat_file_name)
-        print('Saving ', flat_file_name)
+        try:
+            combined_flat.meta['combined'] = True
+            flat_file_name = 'master_flat_filter_{}.fits'.format(
+                frame_filter.replace("''", "p"))
+            combined_flat.write(os.path.join(master_dir , flat_file_name))
+            print('Saving ', flat_file_name)
+        except:
+            raise RuntimeError('WARNING -- Could not Save Master Flat File')
 
 
 def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params):
@@ -570,12 +577,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 reduced.meta['correctd'] = True
                 file_name = file_name.split("\\")[-1]
                 try:
-                    reduced.write(corrected_light_dir + '\\' + file_name)
+                    reduced.write(os.path.join(corrected_light_dir ,  file_name))
                 except OSError:
                     file_name = file_name[:-5]
                     print(file_name)
                     file_name = file_name + "1.fits"
-                    reduced.write(corrected_light_dir + '\\' + file_name)
+                    reduced.write(os.path.join(corrected_light_dir ,  file_name))
 
                 print('Saving ', file_name)
         except Exception as e:
@@ -670,8 +677,8 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                         corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
                         if os.path.isdir(corrected_dir) is False:
                             os.mkdir(corrected_dir)
-                        flat_name_dir = corrected_dir + '\\' + \
-                            os.path.splitext(os.path.basename(flat))[0] + 'corrected.fits'
+                        flat_name_dir = os.path.join(corrected_dir ,
+                            os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
                         flatdata.write(flat_name_dir)
             # IF ratio of flats is bad or only one flat frame we can save the flat as the master
             print('Saved New Flats')
@@ -691,9 +698,9 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                                              signma_clip_dev_func=np.ma.std,
                                              mem_limit=1e9
                                              )
-                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+                flat_file_name = 'master_flat_filter_corrected_{}.fits'.format(
                     frame_filter.replace("''", "p"))
-                combined_flat.write(master_dir + flat_file_name)
+                combined_flat.write(os.path.join(master_dir , flat_file_name))
                 result=combined_flat
     return result
                 
@@ -739,7 +746,7 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
                     Replaceable_mean = average_dark_value
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                 
-            dark_name_dir = master_dir + '\\' + 'master_dark_' + str(closest_dark) + 'corrected.fits'
+            dark_name_dir = os.path.join(master_dir , 'master_dark_' , str(closest_dark) , 'corrected.fits')
             darkdata.write(dark_name_dir)
         
        

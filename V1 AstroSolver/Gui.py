@@ -260,7 +260,7 @@ def Gui():
             break
         elif event == "Reduce":
             reduce_dir = values["-IN200-"]
-            redcued_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
+            reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
@@ -295,8 +295,11 @@ def Gui():
                     window.update()
             else:
                 try:
-
-                    Main.Image_reduce(redcued_dirs,
+                    
+                    
+                    
+                    
+                    Main.Image_reduce(reduced_dirs,
                                       create_master_dark,
                                       create_master_flat,
                                       create_master_bias,
@@ -306,7 +309,7 @@ def Gui():
                     window.close()
                 except:
                     print("Input Error")
-                    window.update()
+                    window.refresh()
 
         elif event == "Solve":
             image_dir = values["-IN2-"]
