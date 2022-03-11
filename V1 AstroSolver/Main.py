@@ -658,6 +658,7 @@ def Image_reduce(reduce_dirs,
     start_time = time.time()
 
     # Find all fits files in subdirectories
+    
     for reduce_dir in reduce_dirs:
         for dirpath, dirnames, files in os.walk(reduce_dir):
             for name in files:
@@ -673,6 +674,19 @@ def Image_reduce(reduce_dirs,
     # %% Image Reduction
     # Create Master Bias
     #all_fits.headers['imagetyp']==sum()
+    unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
+    try:
+        bias_imgtype_matches = [
+            s for s in unique_imagetype_list if "bias" in s.lower()]
+        bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
+        if (all_fits.summary['imagetyp']==bias_imgtypes_concatenateded).sum()==0:
+            print('No Bias Frames Identified, Reverting to Non-Scaleable Dark')
+            scaleable_dark=False
+            
+    except NameError:
+        print("No Bias Frames Identified, Reverting to Non-Scaleable Darks")
+        scaleable_dark=False
+    
     if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
         print('Calling run_master_bias')
@@ -680,11 +694,11 @@ def Image_reduce(reduce_dirs,
 
     # Create Master Dark
     if (run_master_dark is True) and (use_existing_masters is False):
-        if (scaleable_dark):
-            print('\n')
-            print('Calling run_master_dark')
-            IR.create_master_dark(all_fits, master_frame_directory,scaleable_dark)
-        
+    
+        print('\n')
+        print('Calling run_master_dark')
+        IR.create_master_dark(all_fits, master_frame_directory,scaleable_dark)
+    
 
     # Create Master Flat
     if (run_master_flat is True) and (use_existing_masters is False):

@@ -282,6 +282,20 @@ def Gui():
             exisiting_masters_dir = values['-1N109-2']
             
             
+            for dirpath,dirnames,files in os.walk(reduce_dir):
+                for name in files:
+                    if name.lower().endswith(('.fits','.fit','.fts')):
+                        sample_image=os.path.join(dirpath,name)
+                        break
+            Sample_image = CCDData.read(sample_image,unit='adu')
+            try:
+                if Sample_image.header['Correctd'] is True:
+                    Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                    if Popup_string=='No':
+                        window.close()
+                        quit()
+            except KeyError:
+                print('Could not find Correctd keyword')
             # TODO : Come up with better methods for improving this
             
             if (use_existing_masters is True):
@@ -342,6 +356,8 @@ def Gui():
                     print("Input Error")
                     window.update()
             else:
+                
+                
                 try:
                     
                     
@@ -359,9 +375,8 @@ def Gui():
                                       )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
-                except:
-                    print("Input Error")
-                    window.refresh()
+                except Exception as ex:
+                    print(ex)
 
         elif event == "Solve":
             
@@ -377,12 +392,14 @@ def Gui():
                     if name.lower().endswith(('.fits','.fit','.fts')):
                         sample_image=os.path.join(dirpath,name)
                         break
-            Sample_image = CCDData.read(sample_image,unit='adu')
+            Sample_image=CCDData.read(sample_image,unit='adu')
+            
             try: 
                 if Sample_image.header['Correctd'] is False:
                     Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
                     if Popup_string=='No':
                         window.close()
+                        quit()
                     else:
                         continue
                 

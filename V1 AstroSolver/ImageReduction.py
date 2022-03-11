@@ -235,9 +235,7 @@ def create_master_flat(all_fits, master_dir,scaleable_dark):
     """
 
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
-    bias_imgtype_matches = [
-        s for s in unique_imagetype_list if "bias" in s.lower()]
-    bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
+    
     dark_imgtype_matches = [
         s for s in unique_imagetype_list if "dark" in s.lower()]
     dark_imgtypes_concatenateded = '|'.join(dark_imgtype_matches)
@@ -247,16 +245,13 @@ def create_master_flat(all_fits, master_dir,scaleable_dark):
 
     master_files = ccdp.ImageFileCollection(master_dir)
 
-    master_files_list = master_files.files_filtered(
-        imagetyp=bias_imgtypes_concatenateded,
-        combined=True,
-        include_path=True
-    )
-    try:
-        # combined_bias = CCDData.read(master_files_list)
-        combined_bias = CCDData.read(os.path.join(master_dir , 'master_bias.fits'), unit='adu')
-    except:
-        raise RuntimeError('WARNING -- Could not open Master Bias file')
+    
+    if scaleable_dark is True:
+        try:
+            # combined_bias = CCDData.read(master_files_list)
+            combined_bias = CCDData.read(os.path.join(master_dir , 'master_bias.fits'), unit='adu')
+        except:
+            raise RuntimeError('WARNING -- Could not open Master Bias file')
 
     try:
         # Get the Master Darks
@@ -378,8 +373,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
         imagetyp=flat_imgtypes_concatenateded, combined=True)}
     # There is only one bias frame, so no need to set up a dictionary.
-    master_bias = [ccd for ccd in master_files.ccds(
-        imagetyp=bias_imgtypes_concatenateded, combined=True)][0]
+    if scaleable_dark:
+        master_bias = [ccd for ccd in master_files.ccds(
+            imagetyp=bias_imgtypes_concatenateded, combined=True)][0]
     light_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
 
     for light_imgtypes in light_imgtype_matches:
@@ -434,7 +430,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
             mask = mask | dark_threshold_mask
             
-        if correct_outliers_params['Outlier Boolean']:
+        if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
             
             
             # Check to see if corrected file already exists
@@ -508,7 +504,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             bad_ratio = True
                         else:
                             maskr = ccdp.ccdmask(ratio)
-
+                            # FIXME: Why is this here?
                             if correct_outliers_params['Replace Bool']:
                                 # Replaces the values in mask with a desired value
                                 if correct_outliers_params['Replace Mode'] == 'Ave':
@@ -605,7 +601,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                     else:
                             
                         closest_dark = find_nearest_dark_exposure(
-                            reduced, master_darks.keys())
+                            light, master_darks.keys())
         
                         reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
                                                      exposure_time='exptime', exposure_unit=u.second,
