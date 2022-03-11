@@ -282,7 +282,7 @@ def Gui():
             exisiting_masters_dir = values['-1N109-2']
             
             
-            # FIXME : Come up with better methods for improving this
+            # TODO : Come up with better methods for improving this
             
             if (use_existing_masters is True):
                 
@@ -290,6 +290,19 @@ def Gui():
             else:
                     create_master_dir=True
             
+            # TODO: Come up with a better method for this 
+            scalable_dark=True
+            if (values["-IN20-"] == '') and (values["-IN30-"]!='') and (values["-IN40-"]!=''):
+                
+                
+                
+                    
+                if (len(reduced_dirs)==4) & (use_existing_masters is False):
+                    print('None Scalabale Dark Detected')
+                    scalable_dark=False
+                    del reduced_dirs[reduced_dirs.index('')]
+                    print('Deleted Bias in redcued dir')
+                    
              
             if values["-1N109-"] is True:
                 print('WIP Not Reducing')
@@ -341,7 +354,8 @@ def Gui():
                                       correct_outliers_params,
                                       create_master_dir,
                                       use_existing_masters,
-                                      exisiting_masters_dir
+                                      exisiting_masters_dir,
+                                      scalable_dark
                                       )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()

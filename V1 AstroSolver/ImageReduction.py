@@ -124,7 +124,7 @@ def create_master_bias(all_fits, master_dir):
     except OSError:
         raise RuntimeError('WARNING -- Could not Save Master Bias File')
 
-def create_master_dark(all_fits, master_dir):
+def create_master_dark(all_fits, master_dir,scaleable_dark):
     """
     Taking a Master Bias frame and individual Dark frames, create Master Dark
     frames based on differing exposure times. Master Bias is subtracted from
@@ -150,13 +150,14 @@ def create_master_dark(all_fits, master_dir):
     """
 
 # master_files = ccdp.ImageFileCollection(master_dir)
-
-    try:
-        # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
-        # combined=True))
-        master_bias = CCDData.read(os.path.join(master_dir ,'master_bias.fits'), unit='adu')
-    except:
-        raise RuntimeError('WARNING -- Could not open Master Bias file')
+    if scaleable_dark is True:
+        
+        try:
+            # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
+            # combined=True))
+            master_bias = CCDData.read(os.path.join(master_dir ,'master_bias.fits'), unit='adu')
+        except:
+            raise RuntimeError('WARNING -- Could not open Master Bias file')
     # Dynamic Dark Imagetype Reader
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
     dark_imgtype_matches = [
@@ -183,7 +184,8 @@ def create_master_dark(all_fits, master_dir):
         darks = []
         for file in darks_to_calibrate:
             dark = CCDData.read(file, unit='adu')
-            dark = ccdp.subtract_bias(dark, master_bias)
+            if scaleable_dark is True:
+                dark = ccdp.subtract_bias(dark, master_bias)
             darks.append(dark)
 
         master_dark = ccdp.combine(darks,
@@ -206,7 +208,7 @@ def create_master_dark(all_fits, master_dir):
         
 
 
-def create_master_flat(all_fits, master_dir):
+def create_master_flat(all_fits, master_dir,scaleable_dark):
     """
     Taking Master Bias, Master Darks and individual Flat frames, create
     Master Flat frames based on the filters used.  Master Bias is subtracted
@@ -292,15 +294,23 @@ def create_master_flat(all_fits, master_dir):
         flats = []
         for file in flats_to_combine:
             flat = CCDData.read(file, unit='adu')
-            flat = ccdp.subtract_bias(flat, combined_bias)
+            
             closest_dark = find_nearest_dark_exposure(flat, dark_times,
                                                       tolerance=100
                                                       )
-            flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
-                                      exposure_time='exptime',
-                                      exposure_unit=u.second,
-                                      scale=True
-                                      )
+            if scaleable_dark:
+                flat = ccdp.subtract_bias(flat, combined_bias)
+                flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
+                                          exposure_time='exptime',
+                                          exposure_unit=u.second,
+                                          scale=True
+                                          )
+            else:
+                flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
+                                          exposure_time='exptime',
+                                          exposure_unit=u.second,
+                                          scale=False
+                                          )
             flats.append(flat)
 
         combined_flat = ccdp.combine(flats,
@@ -322,7 +332,7 @@ def create_master_flat(all_fits, master_dir):
             raise RuntimeError('WARNING -- Could not Save Master Flat File')
 
 
-def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params, use_existing_masters):
+def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params, use_existing_masters,scaleable_dark):
     """
     Taking Master Bias, Master Darks and filter-specific Master Flats, create
     corrected individual light frames.
@@ -470,17 +480,24 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         # Calibrate Flats
                         for flat in flats_to_compare:
                             flatdata = CCDData.read(flat, unit='adu')
-                            flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                            
                             closest_dark = find_nearest_dark_exposure(CCDData.read(lights_to_correct[0], unit='adu'), dark_times,
                                                                       tolerance=100
                                                                       )
-
-                            ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                          exposure_time='exptime',
-                                                          exposure_unit=u.second,
-                                                          scale=True
-                                                          )
+                            if scaleable_dark:
+                                flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                                ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                              exposure_time='exptime',
+                                                              exposure_unit=u.second,
+                                                              scale=True
+                                                              )
+                            else:
+                                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                              exposure_time='exptime',
+                                                              exposure_unit=u.second,
+                                                              scale=False
+                                                              )
 
                             calibrated_flats[flatdata.data.mean()] = flatdata
 
@@ -505,17 +522,27 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                     if (len(flats_to_compare) == 1) or (bad_ratio is True):
                         # Calibrate flat field
                         flatdata = CCDData.read(flats_to_compare[0], unit='adu')
-                        flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                        
                         closest_dark = find_nearest_dark_exposure(CCDData.read(lights_to_correct[0], unit='adu'), dark_times,
                                                                   tolerance=100
                                                                   )
-
+                        
                         ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                        flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                      exposure_time='exptime',
-                                                      exposure_unit=u.second,
-                                                      scale=True
-                                                      )
+                        if scaleable_dark:
+                            flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                          exposure_time='exptime',
+                                                          exposure_unit=u.second,
+                                                          scale=True
+                                                          )
+                        else:
+                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                                          exposure_time='exptime',
+                                                          exposure_unit=u.second,
+                                                          scale=False
+                                                          )
+                            
+                                
                         maskr = ccdp.ccdmask(flatdata)
                         
                         
@@ -543,31 +570,46 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 # the *reduced* image, so that the calibration steps are cumulative.
 
                 ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                reduced = ccdp.subtract_bias(light, master_bias)
+                if scaleable_dark==True:
+                    reduced = ccdp.subtract_bias(light, master_bias)
                 
                 
-                if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
-                
+                    if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
                     
-                    closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
-                    reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
-                                                exposure_time='exptime', exposure_unit=u.second,
-                                                scale=True)
-                else:
                         
-                    closest_dark = find_nearest_dark_exposure(
-                        reduced, master_darks.keys())
-    
-                    reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
-                                                 exposure_time='exptime', exposure_unit=u.second,
-                                                 scale=True)
+                        closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
+                        reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
+                                                    exposure_time='exptime', exposure_unit=u.second,
+                                                    scale=True)
+                    else:
+                            
+                        closest_dark = find_nearest_dark_exposure(
+                            reduced, master_darks.keys())
+        
+                        reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
+                                                     exposure_time='exptime', exposure_unit=u.second,
+                                                     scale=True)
                 ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
                 #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
-                # closest_dark = find_nearest_dark_exposure(light, master_darks.keys())
-
-                # reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
-                #                               exposure_time='exptime', exposure_unit=u.second,
-                #                               scale=False)
+                if scaleable_dark != True:
+                    
+                    
+                    
+                    if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                    
+                        
+                        closest_dark = find_nearest_dark_exposure(light, corrected_master_dark.keys())
+                        reduced=ccdp.subtract_dark (light, corrected_master_dark[closest_dark],
+                                                    exposure_time='exptime', exposure_unit=u.second,
+                                                    scale=False)
+                    else:
+                            
+                        closest_dark = find_nearest_dark_exposure(
+                            reduced, master_darks.keys())
+        
+                        reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
+                                                     exposure_time='exptime', exposure_unit=u.second,
+                                                     scale=False)
 
                 ########## End ##########
 

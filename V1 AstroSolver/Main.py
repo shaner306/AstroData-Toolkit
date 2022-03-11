@@ -621,7 +621,9 @@ def Image_reduce(reduce_dirs,
                  correct_outliers_params,
                  create_master_dir,
                  use_existing_masters,
-                 exisiting_masters_dir):
+                 exisiting_masters_dir,
+                 scaleable_dark
+                 ):
 
     for reduce_dir in reduce_dirs:
         if os.path.isdir(reduce_dir) is False:
@@ -670,22 +672,25 @@ def Image_reduce(reduce_dirs,
 
     # %% Image Reduction
     # Create Master Bias
-    if (create_master_bias is True) and (use_existing_masters is False):
+    #all_fits.headers['imagetyp']==sum()
+    if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
         print('Calling run_master_bias')
         IR.create_master_bias(all_fits, master_frame_directory)
 
     # Create Master Dark
     if (run_master_dark is True) and (use_existing_masters is False):
-        print('\n')
-        print('Calling run_master_dark')
-        IR.create_master_dark(all_fits, master_frame_directory)
+        if (scaleable_dark):
+            print('\n')
+            print('Calling run_master_dark')
+            IR.create_master_dark(all_fits, master_frame_directory,scaleable_dark)
+        
 
     # Create Master Flat
     if (run_master_flat is True) and (use_existing_masters is False):
         print('\n')
         print('Calling run_master_flat')
-        IR.create_master_flat(all_fits, master_frame_directory)
+        IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
     if correct_light_frames is True:
@@ -706,7 +711,7 @@ def Image_reduce(reduce_dirs,
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory, correct_outliers_params,use_existing_masters)
+                          correct_light_directory, correct_outliers_params,use_existing_masters,scaleable_dark)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time
