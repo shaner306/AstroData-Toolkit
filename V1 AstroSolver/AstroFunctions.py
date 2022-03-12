@@ -9763,8 +9763,7 @@ def _sky_survey_calc(directory,
     z = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
     ax.set_theta_zero_location("N")
-    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
-                                       vmax=max(z[~np.isnan(z)]))
+    norm = matplotlib.colors.Normalize(vmin=18, vmax=22)
     m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
     m.set_array([])
     plt.colorbar(m)
