@@ -319,9 +319,10 @@ def create_master_flat(all_fits, master_dir,scaleable_dark):
                                      )
         try:
             combined_flat.meta['combined'] = True
-            flat_file_name = '/master_flat_filter_{}.fits'.format(
+            flat_file_name = '\\master_flat_filter_{}.fits'.format(
                 frame_filter.replace("''", "p"))
             combined_flat.write((str(master_dir) + flat_file_name))
+            
             print('Saving ', flat_file_name)
         except:
             raise RuntimeError('WARNING -- Could not Save Master Flat File')
@@ -434,7 +435,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             
             
             # Check to see if corrected file already exists
-            corrected_dark_dir = (str(master_dir)+'/master_dark_'+str(dark_time)+'corrected.fits')
+            corrected_dark_dir = (str(master_dir)+'\\master_dark_'+str(dark_time)+'corrected.fits')
             if os.path.isfile(corrected_dark_dir) is False:
                 
                 corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
@@ -542,7 +543,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         maskr = ccdp.ccdmask(flatdata)
                         
                         
-                        flat_file_name = '/master_flat_filter_corrected_{}.fits'.format(
+                        flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
                             frame_filter.replace("''", "p"))
                         if os.path.isfile((str(master_dir) + flat_file_name)) is False:
                         
@@ -759,7 +760,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
             else:
                 #TODO: Test This out
                 if correct_outliers_params['Save Corrected Flats'] == True:
-                    corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
+                    corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
                     if os.path.isdir(corrected_dir) is False:
                         os.mkdir(corrected_dir)
                     flat_name_dir = os.path.join(corrected_dir ,
@@ -773,7 +774,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
             
             
             if correct_outliers_params['Multiple Flat Combination'] == True:
-                corrected_dir = master_dir.split('\\')[0]+'//corrected_flats'
+                corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
                 combined_flat = ccdp.combine(flats,
                                              method='median',
                                              sigma_clip=True,
@@ -783,7 +784,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                                              signma_clip_dev_func=np.ma.std,
                                              mem_limit=1e9
                                              )
-                flat_file_name = '/master_flat_filter_corrected_{}.fits'.format(
+                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
                     frame_filter.replace("''", "p"))
                 combined_flat.write((str(master_dir) + flat_file_name))
                 result=combined_flat
@@ -830,7 +831,7 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
             
             
                 
-            dark_name_dir = (str(master_dir)+'/master_dark_'+str(closest_dark)+'corrected.fits')
+            dark_name_dir = (str(master_dir)+'\\master_dark_'+str(closest_dark)+'corrected.fits')
             darkdata.write(dark_name_dir)
         
        
