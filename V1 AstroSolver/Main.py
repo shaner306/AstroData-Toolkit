@@ -614,24 +614,35 @@ def trm_photometry(directory):
 # Function #6: GB Image Reduction
 
 
-def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
-                 create_master_bias, create_master_dir=True):
+def Image_reduce(reduce_dirs,
+                 create_master_dark,
+                 create_master_flat,
+                 create_master_bias,
+                 correct_outliers_params,
+                 create_master_dir,
+                 use_existing_masters,
+                 exisiting_masters_dir,
+                 scaleable_dark
+                 ):
 
-    if os.path.isdir(reduce_dir) is False:
-        raise RuntimeError(
-            'WARNING -- Directory of .fits files does not exist')
+    for reduce_dir in reduce_dirs:
+        if os.path.isdir(reduce_dir) is False:
+            raise RuntimeError(
+                'WARNING -- Directory of .fits files does not exist')
+    
 
     # Create output directory for master files
-    if create_master_dir is True:
-        master_frame_dir = Path(reduce_dir, 'master_frame_data')
+    if (create_master_dir is True) and (use_existing_masters is False):
+        master_frame_dir = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
         master_frame_dir.mkdir(exist_ok=True)
-
+    
     #  Select directory for master frames
-    master_frame_directory = reduce_dir + '\\master_frame_data'
+        master_frame_directory = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
 
     #  If a directory already exists containing the master files, uncomment the
     #  following line and place the path as a string with double backslashes.
-
+    if use_existing_masters:
+        master_frame_directory= exisiting_masters_dir
     # master_frame_directory = 'C:\\pineapple\\is_a_fruit'
     if os.path.isdir(master_frame_directory) is False:
         raise RuntimeError(
@@ -647,11 +658,13 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
     start_time = time.time()
 
     # Find all fits files in subdirectories
-    for dirpath, dirnames, files in os.walk(reduce_dir):
-        for name in files:
-            if name.lower().endswith(exten):
-                results.append('%s' % os.path.join(dirpath, name))
-    print('Have list of all .fits files')
+    
+    for reduce_dir in reduce_dirs:
+        for dirpath, dirnames, files in os.walk(reduce_dir):
+            for name in files:
+                if name.lower().endswith(exten):
+                    results.append('%s' % os.path.join(dirpath, name))
+        print('Have list of all .fits files')
 
     # Using ImageFileCollection, gather all fits files
 
@@ -660,33 +673,49 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
 
     # %% Image Reduction
     # Create Master Bias
-    if create_master_bias is True:
+    #all_fits.headers['imagetyp']==sum()
+    unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
+    try:
+        bias_imgtype_matches = [
+            s for s in unique_imagetype_list if "bias" in s.lower()]
+        bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
+        if (all_fits.summary['imagetyp']==bias_imgtypes_concatenateded).sum()==0:
+            print('No Bias Frames Identified, Reverting to Non-Scaleable Dark')
+            scaleable_dark=False
+            
+    except NameError:
+        print("No Bias Frames Identified, Reverting to Non-Scaleable Darks")
+        scaleable_dark=False
+    
+    if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
         print('Calling run_master_bias')
         IR.create_master_bias(all_fits, master_frame_directory)
 
     # Create Master Dark
-    if run_master_dark is True:
+    if (run_master_dark is True) and (use_existing_masters is False):
+    
         print('\n')
         print('Calling run_master_dark')
-        IR.create_master_dark(all_fits, master_frame_directory)
+        IR.create_master_dark(all_fits, master_frame_directory,scaleable_dark)
+    
 
     # Create Master Flat
-    if run_master_flat is True:
+    if (run_master_flat is True) and (use_existing_masters is False):
         print('\n')
         print('Calling run_master_flat')
-        IR.create_master_flat(all_fits, master_frame_directory)
+        IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
     if correct_light_frames is True:
         print('\n')
-        print('Creating output directory:', reduce_dir + '\\corrected_lights')
+        print('Creating output directory:', reduce_dirs[0] + '\\corrected_lights')
         print('Calling correct_light_frames')
 
         # Make output directory
-        correct_light_dir = Path(reduce_dir, 'corrected_lights')
+        correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
         correct_light_dir.mkdir(exist_ok=True)
-        correct_light_directory = reduce_dir + '\\corrected_lights'
+        correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
 
         #  If a specific directory is desired for the corrected light frames,
         # uncomment the following line and place the path as a string with
@@ -696,7 +725,7 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat,
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory)
+                          correct_light_directory, correct_outliers_params,use_existing_masters,scaleable_dark)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time

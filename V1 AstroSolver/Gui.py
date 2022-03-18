@@ -23,7 +23,7 @@ import os
 import os.path
 import Main
 import AstroFunctions as astro
-
+from astropy.nddata import CCDData
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -123,13 +123,13 @@ def Gui():
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
                    [sg.Text("Catalog Folder:    "),
-                    sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Astro2_Files/FTPFiles/USNO UCAC4',
+                    sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/StarCatalogues/USNO UCAC4',
                              key="-IN3-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN4-")],
                    [sg.Text("Reference Stars:  "),
                     sg.Input
-                    (r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17.txt',
+                    (r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt',
                      key="-IN5-", change_submits=True),
                     sg.FileBrowse(key="-IN6-")],
                    [sg.T(""), sg.Checkbox('Save Data to Folder',
@@ -144,6 +144,60 @@ def Gui():
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
+    tab2_column1 = [[sg.Text('Correct Outliear Parameters',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Hot Pixel Removal',
+                                 default=False,
+                                 key="-IN1012-1-")],
+                    [sg.Checkbox('Dark Frame Threshold Bool',
+                                 default=False,
+                                 key="-IN1012-2-")],
+
+                    [sg.T("Dark Frame Threshold Min"),
+                     sg.T("     "),
+                     sg.InputText('-50', size=(5, 5),
+                                  key="-IN1012-3-")],
+                    [sg.T("Dark Frame Threshold Max"),
+                     sg.InputText('100',
+                                  size=(5, 5),
+                                  key="-IN1012-4-")],
+                    [sg.Checkbox("ccdmask",
+                     default=False,
+                     key="-IN1012-5-")],
+                    [sg.Checkbox("Cosmic Rays Removal",
+                     default=False,
+                     key="IN1012-6")]
+                    ]
+    tab2_column2 = [[sg.Text('Replace Outliers Options',
+                             background_color='#F7F3EC',
+                             justification='center',
+                             size=(30, 1))],
+                    [sg.Checkbox('Replace Mask Values',
+                                 default=True,
+                                 key="1IN10121")],
+                    [sg.Radio('Average Background',
+                              "RADIO2",
+                              default=True,
+                              key="1IN10121-1"),
+
+                    sg.Radio('Local Averaging',
+                             "RADIO2",
+                             default=False,
+                             key="1IN10121-2")],
+                    [sg.T("Radius of Local Averaging"),
+                     sg.T("     "),
+                     sg.InputText('1', size=(5, 5),
+                                  key="1IN10121-2-1")],
+                    [sg.Checkbox('Multiple Flat Combination',
+                                 default=False,
+                                 key='1IN10122')],
+                    [sg.Checkbox('Save Corrected Flats',
+                                default=False,
+                                key='1IN10123')],
+                    ]
+
     tab2_layout = [
         [sg.T('Image Reduction Script')],
         [sg.T("   ")],
@@ -151,15 +205,15 @@ def Gui():
          sg.Input(key="-IN200-",
                   change_submits=True),
          sg.FolderBrowse(key="-IN120-"), sg.Text('')],
-        # [sg.Text("Bias Images:    "),
-        #  sg.Input(key="-IN20-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN12-"), sg.Text('')],
-        # [sg.Text("Dark Images:    "),
-        #  sg.Input(key="-IN30-" ,change_submits=True),
-        #  sg.FolderBrowse(key="-IN40-")],
-        # [sg.Text("Flat Images:     "),
-        #  sg.Input(key="-IN50-" ,change_submits=True),
-        #  sg.FileBrowse(key="-IN60-")],
+        [sg.Text("Bias Images:    "),
+          sg.Input(key="-IN20-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+        [sg.Text("Dark Images:    "),
+          sg.Input(key="-IN30-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN40-")],
+        [sg.Text("Flat Images:     "),
+          sg.Input(key="-IN50-" ,change_submits=True),
+          sg.FolderBrowse(key="-IN60-")],
         [sg.T(""), sg.Checkbox('Create Master Flats',
                                default=True,
                                key="-IN71-"),
@@ -168,16 +222,29 @@ def Gui():
                                key="-IN1010-"),
          sg.T(""), sg.Checkbox('Create Master Bias',
                                default=True,
-                               key="-IN1011-")],
+                               key="-IN1011-"),
+         sg.T(""), sg.Checkbox('Correct for Outliers',
+                               default=True,
+                               key="-IN1012-")],
+        [sg.T(""),sg.Checkbox('Use Exisitng Masters',
+                              default=True,
+                              key='-1N109-'),
+         sg.Text("Master Images:    "),
+           sg.Input(key="-IN 109-1" ,change_submits=True),
+           sg.FolderBrowse(key="-1N109-2")],
+                                              
+
         [sg.T(""), sg.Checkbox('Space Based',
                                default=True,
-                               key="-IN1012-"),
+                               key="-IN1013-"),
          sg.T("Target:"),
          sg.InputText('SA-111',
                       size=(10, 5),
-                      key="-IN1013-")],
+                      key="-IN1014-")],
+        [sg.Column(tab2_column1), sg.Column(tab2_column2)],
         [sg.T("   ")],
-        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]]
+        [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
+    ]
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
@@ -198,12 +265,88 @@ def Gui():
             window.close()
             break
         elif event == "Reduce":
+             
+            use_existing_masters = values['-1N109-']
+            exisiting_masters_dir = values['-1N109-2']
+            
             reduce_dir = values["-IN200-"]
+            if use_existing_masters is True:
+                reduced_dirs = [values["-IN200-"],exisiting_masters_dir] 
+            else:
+                reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
+            
+            
+            
+            
+            use_existing_masters = values['-1N109-']
+            exisiting_masters_dir = values['-1N109-2']
+            
+            
+            for dirpath,dirnames,files in os.walk(reduce_dir):
+                for name in files:
+                    if name.lower().endswith(('.fits','.fit','.fts')):
+                        sample_image=os.path.join(dirpath,name)
+                        break
+            Sample_image = CCDData.read(sample_image,unit='adu')
+            try:
+                if Sample_image.header['Correctd'] is True:
+                    Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                    if Popup_string=='No':
+                        window.close()
+                        quit()
+            except KeyError:
+                print('Could not find Correctd keyword')
+            # TODO : Come up with better methods for improving this
+            
+            if (use_existing_masters is True):
+                
+                    create_master_dir=False
+            else:
+                    create_master_dir=True
+            
+            # TODO: Come up with a better method for this 
+            scalable_dark_bool=True
+            if (values["-IN20-"] == '') and (values["-IN30-"]!='') and (values["-IN40-"]!=''):
+                
+                
+                
+                    
+                if (len(reduced_dirs)==4) & (use_existing_masters is False):
+                    print('None Scalabale Dark Detected')
+                    scalable_dark_bool=False
+                    del reduced_dirs[reduced_dirs.index('')]
+                    print('Deleted Bias in redcued dir')
+                    
+             
+            if values["-1N109-"] is True:
+                print('WIP Not Reducing')
+                
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
-            target = values["-IN1013-"]
-            if values["-IN1012-"]:  # Space Based Observations is True
+            
+            if values["1IN10121-1"] is True:
+                replace_mode = 'Ave'
+            elif values["1IN10121-2"] is True:
+                replace_mode = 'Interpolate'
+                
+            correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
+
+                                       'Hot Pixel': values["-IN1012-1-"],
+                                       'Dark Frame Threshold Bool': values["-IN1012-2-"],
+                                       'Dark Frame Threshold Min':  values["-IN1012-3-"],
+                                       'Dark Frame Threshold Max': values["-IN1012-4-"],
+                                       'ccdmask': values["-IN1012-5-"],
+                                       'Cosmic Rays Bool': values["IN1012-6"],
+                                       'Replace Bool': values["1IN10121"],
+                                       'Replace Mode': replace_mode,
+                                       'Multiple Flat Combination':values["1IN10122"],
+                                       'Save Corrected Flats': values ["1IN10123"],
+                                       'Radius of local Averaging': values["1IN10121-2-1"],
+                                       }
+
+            target = values["-IN1014-"]
+            if values["-IN1013-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
                                  'D:\\NEOSSat-SA-111\\test')
@@ -213,24 +356,68 @@ def Gui():
                     print("Input Error")
                     window.update()
             else:
+                
+                
                 try:
-                    Main.Image_reduce(reduce_dir,
+                    
+                    
+                    
+                    
+                    Main.Image_reduce(reduced_dirs,
                                       create_master_dark,
                                       create_master_flat,
-                                      create_master_bias)
+                                      create_master_bias,
+                                      correct_outliers_params,
+                                      create_master_dir,
+                                      use_existing_masters,
+                                      exisiting_masters_dir,
+                                      scalable_dark_bool
+                                      )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
-                except:
-                    print("Input Error")
-                    window.update()
+                except Exception as ex:
+                    print(ex)
 
         elif event == "Solve":
+            
             image_dir = values["-IN2-"]
             catalog_dir = values["-IN3-"]
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
-            plot_data = values["-IN1013-"]
-
+            plot_data = values["-IN1014-"]
+            
+            # Check to See if image has been corrected already
+            for dirpath,dirnames,files in os.walk(image_dir):
+                for name in files:
+                    if name.lower().endswith(('.fits','.fit','.fts')):
+                        sample_image=os.path.join(dirpath,name)
+                        break
+            Sample_image=CCDData.read(sample_image,unit='adu')
+            
+            try: 
+                if Sample_image.header['Correctd'] is False:
+                    Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                    if Popup_string=='No':
+                        window.close()
+                        quit()
+                    
+                
+                # Do Nothing if Image is already Reduced
+                
+            except:
+                Sample_image.meta['Correctd'] = False
+                
+                # Prompt User about Confirming to Solve the image despite it not being redcued
+                Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                if Popup_string=='No':
+                    window.close()
+                    quit()
+                
+                        
+                
+            
+            
+            
             if values["-IN82-"] is True:  # Ground Based Observation
                 space_based_bool = 0   # Space Based Boolean=0
             else:
@@ -252,7 +439,7 @@ def Gui():
                 else:
                     all_sky_solve = False
                 try:
-                    print("Reducing Images ---- Started")
+                    print("Pinpoint Solve Images ---- Started")
                     Main.pinpoint_solve(image_dir,
                                         catalog_dir,
                                         max_mag,
