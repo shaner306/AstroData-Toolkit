@@ -7066,12 +7066,13 @@ def _main_gb_transform_calc_TEST(directory,
     split_filecount_location = math.ceil(split_decimal * filecount)
     calculation_files = file_paths[:split_filecount_location]
     verification_files = file_paths[split_filecount_location:]
-    with open(os.path.join(save_loc, 'CalculationVerificationSplit.txt'), 'a') as f:
+    with open(os.path.join(save_loc, 'CalVerSplit.txt'), 'a+') as f:
         f.write('File Path'+'\t'+'Calculation/Verification')
         for calc_file in calculation_files:
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
+        
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # filepath = os.path.join(dirpath, filename)
@@ -9057,13 +9058,13 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                 filecount += 1
     "Split the files into those for calculation and those for verification."
 
-    # FIXME What is this?
+    
     shuffle(file_paths)
     split_decimal = 1
     split_filecount_location = math.ceil(split_decimal * filecount)
     calculation_files = file_paths[:split_filecount_location]
     verification_files = file_paths[split_filecount_location:]
-    with open(os.path.join(save_loc, 'CalculationVerificationSplit.txt'), 'a') as f:
+    with open(os.path.join(save_loc, 'CalVerSplit.txt'), 'a+') as f:
         f.write('File Path'+'\t'+'Calculation/Verification')
         for calc_file in calculation_files:
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
@@ -9334,8 +9335,8 @@ def _main_gb_transform_calc_Buchheim(directory,
     calculation_files = file_paths[:split_filecount_location]
     verification_files = file_paths[split_filecount_location:]
     with open(os.path.join(save_loc,
-                           'CalculationVerificationSplit.txt'),
-              'a') as f:
+                           'CalVerSplit.txt'),
+              'a+') as f:
         f.write('File Path'+'\t'+'Calculation/Verification')
         for calc_file in calculation_files:
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')

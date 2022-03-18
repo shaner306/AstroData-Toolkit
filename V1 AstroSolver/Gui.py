@@ -123,13 +123,13 @@ def Gui():
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
                    [sg.Text("Catalog Folder:    "),
-                    sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Astro2_Files/FTPFiles/USNO UCAC4',
+                    sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/StarCatalogues/USNO UCAC4',
                              key="-IN3-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN4-")],
                    [sg.Text("Reference Stars:  "),
                     sg.Input
-                    (r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17.txt',
+                    (r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt',
                      key="-IN5-", change_submits=True),
                     sg.FileBrowse(key="-IN6-")],
                    [sg.T(""), sg.Checkbox('Save Data to Folder',
@@ -305,7 +305,7 @@ def Gui():
                     create_master_dir=True
             
             # TODO: Come up with a better method for this 
-            scalable_dark=True
+            scalable_dark_bool=True
             if (values["-IN20-"] == '') and (values["-IN30-"]!='') and (values["-IN40-"]!=''):
                 
                 
@@ -313,7 +313,7 @@ def Gui():
                     
                 if (len(reduced_dirs)==4) & (use_existing_masters is False):
                     print('None Scalabale Dark Detected')
-                    scalable_dark=False
+                    scalable_dark_bool=False
                     del reduced_dirs[reduced_dirs.index('')]
                     print('Deleted Bias in redcued dir')
                     
@@ -371,7 +371,7 @@ def Gui():
                                       create_master_dir,
                                       use_existing_masters,
                                       exisiting_masters_dir,
-                                      scalable_dark
+                                      scalable_dark_bool
                                       )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
@@ -400,8 +400,7 @@ def Gui():
                     if Popup_string=='No':
                         window.close()
                         quit()
-                    else:
-                        continue
+                    
                 
                 # Do Nothing if Image is already Reduced
                 
@@ -413,8 +412,6 @@ def Gui():
                 if Popup_string=='No':
                     window.close()
                     quit()
-                else:
-                    continue
                 
                         
                 
