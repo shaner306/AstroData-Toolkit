@@ -400,6 +400,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     corrected_master_dark={}
     for dark_time in dark_times:
         ### Dark Image Masking ###
+        
+        
+        
+        
         mask = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
         hot_pixels = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
         dark_threshold_mask = np.zeros(CCDData.read(example_light
@@ -409,27 +413,19 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         
         
         if correct_outliers_params['Hot Pixel'] is True:
+            
+            mask = find_hot_pixels(master_darks,dark_time,mask)
+            
         
-            # Calculate Dark Current to find hot pixels
-            dark_current = master_darks[dark_time].multiply(
-                float(master_darks[dark_time].header['EGAIN'])*u.electron /
-                u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
-            if (dark_current):
-                
-                hot_pixels = dark_current > 4*np.nanmean(dark_current)
-                mask = mask | hot_pixels
+            
             
                 
             
         
         if correct_outliers_params['Dark Frame Threshold Bool']:
-        
-            dark_pix_over_max = master_darks[dark_time].data > float(
-                correct_outliers_params['Dark Frame Threshold Max'])
-            dark_pix_under_min = master_darks[dark_time].data < float(
-                correct_outliers_params['Dark Frame Threshold Min'])
-            dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
-            mask = mask | dark_threshold_mask
+            
+            mask = dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask)
+            
             
         if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
             
@@ -460,103 +456,23 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 ### Flat Image Masking ###
                 if correct_outliers_params['ccdmask']:
-                    # Based on IRAF ccdmask
-                    flats_to_compare = all_fits.files_filtered(
-                        imagetyp=flat_imgtypes_concatenateded,
-                        filter=frame_filter,
-                        include_path=True
-                    )
-                    # TODO: Add functionality for single flat frame
-                    bad_ratio = False
+                     example_light=lights_to_correct[0]
+                    
+                     maskr = flat_image_masking(flat_imgtypes_concatenateded,
+                                                lights_to_correct,
+                                                dark_times,
+                                                example_light,
+                                                master_bias,
+                                                master_darks,
+                                                scalable_dark_bool,
+                                                correct_outliers_params,                     
+                                                frame_filter,
+                                                master_dir,
+                                                corrected_light_dir,
+                                                all_fits)
                     
                     
-                    
-                    if len(flats_to_compare) > 1:
-                        # Creates Dictionary Object where key is the mean of the calibrated frame data
-                        calibrated_flats = {}
-                        # Calibrate Flats
-                        for flat in flats_to_compare:
-                            flatdata = CCDData.read(flat, unit='adu')
-                            
-                            closest_dark = find_nearest_dark_exposure(CCDData.read(lights_to_correct[0], unit='adu'), dark_times,
-                                                                      tolerance=100
-                                                                      )
-                            if scalable_dark_bool:
-                                flatdata = ccdp.subtract_bias(flatdata, master_bias)
-                                ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                              exposure_time='exptime',
-                                                              exposure_unit=u.second,
-                                                              scale=True
-                                                              )
-                            else:
-                                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                              exposure_time='exptime',
-                                                              exposure_unit=u.second,
-                                                              scale=False
-                                                              )
-
-                            calibrated_flats[flatdata.data.mean()] = flatdata
-
-                        max_key = max(calibrated_flats.keys())
-                        min_key = min(calibrated_flats.keys())
-                        ratio = calibrated_flats[max_key].divide(calibrated_flats[min_key])
-                        if (np.nanmean(ratio) < 1.1) and (np.nanmean(ratio) > 0.9):  # ratio thresholds
-                            bad_ratio = True
-                        else:
-                            maskr = ccdp.ccdmask(ratio)
-                            # FIXME: Why is this here?
-                            if correct_outliers_params['Replace Bool']:
-                                # Replaces the values in mask with a desired value
-                                if correct_outliers_params['Replace Mode'] == 'Ave':
-                                    print('Calculate Average Background')
-
-                                    print('Save New Master Flat')
-
-                                elif correct_outliers_params['Replace Mode'] == 'Interpolate':
-                                    print('Interpolation')
-
-                    if (len(flats_to_compare) == 1) or (bad_ratio is True):
-                        # Calibrate flat field
-                        flatdata = CCDData.read(flats_to_compare[0], unit='adu')
-                        
-                        closest_dark = find_nearest_dark_exposure(CCDData.read(lights_to_correct[0], unit='adu'), dark_times,
-                                                                  tolerance=100
-                                                                  )
-                        
-                        ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                        if scalable_dark_bool:
-                            flatdata = ccdp.subtract_bias(flatdata, master_bias)
-                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                          exposure_time='exptime',
-                                                          exposure_unit=u.second,
-                                                          scale=True
-                                                          )
-                        else:
-                            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
-                                                          exposure_time='exptime',
-                                                          exposure_unit=u.second,
-                                                          scale=False
-                                                          )
-                            
-                                
-                        maskr = ccdp.ccdmask(flatdata)
-                        
-                        
-                        flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
-                            frame_filter.replace("''", "p"))
-                        if os.path.isfile((str(master_dir) + flat_file_name)) is False:
-                        
-                            corrected_master_flat = correct_outlier_flats(correct_outliers_params,
-                                                  maskr,
-                                                  flats_to_compare,
-                                                  frame_filter,
-                                                  master_dir,
-                                                  corrected_light_dir)
-                        else:
-                            corrected_master_flat=CCDData.read((str(master_dir) + flat_file_name),unit='adu')
-
-                    mask = mask | maskr
+                     mask = mask | maskr
 
                     
             for file_name in lights_to_correct:
@@ -687,6 +603,115 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
     # 'time {}.'.format(closest_dark_exposure, a_flat.header['exptime']))
 
     return closest_dark_exposure
+
+#%% Outlier Correction
+def flat_image_masking(flat_imgtypes_concatenateded,
+                           lights_to_correct,
+                           dark_times,
+                           example_light,
+                           master_bias,
+                           master_darks,
+                           scalable_dark_bool,
+                           correct_outliers_params,                     
+                           frame_filter,
+                           master_dir,
+                           corrected_light_dir,
+                           all_fits):
+    # Based on IRAF ccdmask
+    flats_to_compare = all_fits.files_filtered(
+        imagetyp=flat_imgtypes_concatenateded,
+        filter=frame_filter,
+        include_path=True
+    )
+    # TODO: Add functionality for single flat frame
+    bad_ratio = False
+    
+    
+    
+    if len(flats_to_compare) > 1:
+        # Creates Dictionary Object where key is the mean of the calibrated frame data
+        calibrated_flats = {}
+        # Calibrate Flats
+        for flat in flats_to_compare:
+            flatdata = CCDData.read(flat, unit='adu')
+            
+            closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
+                                                      tolerance=100
+                                                      )
+            if scalable_dark_bool:
+                flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                              exposure_time='exptime',
+                                              exposure_unit=u.second,
+                                              scale=True
+                                              )
+            else:
+                flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                              exposure_time='exptime',
+                                              exposure_unit=u.second,
+                                              scale=False
+                                              )
+
+            calibrated_flats[flatdata.data.mean()] = flatdata
+
+        max_key = max(calibrated_flats.keys())
+        min_key = min(calibrated_flats.keys())
+        ratio = calibrated_flats[max_key].divide(calibrated_flats[min_key])
+        if (np.nanmean(ratio) < 1.1) and (np.nanmean(ratio) > 0.9):  # ratio thresholds
+            bad_ratio = True
+        else:
+            maskr = ccdp.ccdmask(ratio)
+            # FIXME: Why is this here?
+            if correct_outliers_params['Replace Bool']:
+                # Replaces the values in mask with a desired value
+                if correct_outliers_params['Replace Mode'] == 'Ave':
+                    print('Calculate Average Background')
+
+                    print('Save New Master Flat')
+
+                elif correct_outliers_params['Replace Mode'] == 'Interpolate':
+                    print('Interpolation')
+
+    if (len(flats_to_compare) == 1) or (bad_ratio is True):
+        # Calibrate flat field
+        flatdata = CCDData.read(flats_to_compare[0], unit='adu')
+        
+        closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
+                                                  tolerance=100
+                                                  )
+        
+        ########## For Scalable darks (i.e. Bias Frame provided) ##########
+        if scalable_dark_bool:
+            flatdata = ccdp.subtract_bias(flatdata, master_bias)
+            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                          exposure_time='exptime',
+                                          exposure_unit=u.second,
+                                          scale=True
+                                          )
+        else:
+            flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
+                                          exposure_time='exptime',
+                                          exposure_unit=u.second,
+                                          scale=False
+                                          )
+            
+                
+        maskr = ccdp.ccdmask(flatdata)
+        
+        
+        flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+            frame_filter.replace("''", "p"))
+        if os.path.isfile((str(master_dir) + flat_file_name)) is False:
+        
+            corrected_master_flat = correct_outlier_flats(correct_outliers_params,
+                                  maskr,
+                                  flats_to_compare,
+                                  frame_filter,
+                                  master_dir,
+                                  corrected_light_dir)
+        else:
+            corrected_master_flat=CCDData.read((str(master_dir) + flat_file_name),unit='adu')
 
 
 def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,corrected_light_dir):
@@ -836,3 +861,27 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
         
        
     return darkdata
+
+
+
+
+def find_hot_pixels(master_darks,dark_time,mask):
+    # Calculate Dark Current to find hot pixels
+    dark_current = master_darks[dark_time].multiply(
+        float(master_darks[dark_time].header['EGAIN'])*u.electron /
+        u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
+    if (dark_current):
+        
+        hot_pixels = dark_current > 4*np.nanmean(dark_current)
+        mask = mask | hot_pixels
+    else:
+        mask = mask
+        
+def dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask):
+    dark_pix_over_max = master_darks[dark_time].data > float(
+        correct_outliers_params['Dark Frame Threshold Max'])
+    dark_pix_under_min = master_darks[dark_time].data < float(
+        correct_outliers_params['Dark Frame Threshold Min'])
+    dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
+    mask = mask | dark_threshold_mask
+    
