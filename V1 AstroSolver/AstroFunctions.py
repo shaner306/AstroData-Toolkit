@@ -3436,6 +3436,7 @@ def init_gb_transform_table_columns():
                 The mean airmass for all sources in the image.
 
     """
+    filename = []
     field = []
     c_fci = []
     c_fci_simga = []
@@ -3445,7 +3446,8 @@ def init_gb_transform_table_columns():
     colour_index = []
     airmass = []
     gb_transform_table_columns = namedtuple('gb_transform_table_columns',
-                                            ['field',
+                                            ['filename',
+                                             'field',
                                              'c_fci',
                                              'c_fci_sigma',
                                              'zprime_f',
@@ -3453,7 +3455,8 @@ def init_gb_transform_table_columns():
                                              'instr_filter',
                                              'colour_index',
                                              'airmass'])
-    return gb_transform_table_columns(field,
+    return gb_transform_table_columns(filename,
+                                      field,
                                       c_fci,
                                       c_fci_simga,
                                       zprime_f,
@@ -3464,6 +3467,7 @@ def init_gb_transform_table_columns():
 
 
 def update_gb_transform_table_columns(gb_transform_table_columns,
+                                      filename,
                                       field,
                                       c_fci,
                                       c_fci_sigma,
@@ -3543,6 +3547,7 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
 
     """
     updated_gb_transform_table_columns = gb_transform_table_columns
+    updated_gb_transform_table_columns.filename.append(filename)
     updated_gb_transform_table_columns.field.append(field)
     updated_gb_transform_table_columns.c_fci.append(c_fci)
     updated_gb_transform_table_columns.c_fci_sigma.append(c_fci_sigma)
@@ -3609,6 +3614,7 @@ def create_gb_transform_table(gb_transform_table_columns):
     """
     gb_transform_table = Table(
         names=[
+            'filename',
             'Field',
             'C_fCI',
             'C_fCI_sigma',
@@ -3619,6 +3625,7 @@ def create_gb_transform_table(gb_transform_table_columns):
             'X'
         ],
         data=[
+            gb_transform_table_columns.filename,
             gb_transform_table_columns.field,
             gb_transform_table_columns.c_fci,
             gb_transform_table_columns.c_fci_sigma,
@@ -3767,12 +3774,9 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
         len(matched_stars.img_instr_mag)
     except TypeError:
         return
-    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(
-        matched_stars.ref_star, instr_filter)
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
-    err_sum = app_mag_sigma + \
-        np.nan_to_num(matched_stars.img_instr_mag_sigma,
-                      nan=max_instr_filter_sigma)
+    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma).value
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     x = matched_stars.ref_star[colour_index]
@@ -6508,137 +6512,194 @@ def _main_gb_transform_calc(directory,
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
     auxiliary_data_columns = init_auxiliary_data_columns()
+    large_table_columns = init_large_table_columns()
 
     if save_plots:
         save_loc = kwargs.get('save_loc')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith((file_suffix)):
-                filepath = os.path.join(dirpath, filename)
-                print(filepath)
-                hdr, imgdata = read_fits_file(filepath)
-                exptime = hdr[exposure_key]
-                bkg, bkg_std = calculate_img_bkg(imgdata)
-                irafsources = detecting_stars(
-                    imgdata, bkg=bkg, bkg_std=bkg_std)
-                if not irafsources:
-                    continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(
-                    irafsources, fwhm, imgdata, bkg=bkg)
-                fluxes = np.array(photometry_result['flux_fit'])
-                fluxes_unc = np.array(photometry_result['flux_unc'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
-                instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                    photometry_result, exptime)
-                wcs = WCS(hdr)
-                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                altazpositions = None
-                try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions,
-                                                              hdr,
-                                                              lat_key=lat_key,
-                                                              lon_key=lon_key,
-                                                              elev_key=elev_key)
-                except AttributeError as e:
-                    print(e)
-                    continue
-                matched_stars = find_ref_stars(reference_stars,
-                                               ref_star_positions,
-                                               skypositions,
-                                               instr_mags,
-                                               instr_mags_sigma,
-                                               snr,
-                                               fluxes,
-                                               fluxes_unc,
-                                               ground_based=True,
-                                               altazpositions=altazpositions)
-                if not matched_stars:
-                    continue
-
-                instr_filter = get_instr_filter_name(hdr)
-                colour_indices = get_all_colour_indices(instr_filter)
-                print("match")
-                for colour_index in colour_indices:
-
-                    field = get_field_name(matched_stars, name_key=name_key)
-
-                    try:
-                        len(matched_stars.img_instr_mag)
-                    except TypeError:
-                        print("Only 1 reference star detected in the image.")
-                        continue
-
-                    if np.isnan(matched_stars.ref_star[colour_index]).any():
-                        no_nan_indices = np.invert(
-                            np.isnan(matched_stars.ref_star[colour_index]))
-                        matched_stars = matched_stars._replace(
-                            ref_star_index=matched_stars.ref_star_index[no_nan_indices],
-                            img_star_index=matched_stars.img_star_index[no_nan_indices],
-                            ref_star=matched_stars.ref_star[no_nan_indices],
-                            ref_star_loc=matched_stars.ref_star_loc[no_nan_indices],
-                            img_star_loc=matched_stars.img_star_loc[no_nan_indices],
-                            ang_separation=matched_stars.ang_separation[no_nan_indices],
-                            img_instr_mag=matched_stars.img_instr_mag[no_nan_indices],
-                            img_instr_mag_sigma=matched_stars.img_instr_mag_sigma[no_nan_indices],
-                            flux=matched_stars.flux[no_nan_indices],
-                            img_star_altaz=matched_stars.img_star_altaz[no_nan_indices],
-                            img_star_airmass=matched_stars.img_star_airmass[no_nan_indices]
-                        )
-
-                    auxiliary_data_columns =\
-                        update_auxiliary_data_columns(auxiliary_data_columns,
-                                                      filename,
-                                                      exptime,
-                                                      fwhm,
-                                                      fwhm_std,
-                                                      matched_stars)
-                    try:
-                        if not save_plots:
-                            c_fci,\
-                                c_fci_sigma,\
-                                zprime_f,\
-                                zprime_f_sigma\
-                                = ground_based_first_order_transforms(
-                                    matched_stars,
-                                    instr_filter,
-                                    colour_index,
-                                    plot_results=plot_results)
-                        else:
-                            unique_id = filename
-                            c_fci,\
-                                c_fci_sigma,\
-                                zprime_f,\
-                                zprime_f_sigma\
-                                = ground_based_first_order_transforms(
-                                    matched_stars,
-                                    instr_filter,
-                                    colour_index,
-                                    plot_results=plot_results,
-                                    save_plots=save_plots,
-                                    save_loc=save_loc,
-                                    unique_id=unique_id)
-                    except Exception:
-                        continue
-                    gb_transform_table_columns =\
-                        update_gb_transform_table_columns(
-                            gb_transform_table_columns,
-                            field,
-                            c_fci,
-                            c_fci_sigma,
-                            zprime_f,
-                            zprime_f_sigma,
-                            instr_filter,
-                            colour_index,
-                            altazpositions)
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('File')
+        f.write('\t')
+        f.write('Reason')
+        f.write('\n')
+    
+    "Create an array of all .fits files in the directory (including subfolders)."
+    excluded_files = 0
+    filecount = 0
+    file_paths = []
+    file_names = []
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                file_paths.append(os.path.join(dirpth, file))
+                file_names.append(file)
+                filecount += 1
+    "Split the files into those for calculation and those for verification."
+    shuffle(file_paths)
+    split_decimal = 0.7
+    split_filecount_location = math.ceil(split_decimal * filecount)
+    calculation_files = file_paths[:split_filecount_location]
+    verification_files = file_paths[split_filecount_location:]
+    with open(os.path.join(save_loc, 'CalVerSplit.txt'), 'a+') as f:
+        f.write('File Path'+'\t'+'Calculation/Verification')
+        for calc_file in calculation_files:
+            f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
+        for verify_file in verification_files:
+            f.write('\n'+f'{verify_file}'+'\t'+'Verification')
+        
+    "Iterate over the images."
+    for file_num, filepath in enumerate(tqdm(calculation_files)):
+    # for dirpath, dirnames, filenames in os.walk(directory):
+    #     for filename in filenames:
+    #         if filename.endswith((file_suffix)):
+        # filepath = os.path.join(dirpath, filename)
+        # print(filepath)
+        hdr, imgdata = read_fits_file(filepath)
+        exptime = hdr[exposure_key]
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        irafsources = detecting_stars(
+            imgdata, bkg=bkg, bkg_std=bkg_std)
+        if not irafsources:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No sources detected')
+                f.write('\n')
+            excluded_files += 1
+            continue
+        _, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        photometry_result = perform_photometry(
+            irafsources, fwhm, imgdata, bkg=bkg)
+        fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
+            photometry_result, exptime)
+        wcs = WCS(hdr)
+        skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+        altazpositions = None
+        try:
+            altazpositions = convert_ra_dec_to_alt_az(skypositions,
+                                                      hdr,
+                                                      lat_key=lat_key,
+                                                      lon_key=lon_key,
+                                                      elev_key=elev_key)
+        except AttributeError as e:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No plate solution found')
+                f.write('\n')
+                excluded_files += 1
+            continue
+        matched_stars = find_ref_stars(reference_stars,
+                                       ref_star_positions,
+                                       skypositions,
+                                       instr_mags,
+                                       instr_mags_sigma,
+                                       snr,
+                                       fluxes,
+                                       fluxes_unc,
+                                       ground_based=True,
+                                       altazpositions=altazpositions)
+        if not matched_stars:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No reference star found in image')
+                f.write('\n')
+                excluded_files += 1
+            continue
+    
+        instr_filter = get_instr_filter_name(hdr)
+        colour_indices = get_all_colour_indices(instr_filter)
+        # print("match")
+        for colour_index in colour_indices:
+    
+            field = get_field_name(matched_stars, name_key=name_key)
+    
+            try:
+                len(matched_stars.img_instr_mag)
+            except TypeError:
+                with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                    f.write(f'{filepath}')
+                    f.write('\t')
+                    f.write('Only 1 reference star detected in the image')
+                    f.write('\n')
+                    excluded_files += 1
+                # print("Only 1 reference star detected in the image.")
+                continue
+    
+            if np.isnan(matched_stars.ref_star[colour_index]).any():
+                no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                matched_stars = matched_stars._replace(
+                    ref_star_index=matched_stars.ref_star_index[no_nan_indices],
+                    img_star_index=matched_stars.img_star_index[no_nan_indices],
+                    ref_star=matched_stars.ref_star[no_nan_indices],
+                    ref_star_loc=matched_stars.ref_star_loc[no_nan_indices],
+                    img_star_loc=matched_stars.img_star_loc[no_nan_indices],
+                    ang_separation=matched_stars.ang_separation[no_nan_indices],
+                    img_instr_mag=matched_stars.img_instr_mag[no_nan_indices],
+                    img_instr_mag_sigma=matched_stars.img_instr_mag_sigma[no_nan_indices],
+                    flux=matched_stars.flux[no_nan_indices],
+                    img_star_altaz=matched_stars.img_star_altaz[no_nan_indices],
+                    img_star_airmass=matched_stars.img_star_airmass[no_nan_indices]
+                )
+            large_table_columns = update_large_table_columns(large_table_columns,
+                                                             filepath,
+                                                             matched_stars,
+                                                             hdr,
+                                                             exptime,
+                                                             ground_based=True,
+                                                             name_key=name_key)
+            auxiliary_data_columns = update_auxiliary_data_columns(auxiliary_data_columns,
+                                                                   filepath,
+                                                                   exptime,
+                                                                   fwhm,
+                                                                   fwhm_std,
+                                                                   matched_stars)
+            filename = filepath.split('\\')[-1]
+            unique_id = filename
+            # try:
+            if not save_plots:
+                c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars,
+                                                                                                   instr_filter,
+                                                                                                   colour_index,
+                                                                                                   plot_results=plot_results)
+            else:
+                c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = ground_based_first_order_transforms(matched_stars,
+                                                                                                   instr_filter,
+                                                                                                   colour_index,
+                                                                                                   plot_results=plot_results,
+                                                                                                   save_plots=save_plots,
+                                                                                                   save_loc=save_loc,
+                                                                                                   unique_id=unique_id)
+            # except Exception:
+            #     continue
+            gb_transform_table_columns = update_gb_transform_table_columns(gb_transform_table_columns,
+                                                                           filepath,
+                                                                           field,
+                                                                           c_fci,
+                                                                           c_fci_sigma,
+                                                                           zprime_f,
+                                                                           zprime_f_sigma,
+                                                                           instr_filter,
+                                                                           colour_index,
+                                                                           altazpositions)
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('Total excluded:')
+        f.write('\t')
+        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
     auxiliary_data_table = create_auxiliary_data_table(auxiliary_data_columns)
     if remove_large_airmass_bool:
         gb_transform_table = remove_large_airmass(gb_transform_table, 3.0)
     if save_plots:
+        ascii.write(gb_transform_table, f"{os.path.join(save_loc, 'gb_large_transform_table')}.csv", format='csv')
+        ascii.write(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv')
+        ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
                                                                    plot_results=plot_results,
                                                                    save_plots=save_plots,
@@ -6653,13 +6714,9 @@ def _main_gb_transform_calc(directory,
             'Z_f': '%0.3f',
             'Z_f_sigma': '%0.3f'
         }
-        ascii.write(gb_transform_table,
-                    f"{os.path.join(save_loc, 'gb_large_transform_table')}.csv", format='csv')
-        ascii.write(gb_final_transforms,
-                    f"{os.path.join(save_loc, '_gb_final_transforms')}.csv",
-                    format='csv')
-        write_table_to_latex(gb_final_transforms,
-                             f"{os.path.join(save_loc,'gb_final_transforms')}.txt",
+        
+        ascii.write(gb_final_transforms,f"{os.path.join(save_loc, '_gb_final_transforms')}.csv",format='csv')
+        write_table_to_latex(gb_final_transforms,f"{os.path.join(save_loc,'gb_final_transforms')}.txt",
                              formats=formats)
         formats = {
             'exptime': '%0.3f',
@@ -6668,146 +6725,12 @@ def _main_gb_transform_calc(directory,
             'avg mag_sigma': '%0.3f',
             'std mag_sigma': '%0.3f'
         }
-        ascii.write(auxiliary_data_table,
-                    f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv",
-                    format='csv',
-                    formats=formats)
+        
     else:
         gb_final_transforms = ground_based_second_order_transforms(
             gb_transform_table,
             plot_results=plot_results,
             save_plots=save_plots)
-    # Test the Transforms.
-    # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\2021_J132_46927_DESCENT\May 18 2021\Landolt Fields\Solved TEST'
-    # large_table_columns = init_large_table_columns()
-    # for dirpath, dirnames, filenames in os.walk(directory):
-    #     for filename in filenames:
-    #         if filename.endswith(".fit"):
-    #             filepath = os.path.join(dirpath, filename)
-    #             hdr, imgdata = read_fits_file(filepath)
-    #             exptime = hdr['EXPTIME']
-    #             bkg, bkg_std = calculate_img_bkg(imgdata)
-    #             irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
-    #             if not irafsources:
-    #                 continue
-    #             _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-    #             photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
-    #             fluxes = np.array(photometry_result['flux_fit'])
-    #             instr_mags = calculate_magnitudes(photometry_result, exptime)
-    #             instr_mags_sigma, snr = calculate_magnitudes_sigma(photometry_result, exptime)
-    #             wcs = WCS(hdr)
-    #             skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-    #             altazpositions = None
-    #             try:
-    #                 altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='OBSGEO-B',
-    #                                                                 lon_key= 'OBSGEO-L', elev_key='OBSGEO-H')
-    #             except AttributeError as e:
-    #                 print(e)
-    #                 continue
-    #             matched_stars = find_ref_stars(reference_stars,
-    #                                                   ref_star_positions,
-    #                                                   skypositions,
-    #                                                   instr_mags,
-    #                                                   instr_mags_sigma,
-    #                                                   fluxes,
-    #                                                   ground_based=True,
-    #                                                   altazpositions=altazpositions)
-    #             if not matched_stars:
-    #                 continue
-    #             large_table_columns = update_large_table_columns(
-    #             large_table_columns,
-    #             matched_stars,
-    #             hdr,
-    #             exptime,
-    #             ground_based=True,
-    #             name_key='Name')
-
-    # large_stars_table = create_large_stars_table(large_table_columns,
-    #                                               ground_based=True)
-    # large_stars_table.pprint_all()
-    # # large_stars_table = remove_large_airmass(large_stars_table)
-    # stars_table = group_each_star(large_stars_table, ground_based=True)
-    # stars_table.pprint_all()
-
-    # instr_filters = ['b', 'v', 'r', 'i']
-    # app_mag_table = Table(stars_table['Field', 'Name', 'V_ref', '(B-V)',
-    # '(U-B)', '(V-R)', '(V-I)', 'V_sigma'])
-    # for instr_filter in instr_filters:
-    #     app_mag_table_filter =\
-    #    apply_gb_transforms_VERIFICATION(gb_final_transforms,
-    #                                     stars_table, instr_filter)
-    #     app_mag_table = hstack([app_mag_table,
-    # app_mag_table_filter[instr_filter.upper()]])
-
-    # app_mag_table.pprint_all()
-
-    # import matplotlib.pyplot as plt
-    # # import matplotlib
-    # # matplotlib.use('TkAgg')
-    # plt.plot(app_mag_table['V_ref'] +\
-    #    app_mag_table['(B-V)'], app_mag_table['B'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])] +
-    # app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])],
-    # app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'],
-    # m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-',
-    # label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] +
-    # app_mag_table['(B-V)'], app_mag_table['V_ref'] +
-    # app_mag_table['(B-V)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('B (calculated)')
-    # plt.xlabel('B (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])],
-    # app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
-    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-',
-    # label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('V (calculated)')
-    # plt.xlabel('V (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    # app_mag_table['R'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] -
-    # app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])],
-    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b,
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    # app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('R (calculated)')
-    # plt.xlabel('R (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    # app_mag_table['I'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])]
-    # - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])],
-    #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-I)'])+b,
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    # app_mag_table['V_ref'] - app_mag_table['(V-I)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('I (calculated)')
-    # plt.xlabel('I (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
     return gb_final_transforms, auxiliary_data_table
 
 
@@ -6829,7 +6752,7 @@ def verify_gb_transforms(directory,
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-
+    
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -6881,8 +6804,7 @@ def verify_gb_transforms(directory,
                                                exptime,
                                                ground_based=True,
                                                name_key=name_key)
-    large_stars_table = create_large_stars_table(
-        large_table_columns, ground_based=True)
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
@@ -6956,71 +6878,6 @@ def verify_gb_transforms(directory,
             plt.show(block=True)
         plt.close()
 
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'],
-    # app_mag_table['B'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['B'])]\
-    # + app_mag_table['(B-V)'][~np.isnan(app_mag_table['B'])],
-    # app_mag_table['B'][~np.isnan(app_mag_table['B'])], 1)
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'],
-    # m*(app_mag_table['V_ref'] + app_mag_table['(B-V)'])+b, '-',
-    # label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] + app_mag_table['(B-V)'],
-    # app_mag_table['V_ref'] + app_mag_table['(B-V)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('B (calculated)')
-    # plt.xlabel('B (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['V'])],
-    # app_mag_table['V'][~np.isnan(app_mag_table['V'])], 1)
-    # plt.plot(app_mag_table['V_ref'], m*(app_mag_table['V_ref'])+b, '-',
-    # label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'], app_mag_table['V_ref'], '-',
-    # label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('V (calculated)')
-    # plt.xlabel('V (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    # app_mag_table['R'], 'o')
-    # m, b =\
-    # np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['R'])] -\
-    # app_mag_table['(V-R)'][~np.isnan(app_mag_table['R'])],
-    #                   app_mag_table['R'][~np.isnan(app_mag_table['R'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-R)'])+b,
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-R)'],
-    # app_mag_table['V_ref'] - app_mag_table['(V-R)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('R (calculated)')
-    # plt.xlabel('R (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
-
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    # app_mag_table['I'], 'o')
-    # m, b = np.polyfit(app_mag_table['V_ref'][~np.isnan(app_mag_table['I'])]\
-    # - app_mag_table['(V-I)'][~np.isnan(app_mag_table['I'])],
-    #                   app_mag_table['I'][~np.isnan(app_mag_table['I'])], 1)
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    #           m*(app_mag_table['V_ref'] - app_mag_table['(V-I)'])+b,
-    #           '-', label=f'y={m:.3f}x+{b:.3f}')
-    # plt.plot(app_mag_table['V_ref'] - app_mag_table['(V-I)'],
-    # app_mag_table['V_ref'] - app_mag_table['(V-I)'], '-', label='y=x')
-    # plt.title('Calculated Magnitude vs. Reference Magnitude')
-    # plt.ylabel('I (calculated)')
-    # plt.xlabel('I (Reference)')
-    # plt.legend()
-    # plt.show(block=True)
-    # plt.close()
     return app_mag_table
 
 
@@ -7140,16 +6997,13 @@ def _main_gb_transform_calc_TEST(directory,
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
         f.write('\t')
-        f.write(
-            f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
-    large_stars_table = create_large_stars_table(
-        large_table_columns, ground_based=True)
+        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
     if save_plots:
-        ascii.write(stars_table, os.path.join(
-            save_loc, 'stars_table.csv'), format='csv')
+        ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
     gb_transform_table =\
         calc_gb_first_transforms_AVG(stars_table,
                                      different_filter_list,
@@ -9207,10 +9061,8 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     ascii.write(star_aux_table, os.path.join(
         save_loc, 'auxiliary_table.csv'), format='csv')
     # Create an AstroPy table of each reference star detection and write it to a .csv file.
-    large_stars_table = create_large_stars_table(
-        large_table_columns, ground_based=True)
-    ascii.write(large_stars_table, os.path.join(
-        save_loc, 'large_stars_table.csv'), format='csv')
+    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass,
     # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
