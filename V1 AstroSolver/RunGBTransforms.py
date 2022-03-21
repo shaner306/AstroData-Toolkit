@@ -10,8 +10,8 @@ import AstroFunctions as astro
 import os
 
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars'
-directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights'
-ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\FITS Tutorial\Reference_stars_Apr29.txt'
+directory = r'F:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
+ref_stars_file = r'C:\Users\jmwawrow\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt'
 
 plot_results = True
 save_plots = True
@@ -28,7 +28,7 @@ lon_key = 'SITELONG'
 elev_key = 'SITEELEV'
 name_key = 'Name'
 
-save_loc = os.path.join(directory, 'Outputs')
+save_loc = os.path.join(directory, 'Outputs_testing_Mar2022')
 gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(
     directory,
     ref_stars_file,
@@ -43,5 +43,5 @@ gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(
     name_key=name_key,
     save_loc=save_loc)
 
-gb_final_transforms.pprint_all()
-auxiliary_data_table.pprint_all()
+# gb_final_transforms.pprint_all()
+# auxiliary_data_table.pprint_all()
