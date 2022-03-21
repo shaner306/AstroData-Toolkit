@@ -1,2 +1,3 @@
-
-V1 AstroSolver/RunGBTransforms.py
+*.pyc
+V1 AstroSolver/__pycache__/AstroFunctions.cpython-39.pyc
+V1 AstroSolver/__pycache__/ImageReduction.cpython-39.pyc

@@ -17,8 +17,8 @@ warnings.filterwarnings('default', category=UserWarning)
 start_time = time.time()
 
 # ref_stars_file = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\Combined_Ref_Stars.txt'
-ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
-# ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
+# ref_stars_file = "C:\\Users\\jack.wawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
+ref_stars_file = "C:\\Users\\jmwawrow\\Documents\\GitHub\\Astro2\\Reference Star Files\\Reference_stars_Apr29.txt"
 
 plot_results = True
 save_plots = True
@@ -28,6 +28,9 @@ name_key = 'Name'
 lat_key = 'SITELAT'
 lon_key = 'SITELONG'
 elev_key = 'SITEELEV'
+# lat_key = 'OBSGEO-B'
+# lon_key = 'OBSGEO-L'
+# elev_key = 'OBSGEO-H'
 
 # subfolder_list = [
 #     # '2020 10 23 - 2x2 - unprocessed',
@@ -59,7 +62,7 @@ unique_id = subfolder
 # directory = f'F:\\Intelsat 10-02\\{subfolder}\\Stars\\corrected_lights'
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-09-17\corrected_lights\Calculation'
 # directory = r'Z:\2021-04-21 - unprocessed\Stars\corrected_lights'
-directory = r'D:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
+directory = r'F:\Intelsat 10-02\2021-04-25 - unprocessed\Stars\corrected_lights'
 save_loc = os.path.join(directory, 'Outputs_Warner')
 # try:
 Warner_final_transform_table = astro._main_gb_transform_calc_Warner(directory,

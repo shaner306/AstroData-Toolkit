@@ -32,13 +32,13 @@ import utils
 AstroSolver
 ---------------------
     Functions:
-        1. GUI Creation 
-        2. Pinpoint Solver 
+        1. GUI Creation
+        2. Pinpoint Solver
         3. Ground-Based Transform Calculation
         4. Space-Based Transform Calculation
         5. Track Rate Mode Photometry and Lightcurve Generator
         6. Track Rate Mode Astrometry (Experimental) - NOT WORKING CURRENTLY
-        7. Ground-Based Image Reduction and Master Files Creation 
+        7. Ground-Based Image Reduction and Master Files Creation
         8. NEOSSAT Dark Subtraction
         
         
@@ -49,12 +49,11 @@ AstroSolver
    Function 5. Track Rate Mode Photometry
    Function 6. Image Reduction
    Function 7. NEOSSAT Dark Subtraction
-            
-            
+
 1. Space Based - Airmass not a factor in determining transforms
 2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
 
-        ------------------------    
+        ------------------------ 
         STAR STARE MODE (SSM)
         ------------------------
             1.Solve Using pinpoint and IRAF
@@ -64,33 +63,41 @@ AstroSolver
                 - skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
             
             3.Convert RA Dec to Altitude and Azimuth
-                - altazpositions = convert_ra_dec_to_alt_az(skypositions, header)
+                - altazpositions = convert_ra_dec_to_alt_az(skypositions,
+                                                            header)
             
             4.Calculate FWHM
                 - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
             
             5.Produce Photometry data Fluxes and Centroids
-                - photometry_result= perform_photometry(iraf_Sources, fwhm, fitsdata, bkg)
+                - photometry_result= perform_photometry(iraf_Sources, fwhm,
+                                                        fitsdata, bkg)
             
             6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
                 - calculate_magnitudes(photometry_result, exposure_Time)
-                - calculate_magnitudes_sigma(photometry_result, exposure_Time)          
+                - calculate_magnitudes_sigma(photometry_result, exposure_Time)
                 
             7. Calculate Transforms
 
                 a. Space Based Sensor
                    
                     Construct Tables to Store Data
-                        large_table_columns= update_large_table_columns(large_table_columns, iraf_Sources, header, exposure_Time, ground_based=False, name_key='Name')
-                        large_stars_table = create_large_stars_table(large_table_columns, ground_based=False)
-                        stars_table= group_each_star(large_stars_table, ground_based=False, keys='Name')
-                
+                        large_table_columns= update_large_table_columns
+                        (large_table_columns, iraf_Sources, header, 
+                         exposure_Time, ground_based=False, name_key='Name')
+                        large_stars_table = create_large_stars_table
+                        (large_table_columns, ground_based=False)
+                        stars_table= group_each_star(large_stars_table, 
+                                                     ground_based=False, 
+                                                     keys='Name')
+
                     Calculate Space Based Transforms    
-                        filter_fci, zprime_fci = space_based_transform(stars_table, plot_results=False,index='(B-V)', app_filter='V', instr_filter='clear', field=None)
-        
+                        filter_fci, zprime_fci = space_based_transform(
+                            stars_table, plot_results=False,index='(B-V)',
+                            app_filter='V', instr_filter='clear', field=None)
+
                     Calculate Standard Magnitude
-                
-                
+
                 b. Ground Based Sensor
                     avg_Airmass= get_avg_airmass(altazpositions)
                 
@@ -128,10 +135,14 @@ def Gui():
     #           [sg.Text("Reference Stars: "),
     #            sg.Input(key="-IN5-" ,change_submits=True),
     #            sg.FileBrowse(key="-IN6-")],
-    #          [sg.T("                   "), sg.Checkbox('Print On:', default=True, key="-IN7-")],
-    #           [sg.T("         "), sg.Radio('Permission Granted', "RADIO1", default=False, key="-IN8-")],
-    #           [sg.T("         "), sg.Radio('Permission not Granted', "RADIO1", default=True)],
-    #           [sg.Radio('Track Rate Mode', "RADIO3", default=False, key="-IN9-"),
+    #          [sg.T("                   "), sg.Checkbox('Print On:',
+    #                                        default=True, key="-IN7-")],
+    #           [sg.T("         "), sg.Radio('Permission Granted', "RADIO1",
+    #                                             default=False, key="-IN8-")],
+    #           [sg.T("         "), sg.Radio('Permission not Granted',
+    #                                        "RADIO1", default=True)],
+    #           [sg.Radio('Track Rate Mode', "RADIO3", default=False,
+    #                      key="-IN9-"),
     #            sg.Radio('Star Stare Mode', "RADIO3", default=True)],
     #           [sg.Button("Submit")]]
 
@@ -156,7 +167,8 @@ def Gui():
 
 
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
-    # Specify Sigma Clipping Value and Calculate the Background using "SExtractor Algorithm"
+    # Specify Sigma Clipping Value and Calculate the Background using
+    # "SExtractor Algorithm"
     sigma_clip = SigmaClip(sigma=2.5)
     bkg = SExtractorBackground(sigma_clip)
 
@@ -176,7 +188,9 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     bkg_estimator2 = SExtractorBackground()
 
     # Remove Background Value
-    # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
+    # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),
+    # sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+    # Closest Approximate to Matlab Result
     bkg = Background2D(fitsdata, (50, 50), filter_size=(
         3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
     bg_rem = fitsdata - bkg.background
@@ -188,7 +202,8 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         print("---------------------------")
         print("SExtractor Background: " + str(mean(bkg.background)))
         print("SExtractor Background(Filtered): " + str(mean(
-            bkg.background)) + "\n " + "     " + "Box Size: " + "50x50" + "\n " + "     " + "Filter Size: " + "3x3")
+            bkg.background)) + "\n " + "     " + "Box Size: " + "50x50" +
+            "\n " + "     " + "Filter Size: " + "3x3")
         print("Mean Background: " + str(bkg_value2))
         print("Median Background: " + str(bkg_value3))
         print("Mode Estimator Background: " + str(bkg_value4))
@@ -216,7 +231,8 @@ def ref_star_folder_read(refstars_doc):
 # Use Pinpoint to Locate Reference Stars on Image
 
 
-def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
+def ref_star_search(s, f, erad, edec, HIP, vref,
+                    bvindex, vrindex, refstarsfin):
     refx = []
     refy = []
     vref2 = []
@@ -283,7 +299,8 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
                         # print(str(vref2[j]))
                         # print(mstar.ColorMagnitude)
                         print(
-                            "Reference Mag: " + str(vref2[j]) + " vs " + "Detected Mag: " + str(vmag))
+                            "Reference Mag: " + str(vref2[j]) + " vs " +
+                            "Detected Mag: " + str(vmag))
                         print("")
                         Bvtransform = (vref2[j] - vmag) / bvindexdet[j]
                         print("B-V Transform: " + str(Bvtransform))
@@ -291,28 +308,8 @@ def ref_star_search(s, f, erad, edec, HIP, vref, bvindex, vrindex, refstarsfin):
                         print("V-R Transform: " + str(Vrtransform))
 
 
-# Initialize Pinpoint Software
-def pinpoint_init():
-    # f = win32com.client.Dispatch("Pinpoint.plate")
-    return
-
-
-# Get List of Files/ Images for Pinpoint Solving
-def getFileList(inbox):
-    filepathall = []
-
-    list1 = os.listdir(inbox)  # List of Files
-    listSize = len(list1)  # Number of Files
-    c = list1
-
-    for i in range(1, listSize):
-        filepath2 = inbox + "\\" + c[i]
-        filepathall.append(filepath2)
-    return filepathall
-
-
 # Get Header Data from Individual .fits Image file
-def fits_header_import(filepath, sb, filter_key='FILTER'):
+def fits_header_import(filepath, space_based_bool, filter_key='FILTER'):
 
     # Open HDUList in Astropy
     imagehdularray = fits.open(filepath)
@@ -320,7 +317,7 @@ def fits_header_import(filepath, sb, filter_key='FILTER'):
     date = imagehdularray[0].header['DATE-OBS']
 
     # Determine if Image is Space-Based or Ground-Based
-    if sb == 1:
+    if space_based_bool == 1:
         exposuretime = imagehdularray[0].header['AEXPTIME']
         XPIXSZ = 0
         YPIXSZ = 0
@@ -329,7 +326,7 @@ def fits_header_import(filepath, sb, filter_key='FILTER'):
         exposuretime = imagehdularray[0].header['EXPTIME']
         XPIXSZ = imagehdularray[0].header['XPIXSZ']
         YPIXSZ = imagehdularray[0].header['YPIXSZ']
-        focal_Length = imagehdularray[0].header['FOCALLEN']
+        # focal_Length = imagehdularray[0].header['FOCALLEN']
 
     # Import Image Size in pixels on X and Y axis
     imagesizeX = imagehdularray[0].header['NAXIS1']
@@ -341,7 +338,8 @@ def fits_header_import(filepath, sb, filter_key='FILTER'):
 
     # Convert header data to World Coordinate System (WCS) format
     wcs = WCS(header)
-    return imagehdularray, date, exposuretime, imagesizeX, imagesizeY, fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs
+    return imagehdularray, date, exposuretime, imagesizeX, imagesizeY,\
+        fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs
 
 # Convert Image Size from Pixel to Arc Seconds and Ratio ArcSec/pix
 
@@ -350,8 +348,8 @@ def calc_ArcsecPerPixel(header):
     focal_Length = header['FOCALLEN']
     xpix_size = header['XPIXSZ']
     ypix_size = header['XPIXSZ']
-    xbin = header['XPIXSZ']
-    ybin = header['XPIXSZ']
+    # xbin = header['XPIXSZ']
+    # ybin = header['XPIXSZ']
     print(str(focal_Length) + " " + str(xpix_size))
     x_arcsecperpixel = math.atan(xpix_size / (focal_Length)) * 206.265
     y_arcsecperpixel = math.atan(ypix_size / (focal_Length)) * 206.265
@@ -386,16 +384,16 @@ catloc2 = 'D:\\squid\\UCAC4'
 save_loc = os.path.join(inbox, 'Outputs')  # Output Folder for Files
 
 # Switches for Master Frame creation: 0 is Do Not Run, 1 is Run
-create_master_dir = 1
-run_master_bias = 1
-run_master_dark = 1
-run_master_flat = 1
-correct_light_frames = 1
-OutputsaveLoc = 0  # 0 Default will save outputs in image folder
-reduce_dir = 'D:\Image Reduction Test Images'
+create_master_dir = True
+run_master_bias = True
+run_master_dark = True
+run_master_flat = True
+correct_light_frames = True
+OutputsaveLoc = False  # 0 Default will save outputs in image folder
+reduce_dir = 'D:\\Image Reduction Test Images'
 
 # Start Pinpoint Software in Python
-f = pinpoint_init()  # Start Pinpoint
+f = win32com.client.Dispatch("Pinpoint.plate")  # Start Pinpoint
 
 # Set Image Processing Variables
 streak_array = []  # Streak Detection for Track Rate Mode
@@ -418,45 +416,63 @@ image_reduce = False  # Reduce Images before Solving
 # Function #1: Pinpoint Solving
 
 
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_solve_time, cat, sb, use_sextractor, all_sky_solve):
-    f = pinpoint_init()
-    filepathall = getFileList(inbox)
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
+                   max_solve_time, cat, space_based_bool, use_sextractor,
+                   all_sky_solve):
+
     file_suffix = (".fits", ".fit", ".fts")
 
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
-            if filename.endswith(file_suffix):
+            if (filename.endswith(file_suffix)):
+
                 filepath = os.path.join(dirpath, filename)
+                # Creates an instance of a plate object
                 f = win32com.client.Dispatch("Pinpoint.plate")
+
                 print("Processing Image: " + filepath)
 
                 "Import Data from FITS Image"
                 header = 0
-                imagehdularray, date, exposure_Time, imagesizeX, imagesizeY, fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs = fits_header_import(
-                    filepath, sb)
+                imagehdularray, date, exposure_Time, imagesizeX, imagesizeY,\
+                    fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs = \
+                    fits_header_import(filepath, space_based_bool)
 
                 """Pinpoint Solve"""
+                # FIXME: Why is pinpont variable here when always TRUE?
                 if pinpoint:
                     try:
+                        # Attaches FITS image to the created Plate
                         f.AttachFITS(filepath)
+# We set the declination of the image to the target object's declination
                         f.Declination = f.targetDeclination
                         f.RightAscension = f.targetRightAscension
 
-                        x_arcsecperpixel, y_arcsecperpixel = calc_ArcsecPerPixel(
-                            header)
+                        x_arcsecperpixel, y_arcsecperpixel =\
+                            calc_ArcsecPerPixel(header)
                         # yBin = 4.33562092816E-004*3600;
                         # xBin =  4.33131246330E-004*3600;
                         # f.ArcsecperPixelHoriz  = 4.556
                         # f.ArcsecperPixelVert =  4.556
-                        # if sb==1:
-                        #     yBin = 4.33562092816E-004*3600*2 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        #     xBin =  4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
+                        # if space_based_bool==1:
+                        #     yBin = 4.33562092816E-004*3600*2
+# %Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
+                        #     xBin =\
+# 4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
                         # else:
-                        #     yBin = 4.33562092816E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        #     xBin =  4.33131246330E-004*3600 #%Image Specific Pixel Size in arcsec / Obtained from FITS Header and converted from deg
-                        # f.ArcsecperPixelHoriz  = xBin    #%CCD Pixel scale on CD
+                        #     yBin = 4.33562092816E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        #     xBin =  4.33131246330E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        # f.ArcsecperPixelHoriz  = xBin
+                        # %CCD Pixel scale on CD
                         # f.ArcsecperPixelVert = yBin
-                        f.ArcsecperPixelHoriz = x_arcsecperpixel  # %CCD Pixel scale on CD
+                        f.ArcsecperPixelHoriz = x_arcsecperpixel
+                        # %CCD Pixel scale on CD
                         f.ArcsecperPixelVert = y_arcsecperpixel
 
                         "Pinpoint Solve Inputs"
@@ -473,9 +489,11 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual, max_so
                         f.RemoveHotPixels()
 
                         "Pinpoint Solving"
-                        f.FindCatalogStars()
+
+                        # FIXME f.Solve intronsicly calls Find Catalog Stars and Image Stars
+                        # f.FindCatalogStars()
                         # print(f.CatalogStars.Count)
-                        f.FindImageStars()
+                        # f.FindImageStars()
                         # print(f.ImageStars.Count)
                         f.Solve()
                         f.UpdateFITS()
@@ -508,22 +526,25 @@ def Ground_based_transforms(directory, ref_stars_file):
     # lon_key='SITELONG'
     # elev_key='SITEELEV'
     name_key = 'Name'
-    # ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
+    # ref_stars_file =\
+    # r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
     save_loc = os.path.join(directory, 'Outputs')
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
-    gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(directory,
-                                                                              ref_stars_file,
-                                                                              plot_results=plot_results,
-                                                                              save_plots=save_plots,
-                                                                              remove_large_airmass_bool=remove_large_airmass,
-                                                                              file_suffix=file_suffix,
-                                                                              exposure_key=exposure_key,
-                                                                              lat_key=lat_key,
-                                                                              lon_key=lon_key,
-                                                                              elev_key=elev_key,
-                                                                              name_key=name_key,
-                                                                              save_loc=save_loc)
+    gb_final_transforms, \
+        auxiliary_data_table = \
+        astro._main_gb_transform_calc(directory,
+                                      ref_stars_file,
+                                      plot_results=plot_results,
+                                      save_plots=save_plots,
+                                      remove_large_airmass_bool=remove_large_airmass,
+                                      file_suffix=file_suffix,
+                                      exposure_key=exposure_key,
+                                      lat_key=lat_key,
+                                      lon_key=lon_key,
+                                      elev_key=elev_key,
+                                      name_key=name_key,
+                                      save_loc=save_loc)
 
     gb_final_transforms.pprint_all()
     auxiliary_data_table.pprint_all()
@@ -535,7 +556,7 @@ def Ground_based_transforms(directory, ref_stars_file):
 def space_based_transform(directory, ref_stars_file):
     plot_results = True
     save_plots = True
-    file_suffix = "_clean.fits"
+    file_suffix = ("_clean.fits", "_clean.fit", "_clean.fts")
     exposure_key = 'AEXPTIME'
     name_key = 'Name'
     transform_index_list = ['(B-V)', '(V-R)', '(V-I)']
@@ -547,16 +568,17 @@ def space_based_transform(directory, ref_stars_file):
     if not os.path.exists(save_loc):
         os.makedirs(save_loc)
 
-    sb_final_transform_table = astro._main_sb_transform_calc(directory,
-                                                             ref_stars_file,
-                                                             plot_results=plot_results,
-                                                             save_plots=save_plots,
-                                                             file_suffix=file_suffix,
-                                                             exposure_key=exposure_key,
-                                                             name_key=name_key,
-                                                             transform_index_list=transform_index_list,
-                                                             save_loc=save_loc,
-                                                             unique_id=unique_id)
+    sb_final_transform_table =\
+        astro._main_sb_transform_calc(directory,
+                                      ref_stars_file,
+                                      plot_results=plot_results,
+                                      save_plots=save_plots,
+                                      file_suffix=file_suffix,
+                                      exposure_key=exposure_key,
+                                      name_key=name_key,
+                                      transform_index_list=transform_index_list,
+                                      save_loc=save_loc,
+                                      unique_id=unique_id)
     sb_final_transform_table.pprint_all()
 
     return
@@ -574,12 +596,15 @@ def trm_photometry(directory):
     plot_results = 0
 
     # Produce Data Tables and Conduct Photometry on Images
-    sats_table, uncertainty_table, sat_fwhm_table = astro._main_sc_lightcurve(directory,
-                                                                              temp_dir=temp_dir,
-                                                                              max_distance_from_sat=max_distance_from_sat,
-                                                                              size=size,
-                                                                              max_num_nan=max_num_nan,
-                                                                              plot_results=plot_results)
+    sats_table, \
+        uncertainty_table,\
+        sat_fwhm_table =\
+        astro._main_sc_lightcurve(directory,
+                                  temp_dir=temp_dir,
+                                  max_distance_from_sat=max_distance_from_sat,
+                                  size=size,
+                                  max_num_nan=max_num_nan,
+                                  plot_results=plot_results)
 
     # Print Data
     sat_fwhm_table.pprint_all()
@@ -589,30 +614,42 @@ def trm_photometry(directory):
 # Function #6: GB Image Reduction
 
 
-def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_master_bias, create_master_dir=True):
+def Image_reduce(reduce_dirs,
+                 create_master_dark,
+                 create_master_flat,
+                 create_master_bias,
+                 correct_outliers_params,
+                 create_master_dir,
+                 use_existing_masters,
+                 exisiting_masters_dir,
+                 scaleable_dark
+                 ):
 
-    if os.path.isdir(reduce_dir) == False:
-        raise RuntimeError(
-            'WARNING -- Directory of .fits files does not exist')
+    for reduce_dir in reduce_dirs:
+        if os.path.isdir(reduce_dir) is False:
+            raise RuntimeError(
+                'WARNING -- Directory of .fits files does not exist')
+    
 
     # Create output directory for master files
-    if create_master_dir == True:
-        master_frame_dir = Path(reduce_dir, 'master_frame_data')
+    if (create_master_dir is True) and (use_existing_masters is False):
+        master_frame_dir = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
         master_frame_dir.mkdir(exist_ok=True)
-
+    
     #  Select directory for master frames
-    master_frame_directory = reduce_dir + '\master_frame_data'
+        master_frame_directory = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
 
     #  If a directory already exists containing the master files, uncomment the
     #  following line and place the path as a string with double backslashes.
-
+    if use_existing_masters:
+        master_frame_directory= exisiting_masters_dir
     # master_frame_directory = 'C:\\pineapple\\is_a_fruit'
-    if os.path.isdir(master_frame_directory) == False:
+    if os.path.isdir(master_frame_directory) is False:
         raise RuntimeError(
             'WARNING -- Directory of Master .fits files does not exist')
 
     # The extension to search for
-    exten = '.fits'
+    exten = ('.fits', '.fit', '.fts')
 
     # Fits files found through directory search
     results = []
@@ -621,11 +658,13 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
     start_time = time.time()
 
     # Find all fits files in subdirectories
-    for dirpath, dirnames, files in os.walk(reduce_dir):
-        for name in files:
-            if name.lower().endswith(exten):
-                results.append('%s' % os.path.join(dirpath, name))
-    print('Have list of all .fits files')
+    
+    for reduce_dir in reduce_dirs:
+        for dirpath, dirnames, files in os.walk(reduce_dir):
+            for name in files:
+                if name.lower().endswith(exten):
+                    results.append('%s' % os.path.join(dirpath, name))
+        print('Have list of all .fits files')
 
     # Using ImageFileCollection, gather all fits files
 
@@ -634,42 +673,59 @@ def Image_reduce(reduce_dir, create_master_dark, create_master_flat, create_mast
 
     # %% Image Reduction
     # Create Master Bias
-    if run_master_bias == True:
+    #all_fits.headers['imagetyp']==sum()
+    unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
+    try:
+        bias_imgtype_matches = [
+            s for s in unique_imagetype_list if "bias" in s.lower()]
+        bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
+        if (all_fits.summary['imagetyp']==bias_imgtypes_concatenateded).sum()==0:
+            print('No Bias Frames Identified, Reverting to Non-Scaleable Dark')
+            scaleable_dark=False
+            
+    except NameError:
+        print("No Bias Frames Identified, Reverting to Non-Scaleable Darks")
+        scaleable_dark=False
+    
+    if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
         print('Calling run_master_bias')
         IR.create_master_bias(all_fits, master_frame_directory)
 
     # Create Master Dark
-    if run_master_dark == True:
+    if (run_master_dark is True) and (use_existing_masters is False):
+    
         print('\n')
         print('Calling run_master_dark')
-        IR.create_master_dark(all_fits, master_frame_directory)
+        IR.create_master_dark(all_fits, master_frame_directory,scaleable_dark)
+    
 
     # Create Master Flat
-    if run_master_flat == True:
+    if (run_master_flat is True) and (use_existing_masters is False):
         print('\n')
         print('Calling run_master_flat')
-        IR.create_master_flat(all_fits, master_frame_directory)
+        IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
-    if correct_light_frames == True:
+    if correct_light_frames is True:
         print('\n')
-        print('Creating output directory:', reduce_dir + '\corrected_lights')
+        print('Creating output directory:', reduce_dirs[0] + '\\corrected_lights')
         print('Calling correct_light_frames')
 
         # Make output directory
-        correct_light_dir = Path(reduce_dir, 'corrected_lights')
+        correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
         correct_light_dir.mkdir(exist_ok=True)
-        correct_light_directory = reduce_dir + '\corrected_lights'
+        correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
 
-        #  If a specific directory is desired for the corrected light frames, uncomment the
-        #  following line and place the path as a string with double backslashes.
+        #  If a specific directory is desired for the corrected light frames,
+        # uncomment the following line and place the path as a string with
+        # double backslashes.
 
         # correct_light_directory = 'C:\\apple\\is_also_a_fruit'
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory)
+                          correct_light_directory, correct_outliers_params,use_existing_masters,scaleable_dark)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time
