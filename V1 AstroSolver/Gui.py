@@ -24,6 +24,7 @@ import os.path
 import Main
 import AstroFunctions as astro
 from astropy.nddata import CCDData
+from pathlib import Path
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -345,6 +346,11 @@ def Gui():
                                        'Radius of local Averaging': values["1IN10121-2-1"],
                                        }
 
+            correct_light_dir = Path(reduced_dirs[0], 'corrected_lights')
+            correct_light_dir.mkdir(exist_ok=True)
+            correct_light_directory = reduced_dirs[0] + '\\corrected_lights'
+            sav_loc = correct_light_directory
+            
             target = values["-IN1014-"]
             if values["-IN1013-"]:  # Space Based Observations is True
                 try:
@@ -371,7 +377,8 @@ def Gui():
                                       create_master_dir,
                                       use_existing_masters,
                                       exisiting_masters_dir,
-                                      scalable_dark_bool
+                                      scalable_dark_bool,
+                                      sav_loc
                                       )
                     print("Reduce Space-Based Images ---- Started")
                     window.close()
@@ -482,7 +489,15 @@ def Gui():
                         # lat_key = 'OBSGEO-B'
                         # lon_key = 'OBSGEO-L'
                         # elev_key = 'OBSGEO-H'
-                        save_loc = os.path.join(image_dir, 'Outputs')
+                            
+                        try: 
+                            if Sample_image.meta['Correctd'] == True:
+                                save_loc = os.path.join(image_dir, 'Corrected_Outputs')
+                            else:
+                                save_loc = os.path.join(image_dir, 'Outputs')
+                        except KeyError:
+                            save_loc = os.path.join(image_dir, 'Outputs')
+                            
                         Warner_final_transform_table =\
                             astro._main_gb_transform_calc_Warner(
                                 image_dir,

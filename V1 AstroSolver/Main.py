@@ -393,7 +393,7 @@ OutputsaveLoc = False  # 0 Default will save outputs in image folder
 reduce_dir = 'D:\\Image Reduction Test Images'
 
 # Start Pinpoint Software in Python
-f = win32com.client.Dispatch("Pinpoint.plate")  # Start Pinpoint
+# f = win32com.client.Dispatch("Pinpoint.plate")  # Start Pinpoint
 
 # Set Image Processing Variables
 streak_array = []  # Streak Detection for Track Rate Mode
@@ -428,7 +428,7 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
 
                 filepath = os.path.join(dirpath, filename)
                 # Creates an instance of a plate object
-                f = win32com.client.Dispatch("Pinpoint.plate")
+                # f = win32com.client.Dispatch("Pinpoint.plate")
 
                 print("Processing Image: " + filepath)
 
@@ -443,10 +443,10 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                 if pinpoint:
                     try:
                         # Attaches FITS image to the created Plate
-                        f.AttachFITS(filepath)
+                        # f.AttachFITS(filepath)
 # We set the declination of the image to the target object's declination
-                        f.Declination = f.targetDeclination
-                        f.RightAscension = f.targetRightAscension
+                        # f.Declination = f.targetDeclination
+                        # f.RightAscension = f.targetRightAscension
 
                         x_arcsecperpixel, y_arcsecperpixel =\
                             calc_ArcsecPerPixel(header)
@@ -471,22 +471,22 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                         # f.ArcsecperPixelHoriz  = xBin
                         # %CCD Pixel scale on CD
                         # f.ArcsecperPixelVert = yBin
-                        f.ArcsecperPixelHoriz = x_arcsecperpixel
+                        # f.ArcsecperPixelHoriz = x_arcsecperpixel
                         # %CCD Pixel scale on CD
-                        f.ArcsecperPixelVert = y_arcsecperpixel
+                        # f.ArcsecperPixelVert = y_arcsecperpixel
 
                         "Pinpoint Solve Inputs"
                         # TODO Add Inputs for pinpoint solving to GUI
-                        f.Catalog = 11
-                        f.CatalogPath = catloc
-                        f.UseSExtractor = use_sextractor
-                        f.CatalogMaximumMagnitude = max_mag
+                        # f.Catalog = 11
+                        # f.CatalogPath = catloc
+                        # f.UseSExtractor = use_sextractor
+                        # f.CatalogMaximumMagnitude = max_mag
                         # print(f.CatalogMaximumMagnitude)
-                        f.CatalogExpansion = catexp
-                        f.MaxSolveTime = max_solve_time
-                        f.MaxMatchResidual = match_residual
-                        f.SigmaAboveMean = sigma
-                        f.RemoveHotPixels()
+                        # f.CatalogExpansion = catexp
+                        # f.MaxSolveTime = max_solve_time
+                        # f.MaxMatchResidual = match_residual
+                        # f.SigmaAboveMean = sigma
+                        # f.RemoveHotPixels()
 
                         "Pinpoint Solving"
 
@@ -495,14 +495,14 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                         # print(f.CatalogStars.Count)
                         # f.FindImageStars()
                         # print(f.ImageStars.Count)
-                        f.Solve()
-                        f.UpdateFITS()
+                        # f.Solve()
+                        # f.UpdateFITS()
                         # print( f.MatchedStars.count)
                         # f.FindImageStars()
                         # print(f.ImageStars)
 
-                        f.DetachFITS()
-                        f = None
+                        # f.DetachFITS()
+                        # f = None
                         print("Pinpoint Solved")
                     except:
                         print("Could Not Solve")
@@ -622,7 +622,8 @@ def Image_reduce(reduce_dirs,
                  create_master_dir,
                  use_existing_masters,
                  exisiting_masters_dir,
-                 scaleable_dark
+                 scaleable_dark,
+                 sav_loc
                  ):
 
     for reduce_dir in reduce_dirs:
@@ -713,9 +714,7 @@ def Image_reduce(reduce_dirs,
         print('Calling correct_light_frames')
 
         # Make output directory
-        correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
-        correct_light_dir.mkdir(exist_ok=True)
-        correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
+        
 
         #  If a specific directory is desired for the corrected light frames,
         # uncomment the following line and place the path as a string with
@@ -725,7 +724,7 @@ def Image_reduce(reduce_dirs,
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,
-                          correct_light_directory, correct_outliers_params,use_existing_masters,scaleable_dark)
+                          sav_loc, correct_outliers_params,use_existing_masters,scaleable_dark)
 
     stop_time = time.time()
     elapsed_time = stop_time - start_time
