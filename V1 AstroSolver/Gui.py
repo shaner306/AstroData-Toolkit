@@ -272,9 +272,9 @@ def Gui():
             
             reduce_dir = values["-IN200-"]
             if use_existing_masters is True:
-                reduced_dirs = [values["-IN200-"],exisiting_masters_dir] 
+                reduce_dirs = [values["-IN200-"],exisiting_masters_dir] 
             else:
-                reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
+                reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             
             
             
@@ -282,21 +282,21 @@ def Gui():
             use_existing_masters = values['-1N109-']
             exisiting_masters_dir = values['-1N109-2']
             
-            
-            for dirpath,dirnames,files in os.walk(reduce_dir):
-                for name in files:
-                    if name.lower().endswith(('.fits','.fit','.fts')):
-                        sample_image=os.path.join(dirpath,name)
-                        break
-            Sample_image = CCDData.read(sample_image,unit='adu')
-            try:
-                if Sample_image.header['Correctd'] is True:
-                    Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
-                    if Popup_string=='No':
-                        window.close()
-                        quit()
-            except KeyError:
-                print('Could not find Correctd keyword')
+            if os.path.isdir(reduce_dir):
+                for dirpath,dirnames,files in os.walk(reduce_dir):
+                    for name in files:
+                        if name.lower().endswith(('.fits','.fit','.fts')):
+                            sample_image_path=os.path.join(dirpath,name)
+                            break
+                Sample_image = CCDData.read(sample_image_path,unit='adu')
+                try:
+                    if Sample_image.header['Correctd'] is True:
+                        Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                        if Popup_string=='No':
+                            window.close()
+                            quit()
+                except KeyError:
+                    print('Could not find Correctd keyword')
             # TODO : Come up with better methods for improving this
             
             if (use_existing_masters is True):
@@ -312,10 +312,10 @@ def Gui():
                 
                 
                     
-                if (len(reduced_dirs)==4) & (use_existing_masters is False):
+                if (len(reduce_dirs)==4) & (use_existing_masters is False):
                     print('None Scalabale Dark Detected')
                     scalable_dark_bool=False
-                    del reduced_dirs[reduced_dirs.index('')]
+                    del reduce_dirs[reduce_dirs.index('')]
                     print('Deleted Bias in redcued dir')
                     
              
@@ -346,9 +346,10 @@ def Gui():
                                        'Radius of local Averaging': values["1IN10121-2-1"],
                                        }
 
-            correct_light_dir = Path(reduced_dirs[0], 'corrected_lights')
+            
+            correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
             correct_light_dir.mkdir(exist_ok=True)
-            correct_light_directory = reduced_dirs[0] + '\\corrected_lights'
+            correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
             sav_loc = correct_light_directory
             
             target = values["-IN1014-"]
@@ -369,7 +370,7 @@ def Gui():
                     
                     
                     
-                    Main.Image_reduce(reduced_dirs,
+                    Main.Image_reduce(reduce_dirs,
                                       create_master_dark,
                                       create_master_flat,
                                       create_master_bias,

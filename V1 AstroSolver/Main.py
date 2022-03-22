@@ -627,23 +627,24 @@ def Image_reduce(reduce_dirs,
                  ):
 
     for reduce_dir in reduce_dirs:
-        if os.path.isdir(reduce_dir) is False:
-            raise RuntimeError(
-                'WARNING -- Directory of .fits files does not exist')
+         if os.path.isdir(reduce_dir) is False:
+             print('Directory of .fits files does not exist')
+            # raise RuntimeError(
+            #    'WARNING -- Directory of .fits files does not exist')
     
 
     # Create output directory for master files
     if (create_master_dir is True) and (use_existing_masters is False):
-        master_frame_dir = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
+        master_frame_dir = Path((os.path.dirname(reduce_dirs[1])), 'master_frame_data')
         master_frame_dir.mkdir(exist_ok=True)
     
     #  Select directory for master frames
-        master_frame_directory = Path(os.path.dirname(os.path.dirname(reduce_dir)), 'master_frame_data')
+        master_frame_directory = Path((os.path.dirname(reduce_dirs[1])), 'master_frame_data')
 
     #  If a directory already exists containing the master files, uncomment the
     #  following line and place the path as a string with double backslashes.
     if use_existing_masters:
-        master_frame_directory= exisiting_masters_dir
+        master_frame_directory = exisiting_masters_dir
     # master_frame_directory = 'C:\\pineapple\\is_a_fruit'
     if os.path.isdir(master_frame_directory) is False:
         raise RuntimeError(
@@ -661,11 +662,12 @@ def Image_reduce(reduce_dirs,
     # Find all fits files in subdirectories
     
     for reduce_dir in reduce_dirs:
-        for dirpath, dirnames, files in os.walk(reduce_dir):
-            for name in files:
-                if name.lower().endswith(exten):
-                    results.append('%s' % os.path.join(dirpath, name))
-        print('Have list of all .fits files')
+        if os.path.isdir(reduce_dir):
+            for dirpath, dirnames, files in os.walk(reduce_dir) :
+                for name in files:
+                    if name.lower().endswith(exten):
+                        results.append('%s' % os.path.join(dirpath, name))
+            print('Have list of all .fits files')
 
     # Using ImageFileCollection, gather all fits files
 
@@ -708,7 +710,7 @@ def Image_reduce(reduce_dirs,
         IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
-    if correct_light_frames is True:
+    if correct_light_frames and os.path.isdir(reduce_dirs[0]):
         print('\n')
         print('Creating output directory:', reduce_dirs[0] + '\\corrected_lights')
         print('Calling correct_light_frames')
