@@ -693,7 +693,11 @@ def Image_reduce(reduce_dirs,
     if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
         print('Calling run_master_bias')
-        IR.create_master_bias(all_fits, master_frame_directory)
+        try:
+            IR.create_master_bias(all_fits, master_frame_directory)
+        except:
+             raise RuntimeError('Could not create master File')   
+        
 
     # Create Master Dark
     if (run_master_dark is True) and (use_existing_masters is False):

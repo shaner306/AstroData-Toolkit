@@ -123,6 +123,7 @@ def create_master_bias(all_fits, master_dir):
         print('Saving ', bias_file_name)
     except OSError:
         raise RuntimeError('WARNING -- Could not Save Master Bias File')
+        
 
 def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     """
