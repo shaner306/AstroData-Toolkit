@@ -1,3 +1,9 @@
 *.pyc
 V1 AstroSolver/__pycache__/AstroFunctions.cpython-39.pyc
 V1 AstroSolver/__pycache__/ImageReduction.cpython-39.pyc
+V1 AstroSolver/__pycache__/AstroFunctions.cpython-39.pyc
+V1 AstroSolver/__pycache__/ImageReduction.cpython-39.pyc
+V1 AstroSolver/__pycache__/Main.cpython-39.pyc
+V1 AstroSolver/__pycache__/SBDarkSub.cpython-39.pyc
+V1 AstroSolver/__pycache__/utils.cpython-39.pyc
+V1 AstroSolver/__pycache__/Visualize.cpython-39.pyc
