@@ -714,19 +714,17 @@ def Image_reduce(reduce_dirs,
         IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
-    if correct_light_frames and os.path.isdir(reduce_dirs[0]):
-        print('\n')
-        print('Creating output directory:', reduce_dirs[0] + '\\corrected_lights')
-        print('Calling correct_light_frames')
+    if correct_light_frames and os.path.isdir(sav_loc):
+        
 
-        # Make output directory
+        
         
 
         #  If a specific directory is desired for the corrected light frames,
         # uncomment the following line and place the path as a string with
         # double backslashes.
 
-        # correct_light_directory = 'C:\\apple\\is_also_a_fruit'
+        
 
         #  Call function
         IR.correct_lights(all_fits, master_frame_directory,

@@ -332,10 +332,10 @@ def Gui():
                     if popup_string=='No':
                         break
                         window.close()
-                        #exit()
+                        
                 
-            except KeyError:
-                raise KeyError
+            except UnboundLocalError:
+                print('No Sample Prediction')
                 
                                 
             # TODO : Come up with better methods for improving this
