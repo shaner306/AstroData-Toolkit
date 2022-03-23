@@ -371,8 +371,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
+    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -4021,7 +4020,7 @@ def ground_based_second_order_transforms(gb_transform_table,
         else:
             continue
         filtered_data_c = np.ma.masked_array(y, mask=mask)
-        kprimeprime_fci = fitted_line_c.slope.value
+        kprimeprime_fci = -fitted_line_c.slope.value
         t_fci = fitted_line_c.intercept.value
         cov_c = fit.fit_info['param_cov']
         # c_fci_sigma = cov[0][0]
