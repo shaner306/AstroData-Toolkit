@@ -436,7 +436,7 @@ def Gui():
                 for name in files:
                     
                     
-                    if name.lower().endswith('.fits','.fit','.fts'):
+                    if name.lower().endswith(('.fits','.fit','.fts')):
                         CCData_sample=CCDData.read(os.path.join(dirpath,name),unit='adu')
                         sample_science_image=CCData_sample
                         break
@@ -501,7 +501,7 @@ def Gui():
                                         space_based_bool,
                                         use_sextractor,
                                         all_sky_solve)
-                    break
+                    
                     window.close()
                 except:
                     print("Pinpoint Error. Please See Instructions")

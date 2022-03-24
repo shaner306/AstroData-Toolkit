@@ -20,11 +20,11 @@ from pathlib import Path
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed'
+path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - uncorrected\2021-09-17 - non-reduced'
 
-create_master_dark=True
-create_master_flat=True
-create_master_bias=True
+create_master_dark=False
+create_master_flat=False
+create_master_bias=False
 correct_outliers_params = {'Outlier Boolean': False,
 
                            'Hot Pixel': False,
@@ -40,9 +40,10 @@ correct_outliers_params = {'Outlier Boolean': False,
                            'Radius of local Averaging': 1,
                            }
 
-create_master_dir=True
+create_master_dir=False
 use_existing_masters=True
-exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\master_frame_data'
+exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - uncorrected\master_frame_data'
+
 scalable_dark_bool=True
 
 
@@ -71,7 +72,7 @@ for dirs in list_subfolders_with_paths:
 
         
 #%% Batch Solve           
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - non-reduced'
 catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
