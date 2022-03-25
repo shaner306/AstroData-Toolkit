@@ -287,7 +287,7 @@ def create_master_flat(all_fits, master_dir,scalable_dark_bool):
     
         try:
             # Get the Master Dark(s)
-            master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
+            master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
                 imagetyp=dark_imgtypes_concatenateded, ybinning=binning, combined=True
             )}
             # Create Conditonal Array with different Dark Image Data Types
@@ -299,10 +299,12 @@ def create_master_flat(all_fits, master_dir,scalable_dark_bool):
             dark_times = set(all_fits.summary['exptime'][dark_mask])
     
         except:
-            raise RuntimeError('WARNING -- Could not open Master Dark files')
+            print('WARNING -- Could not open Master Dark files')
+            continue
     
         if len(master_darks) == 0:
-            raise RuntimeError('WARNING -- Could not open Master Dark files')
+             print('WARNING -- Could not open Master Dark files')
+             continue
     
         flat_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
         for flat_imgtypes in flat_imgtype_matches:
