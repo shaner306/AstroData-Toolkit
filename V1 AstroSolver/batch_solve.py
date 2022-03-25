@@ -20,7 +20,7 @@ from pathlib import Path
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - uncorrected\2021-09-17 - non-reduced'
+path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\2022-01-17 - Amazonas 2 and SA\SA'
 
 create_master_dark=False
 create_master_flat=False
@@ -41,10 +41,11 @@ correct_outliers_params = {'Outlier Boolean': False,
                            }
 
 create_master_dir=False
-use_existing_masters=True
-exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - uncorrected\master_frame_data'
 
-scalable_dark_bool=True
+use_existing_masters=True
+exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\2022-01-17 - Amazonas 2 and SA\master_frame_data'
+
+scalable_dark_bool=False
 
 
 list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
@@ -72,7 +73,7 @@ for dirs in list_subfolders_with_paths:
 
         
 #%% Batch Solve           
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - non-reduced'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\2022-01-17 - Amazonas 2 and SA\SA'
 catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
@@ -159,4 +160,24 @@ for dirs in list_subfolders_with_paths:
                 save_loc=save_loc, unique_id=unique_id)
     except:
         print('Error')
-        
+     
+#%% Create Combined Large Star Table
+import csv
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\Suffield Data\2022-01-17 - Amazonas 2 and SA\SA reduced_no_scale'
+first_switch=True
+file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"_Combined_Large_Star_Table.csv"
+with open(file,"a+",newline='\n') as f:
+    writer=csv.writer(f,delimiter=',')
+    for dirpath,dirname,file in os.walk(dataset_folder):
+        for name in file:
+            if name=='large_stars_table.csv':
+                f2=open(os.path.join(dirpath,name),'r',newline='\n')
+                csvreader=csv.reader(f2,delimiter=',')
+                if first_switch==True:
+                    print('first line')
+                    first_switch=False
+                else:
+                    next(csvreader)
+                for row in csvreader:
+                    writer.writerow(row)
+    f.close()

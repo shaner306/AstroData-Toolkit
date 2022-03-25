@@ -674,9 +674,7 @@ def Image_reduce(reduce_dirs,
     all_fits = ImageFileCollection(filenames=results)
     print('Files sorted into ImageFileCollection object')
 
-    # %% Image Reduction
     # Create Master Bias
-    #all_fits.headers['imagetyp']==sum()
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
     try:
         bias_imgtype_matches = [
@@ -689,6 +687,20 @@ def Image_reduce(reduce_dirs,
     except NameError:
         print("No Bias Frames Identified, Reverting to Non-Scaleable Darks")
         scaleable_dark=False
+        
+    try:
+        light_imgtypes_matches=[s for s in unique_imagetype_list if "light" in s.lower()]
+        light_imgtypes_concatenateded='|'.join(light_imgtypes_matches)
+        if (all_fits.summary['imagetyp']==light_imgtypes_concatenateded).sum()==0:
+            print('No Light Frames Identified, Combining Masters Only')
+            correct_light_frames=False
+        else:
+            correct_light_frames=True
+    except:
+        print("No light frames detected, reverting to combine masters only")
+        correct_light_frames=False
+            
+
     
     if (create_master_bias is True) and (use_existing_masters is False) and (scaleable_dark):
         print('\n')
@@ -700,7 +712,7 @@ def Image_reduce(reduce_dirs,
         
 
     # Create Master Dark
-    if (run_master_dark is True) and (use_existing_masters is False):
+    if (create_master_dark is True) and (use_existing_masters is False):
     
         print('\n')
         print('Calling run_master_dark')
@@ -708,13 +720,13 @@ def Image_reduce(reduce_dirs,
     
 
     # Create Master Flat
-    if (run_master_flat is True) and (use_existing_masters is False):
+    if (create_master_flat is True) and (use_existing_masters is False):
         print('\n')
         print('Calling run_master_flat')
         IR.create_master_flat(all_fits, master_frame_directory,scaleable_dark)
 
     # Correct Light Frames with Master Files
-    if correct_light_frames and os.path.isdir(sav_loc):
+    if correct_light_frames and os.path.isdir(sav_loc) and all_fits:
         
 
         
