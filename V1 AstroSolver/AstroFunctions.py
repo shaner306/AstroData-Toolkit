@@ -8873,6 +8873,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                                    **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
+    # TODO: Make Save_loc mandatory
     """
     Perform all of the beginning operations.
     Create the refrence stars table and read their positions.

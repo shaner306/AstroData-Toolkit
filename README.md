@@ -99,10 +99,11 @@ There are four selections for Image Reduction under the directory tab;
 3. Create Biases (Optional)
 4. Mask for Outliers
 
-If no master files exist, the first three options should be enabled.
+If  master files do not exist, the first three options should be enabled.
 If master files already exist, enable image correction from existing 
 masters and point the directory to the master file collection.
 
+To only create master files without reuducing images, only provide inputs for the Create Darks, Flats and Bias without an Image Directory.
 
 It is usually advised to do Image Reduction prior to image processing, 
 however if your images are already reduced, further image reduction may 
@@ -199,6 +200,7 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 ### Recently added funcitons/Capabilities (Michael): Sorted most recent first
 
 #### Image Reduction
+- Allow Master Frame Creation without Image Reduction
 - Batch Solving Script: enables the automated solving of a dataset which 
   share the same master files.
 - Automatic detection of dark scaling when no Bias Frames present

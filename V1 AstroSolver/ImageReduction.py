@@ -98,32 +98,40 @@ def create_master_bias(all_fits, master_dir):
     bias_imgtype_matches = [
         s for s in unique_imagetype_list if "bias" in s.lower()]
     bias_imgtypes_concatenateded = '|'.join(bias_imgtype_matches)
-    bias_fits = all_fits.files_filtered(
-        include_path=True,
-        imagetyp=bias_imgtypes_concatenateded)
-
-    biases = []
-    for file in bias_fits:
-        bias = CCDData.read(file, unit='adu')
-        biases.append(bias)
-
-    master_bias = ccdp.combine(biases,
-                               method='average',
-                               sigma_clip=True,
-                               sigma_clip_low_thresh=5,
-                               sigma_clip_high_thresh=5,
-                               sigma_clip_func=np.ma.median,
-                               sigma_clip_dev_func=np.ma.std,
-                               mem_limit=1e9
-                               )
+    bias_fits=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=bias_imgtypes_concatenateded)))
     try:
-        master_bias.meta['combined'] = True
-        bias_file_name = 'master_bias.fits'
-        master_bias.write(os.path.join(master_dir, bias_file_name))
-        print('Saving ', bias_file_name)
-    except OSError:
-        raise RuntimeError('WARNING -- Could not Save Master Bias File')
-
+        unique_bin_list=list(set(bias_fits.summary['ybinning']))
+    except KeyError as e:
+        raise e
+        print("Could not find binning keyword")
+    
+    for binning in unique_bin_list:
+        try:
+            bin_bias_fits = bias_fits.files_filtered(include_path=True,ybinning=binning)
+            biases = []
+            for file in bin_bias_fits:
+                bias = CCDData.read(file, unit='adu')
+                biases.append(bias)
+            
+            master_bias = ccdp.combine(biases,
+                                       method='average',
+                                       sigma_clip=True,
+                                       sigma_clip_low_thresh=5,
+                                       sigma_clip_high_thresh=5,
+                                       sigma_clip_func=np.ma.median,
+                                       sigma_clip_dev_func=np.ma.std,
+                                       mem_limit=1e9
+                                       )
+            try:
+                master_bias.meta['combined'] = True
+                bias_file_name = str(binning)+'x'+str(binning)+'_master_bias.fits'
+                master_bias.write(os.path.join(master_dir, bias_file_name))
+                print('Saving ', bias_file_name)
+            except OSError:
+                raise RuntimeError('WARNING -- Could not Save Master Bias File')
+        except:
+            print('WARNING -- Could Not Find Biases Corresponding to other image binning')
+            continue 
 def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     """
     Taking a Master Bias frame and individual Dark frames, create Master Dark
@@ -148,17 +156,6 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     Nil
 
     """
-
-# master_files = ccdp.ImageFileCollection(master_dir)
-    if scalable_dark_bool is True:
-        
-        try:
-            # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
-            # combined=True))
-            master_bias = CCDData.read(os.path.join(master_dir ,'master_bias.fits'), unit='adu')
-        except:
-            raise RuntimeError('WARNING -- Could not open Master Bias file')
-    # Dynamic Dark Imagetype Reader
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
     dark_imgtype_matches = [
         s for s in unique_imagetype_list if "dark" in s.lower()]
@@ -173,36 +170,61 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
             (all_fits.summary['imagetyp'] == (dark_imgtypes))
 
     dark_times = set(all_fits.summary['exptime'][dark_mask])
-
-    for exp_time in sorted(dark_times):
-
-        darks_to_calibrate = all_fits.files_filtered(
-            imagetyp=dark_imgtypes_concatenateded,
-            exptime=exp_time,
-            include_path=True)
-
-        darks = []
-        for file in darks_to_calibrate:
-            dark = CCDData.read(file, unit='adu')
-            if scalable_dark_bool is True:
-                dark = ccdp.subtract_bias(dark, master_bias)
-            darks.append(dark)
-
-        master_dark = ccdp.combine(darks,
-                                   method='average',
-                                   sigma_clip=True,
-                                   sigma_clip_low_thresh=5,
-                                   sigma_clip_high_thresh=5,
-                                   sigma_clip_func=np.ma.median,
-                                   signma_clip_dev_func=np.ma.std,
-                                   mem_limit=1e9,
-                                   )
-        try:
-            master_dark.meta['combined'] = True
-            dark_file_name = 'master_dark_{:6.3f}.fits'.format(exp_time)
-            master_dark.write(os.path.join(master_dir , dark_file_name))
-        except: 
-            raise RuntimeError('WARNING -- Could not Save Master Dark File')
+    
+    
+    darks_fits=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=dark_imgtypes_concatenateded)))
+    try:
+        unique_bin_list=list(set(darks_fits.summary['ybinning']))
+    except KeyError as e:
+        raise e
+        print("WARNING -- Could not find binning keyword")
+        
+# master_files = ccdp.ImageFileCollection(master_dir)
+    for binning in unique_bin_list:
+        
+        if scalable_dark_bool is True:
+          
+            try:
+                
+                # combined_bias = CCDData.read(master_files.files_filtered(imagetyp ='bias',
+                # combined=True))
+                bin_master_string=str(binning)+'x'+str(binning)+'_master_bias.fits'
+                master_bias = CCDData.read(os.path.join(master_dir ,bin_master_string), unit='adu')
+            except:
+                raise RuntimeError('WARNING -- Could not find/open Master Bias file')
+        # Dynamic Dark Imagetype Reader
+        
+    
+        for exp_time in sorted(dark_times):
+    
+            darks_to_calibrate = all_fits.files_filtered(
+                imagetyp=dark_imgtypes_concatenateded,
+                exptime=exp_time,
+                ybinning=binning,
+                include_path=True)
+    
+            darks = []
+            for file in darks_to_calibrate:
+                dark = CCDData.read(file, unit='adu')
+                if scalable_dark_bool is True:
+                    dark = ccdp.subtract_bias(dark, master_bias)
+                darks.append(dark)
+    
+            master_dark = ccdp.combine(darks,
+                                       method='average',
+                                       sigma_clip=True,
+                                       sigma_clip_low_thresh=5,
+                                       sigma_clip_high_thresh=5,
+                                       sigma_clip_func=np.ma.median,
+                                       signma_clip_dev_func=np.ma.std,
+                                       mem_limit=1e9,
+                                       )
+            try:
+                master_dark.meta['combined'] = True
+                dark_file_name = str(binning)+'x'+str(binning)+'_master_dark_{:6.3f}.fits'.format(exp_time)
+                master_dark.write(os.path.join(master_dir , dark_file_name))
+            except: 
+                raise RuntimeError('WARNING -- Could not Save Master Dark File')
             
         
         
@@ -244,88 +266,99 @@ def create_master_flat(all_fits, master_dir,scalable_dark_bool):
     flat_imgtypes_concatenateded = '|'.join(flat_imgtype_matches)
 
     master_files = ccdp.ImageFileCollection(master_dir)
-
     
-    if scalable_dark_bool is True:
-        try:
-            # combined_bias = CCDData.read(master_files_list)
-            combined_bias = CCDData.read(os.path.join(master_dir , 'master_bias.fits'), unit='adu')
-        except:
-            raise RuntimeError('WARNING -- Could not open Master Bias file')
-
+    
+    flat_fits=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=flat_imgtypes_concatenateded)))
     try:
-        # Get the Master Darks
-        master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
-            imagetyp=dark_imgtypes_concatenateded, combined=True
-        )}
-        # Create Conditonal Array with different Dark Image Data Types
-        dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
-        for dark_imgtypes in dark_imgtype_matches:
-            dark_mask = dark_mask +\
-                (all_fits.summary['imagetyp'] == (dark_imgtypes))
-
-        dark_times = set(all_fits.summary['exptime'][dark_mask])
-
-    except:
-        raise RuntimeError('WARNING -- Could not open Master Dark files')
-
-    if len(master_darks) == 0:
-        raise RuntimeError('WARNING -- Could not open Master Dark files')
-
-    flat_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
-    for flat_imgtypes in flat_imgtype_matches:
-        flat_mask = flat_mask +\
-            (all_fits.summary['imagetyp'] == (flat_imgtypes))
-
-    flat_filters = set(all_fits.summary['filter'][flat_mask])
-
-    for frame_filter in sorted(flat_filters):
-        flats_to_combine = all_fits.files_filtered(
-            imagetyp=flat_imgtypes_concatenateded,
-            filter=frame_filter,
-            include_path=True
-        )
-
-        flats = []
-        for file in flats_to_combine:
-            flat = CCDData.read(file, unit='adu')
-            
-            closest_dark = find_nearest_dark_exposure(flat, dark_times,
-                                                      tolerance=100
-                                                      )
-            if scalable_dark_bool:
-                flat = ccdp.subtract_bias(flat, combined_bias)
-                flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
-                                          exposure_time='exptime',
-                                          exposure_unit=u.second,
-                                          scale=True
-                                          )
-            else:
-                flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
-                                          exposure_time='exptime',
-                                          exposure_unit=u.second,
-                                          scale=False
-                                          )
-            flats.append(flat)
-
-        combined_flat = ccdp.combine(flats,
-                                     method='median',
-                                     sigma_clip=True,
-                                     sigma_clip_low_thresh=5,
-                                     sigma_clip_high_thresh=5,
-                                     sigma_clip_func=np.ma.median,
-                                     signma_clip_dev_func=np.ma.std,
-                                     mem_limit=1e9
-                                     )
+        unique_bin_list=list(set(flat_fits.summary['ybinning']))
+    except KeyError as e:
+        raise e
+        print("Could not find binning keyword")
+        
+    for binning in unique_bin_list:
+        if scalable_dark_bool is True:
+            try:
+                # TODO: Standardize the Master Frame Gathering Process
+                # combined_bias = CCDData.read(master_files_list)
+                master_bias_string=str(binning)+'x'+str(binning)+'_master_bias.fits'
+                combined_bias = CCDData.read(os.path.join(master_dir ,master_bias_string ), unit='adu')
+            except:
+                raise RuntimeError('WARNING -- Could not open Master Bias file')
+    
         try:
-            combined_flat.meta['combined'] = True
-            flat_file_name = '\\master_flat_filter_{}.fits'.format(
-                frame_filter.replace("''", "p"))
-            combined_flat.write((str(master_dir) + flat_file_name))
-            
-            print('Saving ', flat_file_name)
+            # Get the Master Dark(s)
+            master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
+                imagetyp=dark_imgtypes_concatenateded, ybinning=binning, combined=True
+            )}
+            # Create Conditonal Array with different Dark Image Data Types
+            dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+            for dark_imgtypes in dark_imgtype_matches:
+                dark_mask = dark_mask +\
+                    (all_fits.summary['imagetyp'] == (dark_imgtypes))
+    
+            dark_times = set(all_fits.summary['exptime'][dark_mask])
+    
         except:
-            raise RuntimeError('WARNING -- Could not Save Master Flat File')
+            raise RuntimeError('WARNING -- Could not open Master Dark files')
+    
+        if len(master_darks) == 0:
+            raise RuntimeError('WARNING -- Could not open Master Dark files')
+    
+        flat_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+        for flat_imgtypes in flat_imgtype_matches:
+            flat_mask = flat_mask +\
+                (all_fits.summary['imagetyp'] == (flat_imgtypes))
+    
+        flat_filters = set(all_fits.summary['filter'][flat_mask])
+    
+        for frame_filter in sorted(flat_filters):
+            flats_to_combine = all_fits.files_filtered(
+                imagetyp=flat_imgtypes_concatenateded,
+                filter=frame_filter,
+                ybinning=binning,
+                include_path=True
+            )
+    
+            flats = []
+            for file in flats_to_combine:
+                flat = CCDData.read(file, unit='adu')
+                
+                closest_dark = find_nearest_dark_exposure(flat, dark_times,
+                                                          tolerance=100
+                                                          )
+                if scalable_dark_bool:
+                    flat = ccdp.subtract_bias(flat, combined_bias)
+                    flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
+                                              exposure_time='exptime',
+                                              exposure_unit=u.second,
+                                              scale=True
+                                              )
+                else:
+                    flat = ccdp.subtract_dark(flat, master_darks[closest_dark],
+                                              exposure_time='exptime',
+                                              exposure_unit=u.second,
+                                              scale=False
+                                              )
+                flats.append(flat)
+    
+            combined_flat = ccdp.combine(flats,
+                                         method='median',
+                                         sigma_clip=True,
+                                         sigma_clip_low_thresh=5,
+                                         sigma_clip_high_thresh=5,
+                                         sigma_clip_func=np.ma.median,
+                                         signma_clip_dev_func=np.ma.std,
+                                         mem_limit=1e9
+                                         )
+            try:
+                combined_flat.meta['combined'] = True
+                flat_file_name = '\\'+str(binning)+'x'+str(binning)+'_master_flat_filter_{}.fits'.format(
+                    frame_filter.replace("''", "p"))
+                combined_flat.write((str(master_dir) + flat_file_name))
+                
+                print('Saving ', flat_file_name)
+            except:
+                raise RuntimeError('WARNING -- Could not Save Master Flat File')
 
 
 def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params, use_existing_masters,scalable_dark_bool):
@@ -364,207 +397,226 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     light_imgtype_matches = [
         s for s in unique_imagetype_list if "light" in s.lower()]
     light_imgtypes_concatenateded = '|'.join(light_imgtype_matches)
-
+    
     master_files = ccdp.ImageFileCollection(master_dir)
-
+    
+    
+    light_flats=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=light_imgtypes_concatenateded)))
+    try:
+        
+        unique_bin_list_y=list(set(light_flats.summary['ybinning']))
+        
+    except KeyError as e:
+        raise e
+        print("Could not find binning keyword")
     # Create dictionaries of the dark and flat master frames in the master directory
-    # TODO: Double Check Concatenation
-    master_darks = {ccd.header['exposure']: ccd for ccd in master_files.ccds(
-        imagetyp=dark_imgtypes_concatenateded, combined=True)}
-    master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
-        imagetyp=flat_imgtypes_concatenateded, combined=True)}
-    # There is only one bias frame, so no need to set up a dictionary.
-    if scalable_dark_bool:
-        master_bias = [ccd for ccd in master_files.ccds(
-            imagetyp=bias_imgtypes_concatenateded, combined=True)][0]
-    light_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
-
-    for light_imgtypes in light_imgtype_matches:
-        light_mask = light_mask +\
-            (all_fits.summary['imagetyp'] == (light_imgtypes))
-
-    light_filter = set(all_fits.summary['filter'][light_mask])
-
-    dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
-    for dark_imgtypes in dark_imgtype_matches:
-        dark_mask = dark_mask +\
-            (all_fits.summary['imagetyp'] == (dark_imgtypes))
-            
-    dark_times = set(all_fits.summary['exptime'][dark_mask])
     
-    # Assumes all images in a dataset are the smae size
-    example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
-                                                filter=list(light_filter)[0],
-                                                include_path=True)[0]
-    
-    corrected_master_dark={}
-    for dark_time in dark_times:
-        ### Dark Image Masking ###
-        
-        
-        
-        
-        mask = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
-        hot_pixels = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
-        dark_threshold_mask = np.zeros(CCDData.read(example_light
-            , unit='adu').data.shape, dtype=bool)
-        
-        
-        
-        
-        if correct_outliers_params['Hot Pixel'] is True:
-            
-            mask = find_hot_pixels(master_darks,dark_time,mask)
-            
-        
-            
-            
-                
-            
-        
-        if correct_outliers_params['Dark Frame Threshold Bool']:
-            
-            mask = dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask)
-            
-            
-        if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
-            
-            
-            # Check to see if corrected file already exists
-            corrected_dark_dir = (str(master_dir)+'\\master_dark_'+str(dark_time)+'corrected.fits')
-            if os.path.isfile(corrected_dark_dir) is False:
-                
-                corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
-                                  master_darks, dark_time, master_dir)
-            else:
-                    corrected_master_dark_data=CCDData.read(corrected_dark_dir,unit='adu')
-            corrected_master_dark[dark_time] = corrected_master_dark_data
-            
-    for frame_filter in sorted(light_filter):
-
-        lights_to_correct = all_fits.files_filtered(
-            imagetyp=light_imgtypes_concatenateded,
-            filter=frame_filter,
-            include_path=True
-        )
-        light_ccds = []
+    for binning in unique_bin_list_y:
         try:
-            corrected_master_flat=[]
+            master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
+                imagetyp=dark_imgtypes_concatenateded, ybinning=binning, combined=True)}
+            master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
+                imagetyp=flat_imgtypes_concatenateded,ybinning=binning, combined=True)}
             
-            if correct_outliers_params['Outlier Boolean'] is True:
+            
+            # There is only one bias frame, so no need to set up a dictionary.
+            if scalable_dark_bool:
+                master_bias = [ccd for ccd in master_files.ccds(
+                    imagetyp=bias_imgtypes_concatenateded,ybinning=binning, combined=True)][0]
+            light_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+        
+            for light_imgtypes in light_imgtype_matches:
+                light_mask = light_mask +\
+                    (all_fits.summary['imagetyp'] == (light_imgtypes))
+        
+            light_filter = set(all_fits.summary['filter'][light_mask])
+        
+            dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
+            for dark_imgtypes in dark_imgtype_matches:
+                dark_mask = dark_mask +\
+                    (all_fits.summary['imagetyp'] == (dark_imgtypes))
+                    
+            dark_times = set(all_fits.summary['exptime'][dark_mask])
+            
+            # Assumes all images in a dataset are the same size
+            example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
+                                                    ybinning=binning,
+                                                    filter=list(light_filter)[0],
+                                                    include_path=True)[0]
+            
+            corrected_master_dark={}
+            for dark_time in dark_times:
                 
-
-                ### Flat Image Masking ###
-                if correct_outliers_params['ccdmask']:
-                     example_light=lights_to_correct[0]
-                    
-                     maskr = flat_image_masking(flat_imgtypes_concatenateded,
-                                                lights_to_correct,
-                                                dark_times,
-                                                example_light,
-                                                master_bias,
-                                                master_darks,
-                                                scalable_dark_bool,
-                                                correct_outliers_params,                     
-                                                frame_filter,
-                                                master_dir,
-                                                corrected_light_dir,
-                                                all_fits)
-                    
-                    
-                     mask = mask | maskr
-
-                    
-            for file_name in lights_to_correct:
-
-                light = CCDData.read(file_name, unit='adu')
-
-                # Note that the first argument in the remainder of the ccdproc calls is
-                # the *reduced* image, so that the calibration steps are cumulative.
-
-                ########## For Scalable darks (i.e. Bias Frame provided) ##########
-                if scalable_dark_bool==True:
-                    reduced = ccdp.subtract_bias(light, master_bias)
+                ### Dark Image Masking ###
                 
                 
-                    if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                
+                
+                mask = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
+                hot_pixels = np.zeros(CCDData.read(example_light, unit='adu').data.shape, dtype=bool)
+                dark_threshold_mask = np.zeros(CCDData.read(example_light
+                    , unit='adu').data.shape, dtype=bool)
+                
+                
+                
+                
+                if correct_outliers_params['Hot Pixel'] is True:
+                    
+                    mask = find_hot_pixels(master_darks,dark_time,mask)
+                    
+                
+                    
                     
                         
-                        closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
-                        reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
-                                                    exposure_time='exptime', exposure_unit=u.second,
-                                                    scale=True)
-                    else:
-                            
-                        closest_dark = find_nearest_dark_exposure(
-                            reduced, master_darks.keys())
-        
-                        reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
-                                                     exposure_time='exptime', exposure_unit=u.second,
-                                                     scale=True)
-                ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
-                #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
-                if scalable_dark_bool != True:
                     
-                    
-                    
-                    if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
-                    
-                        
-                        closest_dark = find_nearest_dark_exposure(light, corrected_master_dark.keys())
-                        reduced=ccdp.subtract_dark (light, corrected_master_dark[closest_dark],
-                                                    exposure_time='exptime', exposure_unit=u.second,
-                                                    scale=False)
-                    else:
-                            
-                        closest_dark = find_nearest_dark_exposure(
-                            light, master_darks.keys())
-        
-                        reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
-                                                     exposure_time='exptime', exposure_unit=u.second,
-                                                     scale=False)
-
-                ########## End ##########
-
-                # Flat Correction
                 
-                if correct_outliers_params['ccdmask']:
+                if correct_outliers_params['Dark Frame Threshold Bool']:
                     
-                    try:
-                        reduced = ccdp.flat_correct(reduced,corrected_master_flat)
-                    except: 
-                        print('Corrected Master Flat Not Found')
-                else :    
-                    good_flat = master_flats[reduced.header['filter']]
-                    reduced = ccdp.flat_correct(reduced, good_flat)
-
-                ### Cosmic Rays Outliers ###
-                if correct_outliers_params['Outlier Boolean'] is True:
-
-                    if correct_outliers_params['Cosmic Rays Bool']:
-                        # Convert image to Electrons
-                        reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
-                        reduced_in_e.mask = mask
-                        new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
-                        reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
-                        mask = reduced_in_e.mask
-                        print('Removed Cosmic Rays')
-
-                    reduced.mask = mask
-                reduced.meta['correctd'] = True
-                file_name = file_name.split("\\")[-1]
+                    mask = dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask)
+                    
+                    
+                if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
+                    
+                    
+                    # Check to see if corrected file already exists
+                    corrected_dark_dir = (str(master_dir)+'\\master_dark_'+str(dark_time)+'corrected.fits')
+                    if os.path.isfile(corrected_dark_dir) is False:
+                        
+                        corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
+                                          master_darks, dark_time, master_dir)
+                    else:
+                            corrected_master_dark_data=CCDData.read(corrected_dark_dir,unit='adu')
+                    corrected_master_dark[dark_time] = corrected_master_dark_data
+                    
+            for frame_filter in sorted(light_filter):
+        
+                lights_to_correct = all_fits.files_filtered(
+                    imagetyp=light_imgtypes_concatenateded,ybinning=binning,
+                    filter=frame_filter,
+                    include_path=True
+                )
+                light_ccds = []
                 try:
-                    reduced.write(str(corrected_light_dir) +'\\' + file_name)
-                except OSError:
-                    file_name = file_name[:-5]
-                    print(file_name)
-                    file_name = file_name + "1.fits"
-                    reduced.write((str(corrected_light_dir) + '\\' + file_name))
-
-                print('Saving ', file_name)
+                    corrected_master_flat=[]
+                    
+                    if correct_outliers_params['Outlier Boolean'] is True:
+                        
+        
+                        ### Flat Image Masking ###
+                        if correct_outliers_params['ccdmask']:
+                             example_light=lights_to_correct[0]
+                            
+                             maskr = flat_image_masking(flat_imgtypes_concatenateded,
+                                                        lights_to_correct,
+                                                        dark_times,
+                                                        example_light,
+                                                        master_bias,
+                                                        master_darks,
+                                                        scalable_dark_bool,
+                                                        correct_outliers_params,                     
+                                                        frame_filter,
+                                                        master_dir,
+                                                        corrected_light_dir,
+                                                        all_fits,binning)
+                            
+                            
+                             mask = mask | maskr
+        
+                            
+                    for file_name in lights_to_correct:
+        
+                        light = CCDData.read(file_name, unit='adu')
+        
+                        # Note that the first argument in the remainder of the ccdproc calls is
+                        # the *reduced* image, so that the calibration steps are cumulative.
+        
+                        ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                        if scalable_dark_bool==True:
+                            reduced = ccdp.subtract_bias(light, master_bias)
+                        
+                        
+                            if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                            
+                                
+                                closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
+                                reduced=ccdp.subtract_dark (reduced,corrected_master_dark[closest_dark],
+                                                            exposure_time='exptime', exposure_unit=u.second,
+                                                            scale=True)
+                            else:
+                                    
+                                closest_dark = find_nearest_dark_exposure(
+                                    reduced, master_darks.keys())
+                
+                                reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
+                                                             exposure_time='exptime', exposure_unit=u.second,
+                                                             scale=True)
+                        ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
+                        #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
+                        if scalable_dark_bool != True:
+                            
+                            
+                            
+                            if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                            
+                                
+                                closest_dark = find_nearest_dark_exposure(light, corrected_master_dark.keys())
+                                reduced=ccdp.subtract_dark (light, corrected_master_dark[closest_dark],
+                                                            exposure_time='exptime', exposure_unit=u.second,
+                                                            scale=False)
+                            else:
+                                    
+                                closest_dark = find_nearest_dark_exposure(
+                                    light, master_darks.keys())
+                
+                                reduced = ccdp.subtract_dark(light, master_darks[closest_dark],
+                                                             exposure_time='exptime', exposure_unit=u.second,
+                                                             scale=False)
+        
+                        ########## End ##########
+        
+                        # Flat Correction
+                        
+                        if correct_outliers_params['ccdmask']:
+                            
+                            try:
+                                reduced = ccdp.flat_correct(reduced,corrected_master_flat)
+                            except: 
+                                print('Corrected Master Flat Not Found')
+                        else :    
+                            good_flat = master_flats[reduced.header['filter']]
+                            reduced = ccdp.flat_correct(reduced, good_flat)
+        
+                        ### Cosmic Rays Outliers ###
+                        if correct_outliers_params['Outlier Boolean'] is True:
+        
+                            if correct_outliers_params['Cosmic Rays Bool']:
+                                # Convert image to Electrons
+                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
+                                reduced_in_e.mask = mask
+                                new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
+                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
+                                mask = reduced_in_e.mask
+                                print('Removed Cosmic Rays')
+        
+                            reduced.mask = mask
+                        reduced.meta['correctd'] = True
+                        file_name = file_name.split("\\")[-1]
+                        try:
+                            reduced.write(str(corrected_light_dir) +'\\' + file_name)
+                        except OSError:
+                            file_name = file_name[:-5]
+                            print(file_name)
+                            file_name = file_name + "1.fits"
+                            reduced.write((str(corrected_light_dir) + '\\' + file_name))
+        
+                        print('Saving ', file_name)
+                except Exception as e:
+                    print(e)
+                    pass
         except Exception as e:
+            
             print(e)
-            pass
+            continue
 
 
 def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
@@ -616,11 +668,12 @@ def flat_image_masking(flat_imgtypes_concatenateded,
                            frame_filter,
                            master_dir,
                            corrected_light_dir,
-                           all_fits):
+                           all_fits,binning):
     # Based on IRAF ccdmask
     flats_to_compare = all_fits.files_filtered(
         imagetyp=flat_imgtypes_concatenateded,
         filter=frame_filter,
+        ybinning=binning,
         include_path=True
     )
     # TODO: Add functionality for single flat frame
@@ -712,6 +765,8 @@ def flat_image_masking(flat_imgtypes_concatenateded,
                                   corrected_light_dir)
         else:
             corrected_master_flat=CCDData.read((str(master_dir) + flat_file_name),unit='adu')
+
+    return maskr
 
 
 def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,corrected_light_dir):
@@ -876,12 +931,17 @@ def find_hot_pixels(master_darks,dark_time,mask):
         mask = mask | hot_pixels
     else:
         mask = mask
+    return mask
         
 def dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask):
-    dark_pix_over_max = master_darks[dark_time].data > float(
-        correct_outliers_params['Dark Frame Threshold Max'])
-    dark_pix_under_min = master_darks[dark_time].data < float(
-        correct_outliers_params['Dark Frame Threshold Min'])
-    dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
-    mask = mask | dark_threshold_mask
-    
+    try:
+        dark_pix_over_max = master_darks[dark_time].data > float(
+            correct_outliers_params['Dark Frame Threshold Max'])
+        dark_pix_under_min = master_darks[dark_time].data < float(
+            correct_outliers_params['Dark Frame Threshold Min'])
+        dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
+        mask = mask | dark_threshold_mask
+        
+    except Exception as e: 
+        raise RuntimeError(e)
+    return mask

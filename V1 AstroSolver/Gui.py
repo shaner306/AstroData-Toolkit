@@ -24,6 +24,7 @@ import os.path
 import Main
 import AstroFunctions as astro
 from astropy.nddata import CCDData
+from pathlib import Path
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -271,9 +272,9 @@ def Gui():
             
             reduce_dir = values["-IN200-"]
             if use_existing_masters is True:
-                reduced_dirs = [values["-IN200-"],exisiting_masters_dir] 
+                reduce_dirs = [values["-IN200-"],exisiting_masters_dir] 
             else:
-                reduced_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
+                reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
             
             
             
@@ -281,24 +282,65 @@ def Gui():
             use_existing_masters = values['-1N109-']
             exisiting_masters_dir = values['-1N109-2']
             
+            #### FLAGS #####
             
-            for dirpath,dirnames,files in os.walk(reduce_dir):
-                for name in files:
-                    if name.lower().endswith(('.fits','.fit','.fts')):
-                        sample_image=os.path.join(dirpath,name)
+            # TODO: Create Functions for this
+            
+            if os.path.isdir(reduce_dir):
+                for dirpath,dirnames,files in os.walk(reduce_dir):
+                    for name in files:
+                        if name.lower().endswith(('.fits','.fit','.fts')):
+                            sample_image_path=os.path.join(dirpath,name)
+                            break
+                sample_science_image = CCDData.read(sample_image_path,unit='adu')
+                try:
+                    if sample_science_image.header['Correctd'] is True:
+                        Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                        if Popup_string=='No':
+                            window.close()
+                            quit()
+                except KeyError:
+                    print('Could not find Correctd keyword')
+            
+            # TODO: Create Function for this        
+            
+            # Find Sample Dark
+            
+            if use_existing_masters:
+                dark_look_dir = exisiting_masters_dir
+            else:
+                dark_look_dir= values["-IN30-"]
+            try:    
+                for dirpath,dirnames,files in os.walk(dark_look_dir):
+                    for name in files:
+                        if name.lower().endswith(('.fits','.fit','.fts')):
+                            CCDData_sample=CCDData.read(os.path.join(dirpath,name),unit='adu')
+                            
+                            try: 
+                                if "dark" in CCDData_sample.header["IMAGETYP"].lower():
+                                    sample_dark_image = CCDData_sample
+                                    break
+                                else:
+                                    continue 
+                            except KeyError: 
+                                raise KeyError("WARNING -- Cound not find Keyword when looking for Dark Frame")
+            except:
+                raise KeyError("WARNING -- Could not find Dark Sample image")
+            try: 
+                if sample_science_image.header["EXPTIME"]!=sample_dark_image.header["EXPTIME"]:
+                    popup_string=sg.popup_yes_no("Science images might not have the same exposure time as the dark frames, Continue?")
+                    if popup_string=='No':
                         break
-            Sample_image = CCDData.read(sample_image,unit='adu')
-            try:
-                if Sample_image.header['Correctd'] is True:
-                    Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
-                    if Popup_string=='No':
                         window.close()
-                        quit()
-            except KeyError:
-                print('Could not find Correctd keyword')
+                        
+                
+            except UnboundLocalError:
+                print('No Sample Prediction')
+                
+                                
             # TODO : Come up with better methods for improving this
             
-            if (use_existing_masters is True):
+            if use_existing_masters is True:
                 
                     create_master_dir=False
             else:
@@ -307,20 +349,13 @@ def Gui():
             # TODO: Come up with a better method for this 
             scalable_dark_bool=True
             if (values["-IN20-"] == '') and (values["-IN30-"]!='') and (values["-IN40-"]!=''):
-                
-                
-                
-                    
-                if (len(reduced_dirs)==4) & (use_existing_masters is False):
+                      
+                if (len(reduce_dirs)==4) & (use_existing_masters is False):
                     print('None Scalabale Dark Detected')
                     scalable_dark_bool=False
-                    del reduced_dirs[reduced_dirs.index('')]
+                    del reduce_dirs[reduce_dirs.index('')]
                     print('Deleted Bias in redcued dir')
-                    
-             
-            if values["-1N109-"] is True:
-                print('WIP Not Reducing')
-                
+     
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
@@ -345,15 +380,23 @@ def Gui():
                                        'Radius of local Averaging': values["1IN10121-2-1"],
                                        }
 
+            
+            correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
+            correct_light_dir.mkdir(exist_ok=True)
+            correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
+            sav_loc = correct_light_directory
+            
             target = values["-IN1014-"]
             if values["-IN1013-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
                                  'D:\\NEOSSat-SA-111\\test')
                     print("Reduce Space-Based Images ---- Started")
+                    break
                     window.close()
                 except:
                     print("Input Error")
+                    break
                     window.update()
             else:
                 
@@ -363,7 +406,7 @@ def Gui():
                     
                     
                     
-                    Main.Image_reduce(reduced_dirs,
+                    Main.Image_reduce(reduce_dirs,
                                       create_master_dark,
                                       create_master_flat,
                                       create_master_bias,
@@ -371,9 +414,11 @@ def Gui():
                                       create_master_dir,
                                       use_existing_masters,
                                       exisiting_masters_dir,
-                                      scalable_dark_bool
+                                      scalable_dark_bool,
+                                      sav_loc
                                       )
                     print("Reduce Space-Based Images ---- Started")
+                    break
                     window.close()
                 except Exception as ex:
                     print(ex)
@@ -389,29 +434,34 @@ def Gui():
             # Check to See if image has been corrected already
             for dirpath,dirnames,files in os.walk(image_dir):
                 for name in files:
+                    
+                    
                     if name.lower().endswith(('.fits','.fit','.fts')):
-                        sample_image=os.path.join(dirpath,name)
+                        CCData_sample=CCDData.read(os.path.join(dirpath,name),unit='adu')
+                        sample_science_image=CCData_sample
                         break
-            Sample_image=CCDData.read(sample_image,unit='adu')
+                        
             
             try: 
-                if Sample_image.header['Correctd'] is False:
+                if sample_science_image.header['Correctd'] is False:
                     Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
                     if Popup_string=='No':
+                        break
                         window.close()
-                        quit()
+                        
                     
                 
                 # Do Nothing if Image is already Reduced
                 
             except:
-                Sample_image.meta['Correctd'] = False
+                sample_science_image.meta['Correctd'] = False
                 
                 # Prompt User about Confirming to Solve the image despite it not being redcued
                 Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
                 if Popup_string=='No':
+                    break
                     window.close()
-                    quit()
+                    
                 
                         
                 
@@ -451,6 +501,7 @@ def Gui():
                                         space_based_bool,
                                         use_sextractor,
                                         all_sky_solve)
+                    
                     window.close()
                 except:
                     print("Pinpoint Error. Please See Instructions")
@@ -482,7 +533,15 @@ def Gui():
                         # lat_key = 'OBSGEO-B'
                         # lon_key = 'OBSGEO-L'
                         # elev_key = 'OBSGEO-H'
-                        save_loc = os.path.join(image_dir, 'Outputs')
+                            
+                        try: 
+                            if sample_science_image.meta['Correctd'] == True:
+                                save_loc = os.path.join(image_dir, 'Corrected_Outputs')
+                            else:
+                                save_loc = os.path.join(image_dir, 'Outputs')
+                        except KeyError:
+                            save_loc = os.path.join(image_dir, 'Outputs')
+                            
                         Warner_final_transform_table =\
                             astro._main_gb_transform_calc_Warner(
                                 image_dir,
@@ -496,6 +555,7 @@ def Gui():
                                 save_loc=save_loc, unique_id=unique_id)
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
+                        break
                         window.close()
                     except Exception as e:
                         print(e)
