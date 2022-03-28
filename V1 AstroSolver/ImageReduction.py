@@ -194,7 +194,9 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
                 raise RuntimeError('WARNING -- Could not find/open Master Bias file')
         # Dynamic Dark Imagetype Reader
         
-    
+        else:
+            master_bias=None
+            
         for exp_time in sorted(dark_times):
     
             darks_to_calibrate = all_fits.files_filtered(
@@ -425,6 +427,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             if scalable_dark_bool:
                 master_bias = [ccd for ccd in master_files.ccds(
                     imagetyp=bias_imgtypes_concatenateded,ybinning=binning, combined=True)][0]
+            else: 
+                master_bias=None
             light_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
         
             for light_imgtypes in light_imgtype_matches:
@@ -507,8 +511,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         ### Flat Image Masking ###
                         if correct_outliers_params['ccdmask']:
                              example_light=lights_to_correct[0]
-                            
-                             maskr = flat_image_masking(flat_imgtypes_concatenateded,
+                             
+                             maskr,corrected_master_flat = flat_image_masking(flat_imgtypes_concatenateded,
                                                         lights_to_correct,
                                                         dark_times,
                                                         example_light,
@@ -593,10 +597,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         
                             if correct_outliers_params['Cosmic Rays Bool']:
                                 # Convert image to Electrons
-                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
+                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['GAINADU'])*u.electron/u.adu)
                                 reduced_in_e.mask = mask
                                 new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
-                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
+                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['GAINADU'])*u.electron)))
                                 mask = reduced_in_e.mask
                                 print('Removed Cosmic Rays')
         
@@ -722,7 +726,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
                 # Replaces the values in mask with a desired value
                 if correct_outliers_params['Replace Mode'] == 'Ave':
                     print('Calculate Average Background')
-
+                    
                     print('Save New Master Flat')
 
                 elif correct_outliers_params['Replace Mode'] == 'Interpolate':
@@ -768,7 +772,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         else:
             corrected_master_flat=CCDData.read((str(master_dir) + flat_file_name),unit='adu')
 
-    return maskr
+    return maskr,corrected_master_flat
 
 
 def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,corrected_light_dir):
@@ -925,7 +929,7 @@ def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_ma
 def find_hot_pixels(master_darks,dark_time,mask):
     # Calculate Dark Current to find hot pixels
     dark_current = master_darks[dark_time].multiply(
-        float(master_darks[dark_time].header['EGAIN'])*u.electron /
+        float(master_darks[dark_time].header['GAINADU'])*u.electron /
         u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
     if (dark_current):
         

@@ -20,20 +20,20 @@ from pathlib import Path
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\Automated Pointing Runs 009-014'
 
 create_master_dark=False
 create_master_flat=False
 create_master_bias=False
-correct_outliers_params = {'Outlier Boolean': False,
+correct_outliers_params = {'Outlier Boolean': True,
 
-                           'Hot Pixel': False,
-                           'Dark Frame Threshold Bool': False,
+                           'Hot Pixel': True,
+                           'Dark Frame Threshold Bool': True,
                            'Dark Frame Threshold Min':  -50,
                            'Dark Frame Threshold Max': 100,
-                           'ccdmask': False,
-                           'Cosmic Rays Bool': False,
-                           'Replace Bool': False,
+                           'ccdmask': True,
+                           'Cosmic Rays Bool': True,
+                           'Replace Bool': True,
                            'Replace Mode':  'Interpolate',
                            'Multiple Flat Combination':False,
                            'Save Corrected Flats': False,
@@ -43,7 +43,7 @@ correct_outliers_params = {'Outlier Boolean': False,
 create_master_dir=False
 
 use_existing_masters=True
-exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\master_frame_data'
+exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\master_frame_data'
 
 scalable_dark_bool=False
 
@@ -55,7 +55,7 @@ list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
 for dirs in list_subfolders_with_paths:
     reduced_dirs=[dirs,exisiting_masters_dir]
     
-    sav_loc=Path(str(dirs)+'_Corrected')
+    sav_loc=Path(str(dirs)+'_Outlier_Corrected')
     sav_loc.mkdir(exist_ok=True)
     
     Main.Image_reduce(reduced_dirs,
@@ -73,7 +73,7 @@ for dirs in list_subfolders_with_paths:
 
         
 #%% Batch Solve           
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-11-21\Landolt Stars'
 catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
@@ -163,7 +163,7 @@ for dirs in list_subfolders_with_paths:
      
 #%% Create Combined Large Star Table
 import csv
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-30\Siderial Stare Mode Reduced No Dark Scale'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"_Combined_Large_Star_Table.csv"
 with open(file,"a+",newline='\n') as f:

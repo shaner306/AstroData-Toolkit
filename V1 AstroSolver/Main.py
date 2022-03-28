@@ -517,14 +517,16 @@ def Ground_based_transforms(directory, ref_stars_file):
     remove_large_airmass = False
     # file_suffix=".fit"
     # exposure_key='EXPTIME'
-    lat_key = 'OBSGEO-B'
-    lon_key = 'OBSGEO-L'
-    elev_key = 'OBSGEO-H'
+# =============================================================================
+#     lat_key = 'OBSGEO-B'
+#     lon_key = 'OBSGEO-L'
+#     elev_key = 'OBSGEO-H'
+# =============================================================================
     file_suffix = (".fits", ".fit", ".fts")
     exposure_key = 'EXPTIME'
-    # lat_key='SITELAT'
-    # lon_key='SITELONG'
-    # elev_key='SITEELEV'
+    lat_key='SITELAT'
+    lon_key='SITELONG'
+    elev_key='SITEELEV'
     name_key = 'Name'
     # ref_stars_file =\
     # r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
