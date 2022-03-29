@@ -24,13 +24,20 @@ import os.path
 import Main
 import AstroFunctions as astro
 from astropy.nddata import CCDData
+from astropy.io import fits
 from pathlib import Path
+from astropy.wcs import WCS
+from astropy.visualization import simple_norm
+import matplotlib.pyplot as plt
+from tkinter import Tk,Canvas, Frame ,BOTH
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
 
-
+first_display_event=True
 def Gui():
+    first_display_event=True
     windowopen = False
     sg.theme("Default1")
 
@@ -246,10 +253,25 @@ def Gui():
         [sg.T("   ")],
         [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
     ]
+    
+    tab3_layout=[[sg.Text("Sample Image"),
+                  sg.Input(key="IN300",change_submits=True),
+                  sg.FileBrowse(key="-IN301-"),
+                  sg.Button("Display")],
+                 
+                 [sg.Column([[sg.Text("Headers")],[sg.Multiline('',size=(40,30),key='Window1')]]),
+                  sg.Column([[sg.Text("Keywords")],[sg.Multiline('',size=(40,30),key='Window2')]]),
+                  sg.Column([[sg.Canvas(size=(70,50),key='Canvas1')],
+                  [sg.Text("Scale Type:"),sg.InputText('asinh',key="-CanvasScale-")]])
+                   
+                  ]
+        
+        ]
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
-               sg.Tab('Image Reduction', tab2_layout)
+               sg.Tab('Image Reduction', tab2_layout),
+               sg.Tab('Keyword Editor',tab3_layout)
     ]])]]
     if windowopen is False:
         window = sg.Window('AstroSolver', layout)
@@ -424,6 +446,8 @@ def Gui():
                     print(ex)
 
         elif event == "Solve":
+        
+            print("Hello World")
             
             image_dir = values["-IN2-"]
             catalog_dir = values["-IN3-"]
@@ -596,6 +620,45 @@ def Gui():
                     print("Input Error. Please See Instructions2")
                     # window.update()
                     continue
+        elif event == "Display":
+            
+            
+            ### Print Headers ###
+            if first_display_event:
+                headers=(fits.open(str(values['-IN301-']),unit='adu')[0].header.items())
+                for items in headers : window['Window1'].print(items)
+                first_display_event=False                
+            window['Window2'].print("")
+            ## Display Image ## 
+            CCDData_sample=CCDData.read(str(values['-IN301-']),unit='adu')
+            hdr=(fits.open(str(values['-IN301-'])))[0].header
+            wcs=WCS(hdr)
+            try:
+                norm = simple_norm(CCDData_sample,values['-CanvasScale-'])
+            except:
+                print('Canvas Scale Input Not Valid, Reverting to Linear Projection')
+                norm = simple_norm(CCDData_sample,'linear')    
+            fig=plt.figure()
+            ax=fig.add_subplot(projection=wcs,label='overlays')
+            
+            im=plt.imshow(CCDData_sample,origin='lower',norm=norm)
+            plt.grid(color='white',ls='solid')
+            plt.colorbar(im)
+            plt.title("Sample Image")
+            
+            # Draw Figure 
+            figure_canvas_agg=FigureCanvasTkAgg(fig,window['Canvas1'].TKCanvas)
+            figure_canvas_agg.draw()
+            figure_canvas_agg.get_tk_widget().pack(side='top',fill='both',expand=1)
+            event,values=window.read()
+            
+           
+            
+            
+            
+            
+            
+            
     window.close()
 
 

@@ -748,6 +748,9 @@ def Image_reduce(reduce_dirs,
     elapsed_time = stop_time - start_time
 
     print('Elapsed time:', elapsed_time, 'seconds.')
+    
+
+        
 
     # %% NEOSSAT Dark Subtraction
 
@@ -845,6 +848,8 @@ def DarkSub(target, obspath, **kwargs):
     pbar.close()
 
     return
+
+
 
 
 class AstroReducer:
