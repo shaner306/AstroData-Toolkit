@@ -139,6 +139,9 @@ def Gui():
                    [sg.T(""), sg.Checkbox('Pinpoint Solve',
                                           default=False,
                                           key="-IN100-")],
+                   [sg.T(""),sg.Checkbox('New Boyd Method',
+                                         default=False,
+                                         key='-NewBoydMethod')]
                    # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
@@ -541,18 +544,35 @@ def Gui():
                                 save_loc = os.path.join(image_dir, 'Outputs')
                         except KeyError:
                             save_loc = os.path.join(image_dir, 'Outputs')
+                        
+                        # New Boyd Method  
+                        if values['NewBoydMethod'] is False:
                             
-                        Warner_final_transform_table =\
-                            astro._main_gb_transform_calc_Warner(
-                                image_dir,
-                                refstar_dir,
-                                plot_results=plot_results,
-                                save_plots=save_plots,
-                                file_suffix=file_suffix,
-                                exposure_key=exposure_key,
-                                name_key=name_key, lat_key=lat_key,
-                                lon_key=lon_key, elev_key=elev_key,
-                                save_loc=save_loc, unique_id=unique_id)
+                            Warner_final_transform_table =\
+                                astro._main_gb_transform_calc_Warner(
+                                    image_dir,
+                                    refstar_dir,
+                                    plot_results=plot_results,
+                                    save_plots=save_plots,
+                                    file_suffix=file_suffix,
+                                    exposure_key=exposure_key,
+                                    name_key=name_key, lat_key=lat_key,
+                                    lon_key=lon_key, elev_key=elev_key,
+                                    save_loc=save_loc, unique_id=unique_id)
+                        else:    
+                            NewBoydMethod=astro._main_gb_new_boyd_method(
+                              image_dir,
+                              refstar_dir,
+                              plot_results=plot_results,
+                              save_plots=save_plots,
+                              file_suffix=file_suffix,
+                              exposure_key=exposure_key,
+                              name_key=name_key, lat_key=lat_key,
+                              lon_key=lon_key, elev_key=elev_key,
+                              save_loc=save_loc, unique_id=unique_id)
+                        
+                          
+                            
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
                         break

@@ -2195,6 +2195,8 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 the star in <filter>. There is a different
                 column for each different filter used across the images.
                 Only output if ground_based is True.
+        different_filter_list: list
+            Different Filters 
 
     """
 
@@ -6507,6 +6509,29 @@ def _main_gb_transform_calc(directory,
                             elev_key='SITEELEV',
                             name_key='Name',
                             **kwargs):
+    
+    """
+    Taking 
+
+    Parameters
+    ----------
+
+    directory: String of the  Image directory which includes the images to be processed
+    ref_stars_file: String describing the directory of reference star files to be used in processing
+    plot_results: Boolean 
+    save_plots: Boolean
+    remove_large_airmass_bool: Boolean
+    file_suffix: tuple describing the file suffixes to be used in 
+    exposure_key= FITS Keyword to be used to access the exposure time of the image
+    
+
+    Returns
+    
+    -------
+
+    Nil
+
+    """
     # TODO: Docstring.
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     gb_transform_table_columns = init_gb_transform_table_columns()
@@ -6731,6 +6756,219 @@ def _main_gb_transform_calc(directory,
             plot_results=plot_results,
             save_plots=save_plots)
     return gb_final_transforms, auxiliary_data_table
+
+def _main_gb_new_boyd_method(
+    directory,
+    ref_stars_file,
+    plot_results=False,
+    save_plots=False,
+    remove_large_airmass_bool=False,
+    file_suffix=(".fits", ".fit", ".fts"),
+    exposure_key='EXPTIME',
+    lat_key='SITELAT',
+    lon_key='SITELONG',
+    elev_key='SITEELEV',
+    name_key='Name',
+    **kwargs):
+    
+    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    large_table_columns = init_large_table_columns()
+    star_aux_table_columns = init_star_aux_table_columns()
+
+    "Create the save location if the one specified by the user doesn't exist."
+    if save_plots:
+        save_loc = kwargs.get('save_loc')
+        unique_id = kwargs.get('unique_id')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
+
+    "Create the text file for logging problem files."
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('File')
+        f.write('\t')
+        f.write('Reason')
+        f.write('\n')
+    "Create an array of all .fits files in the directory (including subfolders)."
+    excluded_files = 0
+    filecount = 0
+    file_paths = []
+    file_names = []
+    for dirpth, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(file_suffix):
+                file_paths.append(os.path.join(dirpth, file))
+                file_names.append(file)
+                filecount += 1
+    "Split the files into those for calculation and those for verification."
+    shuffle(file_paths)  # why shuffle?
+    split_decimal = 1  # when decimal is 1 then all
+    split_filecount_location = math.ceil(split_decimal * filecount)
+    calculation_files = file_paths[:split_filecount_location]
+    verification_files = file_paths[split_filecount_location:]
+    with open(os.path.join(save_loc,
+                           'CalVerSplit.txt'),
+              'a+') as f:
+        f.write('File Path'+'\t'+'Calculation/Verification')
+        for calc_file in calculation_files:
+            f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
+        for verify_file in verification_files:
+            f.write('\n'+f'{verify_file}'+'\t'+'Verification')
+    "Iterate over the images."
+    for file_num, filepath in enumerate(tqdm(calculation_files)):
+        # Read the fits file. Stores the header and image to variables.
+        hdr, imgdata = read_fits_file(filepath)
+        # Read the exposure time of the image.
+        exptime = hdr[exposure_key]
+        # Calculate the image background and standard deviation.
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        # Detect point sources in the image.
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        # If no stars are in the image, log it and go to the next one.
+        if not irafsources:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No sources detected')
+                f.write('\n')
+            excluded_files += 1
+            continue
+        # Calculate the number of point sources detected.
+        num_sources = len(irafsources)
+        # Calculate the FWHM in pixels.
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        # Do PSF photometry on the detected sources.
+        photometry_result = perform_photometry(
+            irafsources, fwhm, imgdata, bkg=bkg)
+        # Store the flux and uncertainty of the stars in a separate variable.
+        fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
+        # Convert the flux and uncertainty to magnitude and its uncertainty.
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
+            photometry_result, exptime)
+        # Read the World Coordinate System transformation added to the
+        # fits header by a plate solving software (external to this program, e.g. PinPoint).
+        wcs = WCS(hdr)
+        # Convert the stars' (x,y) centroid locations to (RA,dec).
+        skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+        try:
+            # altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr,
+            # lat_key='OBSGEO-B', lon_key='OBSGEO-L',
+            #                                           elev_key='OBSGEO-H')
+
+            # Convert the stars' (RA,dec) location to (Azimuth,Elevation).
+            altazpositions = convert_ra_dec_to_alt_az(skypositions, hdr,
+                                                      lat_key=lat_key,
+                                                      lon_key=lon_key,
+                                                      elev_key=elev_key)
+        # If there's no plate solution, it will raise and AttributeError.
+        # This catches that error, logs it, and moves onto the next image.
+        except AttributeError as e:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No plate solution found')
+                f.write('\n')
+                excluded_files += 1
+            continue
+        # Convert the FWHM from pixels to arcsec.
+        fwhms_arcsec, fwhm_arcsec, fwhms_arcsec_std = convert_fwhm_to_arcsec(
+            hdr, fwhms, fwhm, fwhm_std)
+        # If it can't convert from pixels to arcsec (e.g. the focal length
+        # wasn't defined in the header),
+        # store it as NaN.
+        if not fwhm_arcsec:
+            fwhm_arcsec = np.nan
+            fwhms_arcsec_std = np.nan
+        # Read the time from the fits header and then convert it to
+        # Julian Date.
+        t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+        time = t.jd
+        # Store the filter used to take the image as a variable.
+        img_filter = hdr['FILTER']
+        # Calculate the background sky brightness and standard deviation.
+        background_sky_brightness = calculate_background_sky_brightness(
+            bkg, hdr, exptime)
+        background_sky_brightness_sigma = calculate_BSB_sigma(
+            bkg, bkg_std, exptime)
+        # Take the average of all stars' Az/El/airmass and store as a variable.
+        azimuth = np.mean(altazpositions.az)
+        elevation = np.mean(altazpositions.alt)
+        airmass = np.mean(altazpositions.secz)
+        # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
+        star_aux_table_columns =\
+            update_star_aux_columns(star_aux_table_columns,
+                                    file_names[file_num],
+                                    time,
+                                    img_filter,
+                                    fwhm,
+                                    fwhm_std,
+                                    fwhm_arcsec,
+                                    fwhms_arcsec_std,
+                                    num_sources,
+                                    background_sky_brightness,
+                                    background_sky_brightness_sigma,
+                                    azimuth,
+                                    elevation,
+                                    airmass)
+        # Match the detected sources with a star from the reference stars file.
+        matched_stars = find_ref_stars(reference_stars,
+                                       ref_star_positions,
+                                       skypositions,
+                                       instr_mags,
+                                       instr_mags_sigma,
+                                       snr,
+                                       fluxes,
+                                       fluxes_unc,
+                                       ground_based=True,
+                                       altazpositions=altazpositions)
+        # If no image star corresponds to a reference star, log it and go to
+        # the next image.
+        if not matched_stars:
+            with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write('No reference star found in image')
+                f.write('\n')
+                excluded_files += 1
+            continue
+        # Update the table that contains information on each detection of a
+        # reference star.
+        large_table_columns = update_large_table_columns(large_table_columns,
+                                                         filepath,
+                                                         matched_stars,
+                                                         hdr,
+                                                         exptime,
+                                                         ground_based=True,
+                                                         name_key=name_key)
+    # Complete the text file that stores information on files that were not used to calculate the transforms.
+    with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
+        f.write('Total excluded:')
+        f.write('\t')
+        f.write(
+            f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    # Create an AstroPy table of the auxiliary data and write it to a .csv file.
+    star_aux_table = create_star_aux_table(star_aux_table_columns)
+    ascii.write(star_aux_table, os.path.join(
+        save_loc, 'auxiliary_table.csv'), format='csv')
+    # Create an AstroPy table of each reference star detection and write it to a .csv file.
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
+    ascii.write(large_stars_table, os.path.join(
+        save_loc, 'large_stars_table.csv'), format='csv')
+    # Group each observation of a star at an airmass.
+    # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of
+    # star X at 2 airmass,
+    # it will produce a mean and standard deviation of the observations at
+    # both 1.2 and 2 airmass.
+    # This creates that table, stores the different filters used to take the
+    # images (e.g. BVRI or BGR),
+    # and writes it to a .csv file.
+    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+    ascii.write(stars_table, os.path.join(
+        save_loc, 'stars_table.csv'), format='csv')
+    
+    
 
 
 def verify_gb_transforms(directory,
@@ -7175,6 +7413,66 @@ def create_star_aux_table(star_aux_table_columns):
 
 
 def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):
+    '''
+    Calculates the slope of Each Stars Magntitude with Time and plots it
+
+    Parameters
+    ----------
+    stars_table :  astropy.table.table.Table
+        Table containing the mean of the important information for each star.
+        Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star
+                is in (e.g. Landolt field "108").
+            Name : string
+                Name/unique identifier of the reference star.
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from
+                the reference file.
+            <filter> : numpy.float64
+                Mean instrumental magnitude of all detections of the star in
+                <filter>. There is a different column for
+                each different filter used across the images.
+            <filter>_sigma : numpy.float64
+                Standard deviation of the instrumental magnitudes of all
+                detections of the star in <filter>.
+                There is a different column for each different filter
+                used across the images.
+            X_<filter> : numpy.float64
+                Mean airmass of all detections of the star in <filter>.
+                There is a different column for each different
+                filter used across the images. Only output if ground_based
+                is True.
+            X_<filter>_sigma : numpy.float64
+                Standard deviation of the airmasses of all detections of
+                the star in <filter>. There is a different
+                column for each different filter used across the images.
+                Only output if ground_based is True.
+                
+    different_filter_list : TYPE
+        DESCRIPTION.
+    save_plots : TYPE
+        DESCRIPTION.
+    **kwargs : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    slopes_table : Table
+        DESCRIPTION.
+
+    '''
+    
     stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(
         stars_table)
     slope_filters = [
@@ -9358,6 +9656,7 @@ def _main_gb_transform_calc_Buchheim(directory,
         stars_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(slopes_table, os.path.join(
         save_loc, 'slopes_table.csv'), format='csv')
+    
     # Calculate the first and second order extinctions.
     second_order_extinction_calc_Buchheim(stars_table, different_filter_list,
                                           save_plots,
@@ -9373,6 +9672,7 @@ def _main_gb_transform_calc_Buchheim(directory,
         stars_table, extinction_table_Buckhheim, different_filter_list)
 
     ############# Begin the Warner Transforms #############
+
 
     # Finish the transform by calculating the colour transform and zero point.
     Buckhheim_final_transform_table =\
