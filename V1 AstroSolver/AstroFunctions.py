@@ -94,6 +94,9 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
     sigma : float, optional
         The number of standard deviations to use for both the lower and upper 
         clipping limit. The default is 3.0.
+    slope : float
+    
+    intercept: float
 
     Returns
     -------
@@ -7459,10 +7462,10 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
                 column for each different filter used across the images.
                 Only output if ground_based is True.
                 
-    different_filter_list : TYPE
-        DESCRIPTION.
-    save_plots : TYPE
-        DESCRIPTION.
+    different_filter_list : List
+        Different Filter List
+    save_plots : Boolean
+        True= Save Plots
     **kwargs : TYPE
         DESCRIPTION.
 
@@ -7630,6 +7633,64 @@ def get_stars_with_multiple_observations(stars_table):
 def second_order_extinction_calc_Warner(slopes_table,
                                         different_filter_list,
                                         save_plots, **kwargs):
+    '''
+    Calculate First and Second order Extinction Coeffieicients using Warners method 
+
+    Parameters
+    ----------
+    slopes_table : astropy.table.table.Table
+        Table containing the mean of the important information for each star.
+        Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star
+                is in (e.g. Landolt field "108").
+            Name : string
+                Name/unique identifier of the reference star.
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from
+                the reference file.
+            <filter> : numpy.float64
+                Mean instrumental magnitude of all detections of the star in
+                <filter>. There is a different column for
+                each different filter used across the images.
+            <filter>_sigma : numpy.float64
+                Standard deviation of the instrumental magnitudes of all
+                detections of the star in <filter>.
+                There is a different column for each different filter
+                used across the images.
+            X_<filter> : numpy.float64
+                Mean airmass of all detections of the star in <filter>.
+                There is a different column for each different
+                filter used across the images. Only output if ground_based
+                is True.
+            X_<filter>_sigma : numpy.float64
+                Standard deviation of the airmasses of all detections of
+                the star in <filter>. There is a different
+                column for each different filter used across the images.
+                Only output if ground_based is True.
+    different_filter_list : list
+        different filter list
+    save_plots : boolean
+        Boolean to save plots
+    **kwargs : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    extinction_table_Warner : astropy.table.table.Table
+        DESCRIPTION.
+
+    '''
     filter_column = []
     CI_column = []
     k_primeprime_column = []
@@ -7645,6 +7706,9 @@ def second_order_extinction_calc_Warner(slopes_table,
             filter_column.append(different_filter)
             CI_column.append(colour_index)
             # print(slopes_table[colour_index])
+            
+            
+            #  FIXME: lenght of ci_plot might not be numerically stable. See Numpy Docs on arange
             ci_plot = np.arange(min(slopes_table[colour_index][~np.isnan(slopes_table[colour_index])]) - 0.1,
                                 max(slopes_table[colour_index][~np.isnan(
                                     slopes_table[colour_index])]) + 0.1,
