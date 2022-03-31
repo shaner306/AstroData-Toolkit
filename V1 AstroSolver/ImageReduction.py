@@ -622,6 +622,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                 print('Removed Cosmic Rays')
         
                             reduced.mask = mask
+                        if correct_outliers_params['Force Offset']:
+                            if np.min(reduced.data)<0:
+                                reduced.data= reduced.data + np.min(reduced.data)
+                            else:
+                                reduced.data= reduced.data - np.min(reduced.data)
+                                
+                                
                         reduced.meta['correctd'] = True
                         file_name = file_name.split("\\")[-1]
                         try:
@@ -869,8 +876,26 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
     if correct_outliers_params['Replace Bool']:
         # Replaces the values in mask with a desired value
         if correct_outliers_params['Replace Mode'] == 'Ave':
-            print('Calculate Average Background')
+            print('Replacing Outliers with Average')
             # TODO: Add Script
+            coordinates=np.where(maskr.data==True)
+            
+            flats=[]
+            if (correct_outliers_params['Multiple Flat Combination'] is False)  :
+                if (flats_to_compare != ()) :
+                    flats_to_compare = flats_to_compare[0]
+                flat=flats_to_compare
+                flatdata = CCDData.read(flat, unit='adu')
+                flatdata.mask=maskr
+                Replaceable_mean=np.nanmean(flatdata)
+                for i in range(0, np.shape(coordinates)[1]):
+                    flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+            else:
+                for flat in flats_to_compare:
+                    print('Do Something')
+                    
+                    # TODO: Add Script 
+                
             
             
             
@@ -891,17 +916,18 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     flatdata2.mask = maskr
                     flatdata.mask=maskr
                     
-                        
-                    try:
-                        
-                        Replaceable_mean = np.nanmean(
-                            flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                    except:  # Except faulty pix is in the corner of the image on the right side of the image
-                        Replaceable_mean = np.nanmean(flatdata)
-                        
                     if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0) or ((coordinates[0][i]+radius)>(np.shape(maskr))[0]) or ((coordinates[1][0]+radius)>(np.shape(maskr))[1])):
                         # Condition for left most coordinates that have a radius beyond the left of the image
                         Replaceable_mean = np.nanmean(flatdata2)
+                    else:
+                        try:
+                            
+                            Replaceable_mean = np.nanmean(
+                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                        except:  # Except faulty pix is in the corner of the image on the right side of the image
+                            Replaceable_mean = np.nanmean(flatdata)
+                        
+                    
                     flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                     
                 flats.append(flatdata)
@@ -918,17 +944,18 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                         flatdata2.mask = maskr
                         flatdata.mask=maskr
                         
-                            
-                        try:
-                            
-                            Replaceable_mean = np.nanmean(
-                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                        except:  # Except faulty pix is in the corner of the image on the right side of the image
-                            Replaceable_mean = np.nanmean(flatdata2)
-                            
                         if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
                             # Condition for left most coordinates that have a radius beyond the left of the image
                             Replaceable_mean = np.nanmean(flatdata2)
+                        else:
+                            try:
+                                
+                                Replaceable_mean = np.nanmean(
+                                    flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                            except:  # Except faulty pix is in the corner of the image on the right side of the image
+                                Replaceable_mean = np.nanmean(flatdata2)
+                            
+                        
                         flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                         
                     flats.append(flatdata)
