@@ -622,11 +622,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                 print('Removed Cosmic Rays')
         
                             reduced.mask = mask
+                            
+                            
                         if correct_outliers_params['Force Offset']:
                             if np.min(reduced.data)<0:
-                                reduced.data= reduced.data + np.min(reduced.data)
+                                reduced.data= reduced.data + abs(np.min(reduced.data))
                             else:
-                                reduced.data= reduced.data - np.min(reduced.data)
+                                reduced.data= reduced.data - abs(np.min(reduced.data))
                                 
                                 
                         reduced.meta['correctd'] = True
