@@ -877,12 +877,13 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
     
     if correct_outliers_params['Replace Bool']:
         # Replaces the values in mask with a desired value
+        flats=[]
         if correct_outliers_params['Replace Mode'] == 'Ave':
             print('Replacing Outliers with Average')
             # TODO: Add Script
             coordinates=np.where(maskr.data==True)
             
-            flats=[]
+            
             if (correct_outliers_params['Multiple Flat Combination'] is False)  :
                 if (flats_to_compare != ()) :
                     flats_to_compare = flats_to_compare[0]
@@ -892,12 +893,13 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 Replaceable_mean=np.nanmean(flatdata)
                 for i in range(0, np.shape(coordinates)[1]):
                     flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+                flats.append(flatdata)
             else:
                 for flat in flats_to_compare:
                     print('Do Something')
                     
                     # TODO: Add Script 
-                
+            
             
             
             
@@ -962,22 +964,22 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                         
                     flats.append(flatdata)
                 
-            # Save the Data
-            if len(flats)==1:
-                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
-                    frame_filter.replace("''", "p"))
-                flatdata.write(str(master_dir) + flat_file_name)
-                result = flatdata
-            else:
-                #TODO: Test This out
-                if correct_outliers_params['Save Corrected Flats'] == True:
-                    corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
-                    if os.path.isdir(corrected_dir) is False:
-                        os.mkdir(corrected_dir)
-                    flat_name_dir = os.path.join(corrected_dir ,
-                        os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
-                    flatdata.write(flat_name_dir)
-            # IF ratio of flats is bad or only one flat frame we can save the flat as the master
+        # Save the Data
+        if len(flats)==1:
+            flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+                frame_filter.replace("''", "p"))
+            flatdata.write(str(master_dir) + flat_file_name)
+            result = flatdata
+        else:
+            #TODO: Test This out
+            if correct_outliers_params['Save Corrected Flats'] == True:
+                corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
+                if os.path.isdir(corrected_dir) is False:
+                    os.mkdir(corrected_dir)
+                flat_name_dir = os.path.join(corrected_dir ,
+                    os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
+                flatdata.write(flat_name_dir)
+        # IF ratio of flats is bad or only one flat frame we can save the flat as the master
             print('Saved New Flats')
             
             # Combine Flats 
