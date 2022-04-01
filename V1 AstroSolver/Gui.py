@@ -141,7 +141,7 @@ def Gui():
                                           key="-IN100-")],
                    [sg.T(""),sg.Checkbox('New Boyd Method',
                                          default=False,
-                                         key='-NewBoydMethod')]
+                                         key='NewBoydMethod')],
                    # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
@@ -549,7 +549,7 @@ def Gui():
                         except KeyError:
                             save_loc = os.path.join(image_dir, 'Outputs')
                         
-                        # New Boyd Method  
+                        ## New Boyd Method ##
                         if values['NewBoydMethod'] is False:
                             
                             Warner_final_transform_table =\
