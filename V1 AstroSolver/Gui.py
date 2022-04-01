@@ -200,6 +200,9 @@ def Gui():
                     [sg.Checkbox('Save Corrected Flats',
                                 default=False,
                                 key='1IN10123')],
+                    [sg.Checkbox('Force Offset',
+                                 default=False,
+                                 key='ForceOffset')],
                     ]
 
     tab2_layout = [
@@ -381,6 +384,7 @@ def Gui():
                                        'Multiple Flat Combination':values["1IN10122"],
                                        'Save Corrected Flats': values ["1IN10123"],
                                        'Radius of local Averaging': values["1IN10121-2-1"],
+                                       'Force Offset': values['ForceOffset']
                                        }
 
             

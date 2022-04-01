@@ -468,6 +468,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 
                 if correct_outliers_params['Hot Pixel'] is True:
                     
+                    # FIXME: Only pass in master_dark
                     mask = find_hot_pixels(master_darks,dark_time,mask)
                     
                 
@@ -478,18 +479,19 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 
                 if correct_outliers_params['Dark Frame Threshold Bool']:
                     
+                    # FIXME: Only passs in one master dark
                     mask = dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask)
                     
                     
                 if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
                     
-                    
+                    # TODO : Add overwrite option
                     # Check to see if corrected file already exists
                     corrected_dark_dir = (str(master_dir)+'\\master_dark_'+str(dark_time)+'corrected.fits')
                     if os.path.isfile(corrected_dark_dir) is False:
                         
-                        corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask,
-                                          master_darks, dark_time, master_dir)
+                        corrected_master_dark_data = correct_outlier_darks(correct_outliers_params, 
+                                          master_darks, dark_time, master_dir,mask)
                     else:
                             corrected_master_dark_data=CCDData.read(corrected_dark_dir,unit='adu')
                     corrected_master_dark[dark_time] = corrected_master_dark_data
@@ -512,19 +514,34 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         if correct_outliers_params['ccdmask']:
                              example_light=lights_to_correct[0]
                              
-                             maskr,corrected_master_flat = flat_image_masking(flat_imgtypes_concatenateded,
-                                                        lights_to_correct,
-                                                        dark_times,
-                                                        example_light,
-                                                        master_bias,
-                                                        master_darks,
-                                                        scalable_dark_bool,
-                                                        correct_outliers_params,                     
-                                                        frame_filter,
-                                                        master_dir,
-                                                        corrected_light_dir,
-                                                        all_fits,binning)
-                            
+                             if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
+                             
+                                 maskr,corrected_master_flat = flat_image_masking(flat_imgtypes_concatenateded,
+                                                            lights_to_correct,
+                                                            dark_times,
+                                                            example_light,
+                                                            master_bias,
+                                                            corrected_master_dark,
+                                                            scalable_dark_bool,
+                                                            correct_outliers_params,                     
+                                                            frame_filter,
+                                                            master_dir,
+                                                            corrected_light_dir,
+                                                            all_fits,binning)
+                             else:
+                                 
+                                 maskr,corrected_master_flat = flat_image_masking(flat_imgtypes_concatenateded,
+                                                            lights_to_correct,
+                                                            dark_times,
+                                                            example_light,
+                                                            master_bias,
+                                                            master_darks,
+                                                            scalable_dark_bool,
+                                                            correct_outliers_params,                     
+                                                            frame_filter,
+                                                            master_dir,
+                                                            corrected_light_dir,
+                                                            all_fits,binning)
                             
                              mask = mask | maskr
         
@@ -599,12 +616,21 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                 # Convert image to Electrons
                                 reduced_in_e = ccdp.gain_correct(reduced, float(light.header['GAINADU'])*u.electron/u.adu)
                                 reduced_in_e.mask = mask
-                                new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=10, sigclip=5, verbose=True)
+                                new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=0, sigclip=4, verbose=True)
                                 reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['GAINADU'])*u.electron)))
                                 mask = reduced_in_e.mask
                                 print('Removed Cosmic Rays')
         
                             reduced.mask = mask
+                            
+                            
+                        if correct_outliers_params['Force Offset']:
+                            if np.min(reduced.data)<0:
+                                reduced.data= reduced.data + abs(np.min(reduced.data))
+                            else:
+                                reduced.data= reduced.data - abs(np.min(reduced.data))
+                                
+                                
                         reduced.meta['correctd'] = True
                         file_name = file_name.split("\\")[-1]
                         try:
@@ -675,6 +701,47 @@ def flat_image_masking(flat_imgtypes_concatenateded,
                            master_dir,
                            corrected_light_dir,
                            all_fits,binning):
+    '''
+    
+    Produces a Mask on top of the flat frame image (or images) to identify hot pixels
+    
+    Parameters
+    ----------
+    flat_imgtypes_concatenateded : String
+        A concatenated String 
+    lights_to_correct : List
+        List of directory names that define the lights to be corrected
+    dark_times : list
+        A list of the dark times in the master darks files
+    example_light : astropy CCDData
+        A sample light image
+    master_bias : TYPE
+        DESCRIPTION.
+    master_darks : TYPE
+        DESCRIPTION.
+    scalable_dark_bool : TYPE
+        DESCRIPTION.
+    correct_outliers_params : TYPE
+        DESCRIPTION.
+    frame_filter : TYPE
+        DESCRIPTION.
+    master_dir : TYPE
+        DESCRIPTION.
+    corrected_light_dir : TYPE
+        DESCRIPTION.
+    all_fits : TYPE
+        DESCRIPTION.
+    binning : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    maskr : Array
+        Array which idnetifies hot/bad pixels. bad pixel=1, good pixel=0
+    corrected_master_flat : TYPE
+        DESCRIPTION.
+
+    '''
     # Based on IRAF ccdmask
     flats_to_compare = all_fits.files_filtered(
         imagetyp=flat_imgtypes_concatenateded,
@@ -682,7 +749,9 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         ybinning=binning,
         include_path=True
     )
-    # TODO: Add functionality for single flat frame
+
+    
+    
     bad_ratio = False
     
     
@@ -698,14 +767,16 @@ def flat_image_masking(flat_imgtypes_concatenateded,
                                                       tolerance=100
                                                       )
             if scalable_dark_bool:
-                flatdata = ccdp.subtract_bias(flatdata, master_bias)
                 ########## For Scalable darks (i.e. Bias Frame provided) ##########
+                flatdata = ccdp.subtract_bias(flatdata, master_bias)
+                
                 flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
                                               exposure_time='exptime',
                                               exposure_unit=u.second,
                                               scale=True
                                               )
             else:
+                ########## For Non Scalable darks (i.e. Bias Frame not provided) ##########
                 flatdata = ccdp.subtract_dark(flatdata, master_darks[closest_dark],
                                               exposure_time='exptime',
                                               exposure_unit=u.second,
@@ -721,13 +792,16 @@ def flat_image_masking(flat_imgtypes_concatenateded,
             bad_ratio = True
         else:
             maskr = ccdp.ccdmask(ratio)
+            # TODO: Make this Section
+            
+            
             # FIXME: Why is this here?
             if correct_outliers_params['Replace Bool']:
                 # Replaces the values in mask with a desired value
                 if correct_outliers_params['Replace Mode'] == 'Ave':
                     print('Calculate Average Background')
                     
-                    print('Save New Master Flat')
+                    
 
                 elif correct_outliers_params['Replace Mode'] == 'Interpolate':
                     print('Interpolation')
@@ -776,11 +850,60 @@ def flat_image_masking(flat_imgtypes_concatenateded,
 
 
 def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,corrected_light_dir):
+    '''
+    
+
+    Parameters
+    ----------
+    correct_outliers_params : dict
+        Describes the Correct outlier Paramers defined in the GUI
+    maskr : numpy masked array 
+        A mask for the bad pixels found in the flat images
+    flats_to_compare : list
+        list of strings defining the flats to be processed 
+    frame_filter : string
+        
+    master_dir : string
+        Directory of Master Directory 
+    corrected_light_dir : string
+        String deigning directory where the corrected lights are to be saved
+
+    Returns
+    -------
+    result : astropy CCData
+        DESCRIPTION.
+
+    '''
+    
     if correct_outliers_params['Replace Bool']:
         # Replaces the values in mask with a desired value
+        flats=[]
         if correct_outliers_params['Replace Mode'] == 'Ave':
-            print('Calculate Average Background')
+            print('Replacing Outliers with Average')
             # TODO: Add Script
+            coordinates=np.where(maskr.data==True)
+            
+            
+            if (correct_outliers_params['Multiple Flat Combination'] is False)  :
+                if (flats_to_compare != ()) :
+                    flats_to_compare = flats_to_compare[0]
+                flat=flats_to_compare
+                flatdata = CCDData.read(flat, unit='adu')
+                flatdata.mask=maskr
+                Replaceable_mean=np.nanmean(flatdata)
+                for i in range(0, np.shape(coordinates)[1]):
+                    flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
+                flats.append(flatdata)
+            else:
+                for flat in flats_to_compare:
+                    print('Do Something')
+                    
+                    # TODO: Add Script 
+            
+            
+            
+            
+            
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
             radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(maskr == True)
@@ -795,18 +918,20 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     # Create copy of flat to add mask to - To Avoid Masked Pixs
                     flatdata2 = flatdata.copy()
                     flatdata2.mask = maskr
+                    flatdata.mask=maskr
                     
-                        
-                    try:
-                        
-                        Replaceable_mean = np.nanmean(
-                            flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                    except:  # Except faulty pix is in the corner of the image on the right side of the image
-                        Replaceable_mean = np.nanmean(flatdata)
-                        
-                    if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
+                    if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0) or ((coordinates[0][i]+radius)>(np.shape(maskr))[0]) or ((coordinates[1][0]+radius)>(np.shape(maskr))[1])):
                         # Condition for left most coordinates that have a radius beyond the left of the image
-                        Replaceable_mean = np.nanmean(flatdata)
+                        Replaceable_mean = np.nanmean(flatdata2)
+                    else:
+                        try:
+                            
+                            Replaceable_mean = np.nanmean(
+                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                        except:  # Except faulty pix is in the corner of the image on the right side of the image
+                            Replaceable_mean = np.nanmean(flatdata)
+                        
+                    
                     flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                     
                 flats.append(flatdata)
@@ -821,38 +946,40 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                         # Create copy of flat to add mask to - To Avoid Masked Pixs
                         flatdata2 = flatdata.copy()
                         flatdata2.mask = maskr
+                        flatdata.mask=maskr
                         
-                            
-                        try:
-                            
-                            Replaceable_mean = np.nanmean(
-                                flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                        except:  # Except faulty pix is in the corner of the image on the right side of the image
-                            Replaceable_mean = np.nanmean(flatdata)
-                            
                         if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
                             # Condition for left most coordinates that have a radius beyond the left of the image
-                            Replaceable_mean = np.nanmean(flatdata)
+                            Replaceable_mean = np.nanmean(flatdata2)
+                        else:
+                            try:
+                                
+                                Replaceable_mean = np.nanmean(
+                                    flatdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                            except:  # Except faulty pix is in the corner of the image on the right side of the image
+                                Replaceable_mean = np.nanmean(flatdata2)
+                            
+                        
                         flatdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
                         
                     flats.append(flatdata)
                 
-            # Save the Data
-            if len(flats)==1:
-                flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
-                    frame_filter.replace("''", "p"))
-                flatdata.write(str(master_dir) + flat_file_name)
-                result = flatdata
-            else:
-                #TODO: Test This out
-                if correct_outliers_params['Save Corrected Flats'] == True:
-                    corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
-                    if os.path.isdir(corrected_dir) is False:
-                        os.mkdir(corrected_dir)
-                    flat_name_dir = os.path.join(corrected_dir ,
-                        os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
-                    flatdata.write(flat_name_dir)
-            # IF ratio of flats is bad or only one flat frame we can save the flat as the master
+        # Save the Data
+        if len(flats)==1:
+            flat_file_name = '\\master_flat_filter_corrected_{}.fits'.format(
+                frame_filter.replace("''", "p"))
+            flatdata.write(str(master_dir) + flat_file_name)
+            result = flatdata
+        else:
+            #TODO: Test This out
+            if correct_outliers_params['Save Corrected Flats'] == True:
+                corrected_dir = master_dir.split('\\')[0]+'\\corrected_flats'
+                if os.path.isdir(corrected_dir) is False:
+                    os.mkdir(corrected_dir)
+                flat_name_dir = os.path.join(corrected_dir ,
+                    os.path.join(os.path.splitext(os.path.basename(flat))[0], 'corrected.fits'))
+                flatdata.write(flat_name_dir)
+        # IF ratio of flats is bad or only one flat frame we can save the flat as the master
             print('Saved New Flats')
             
             # Combine Flats 
@@ -877,48 +1004,47 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
         return result
                 
 
-def correct_outlier_darks(correct_outliers_params, hot_pixels, dark_threshold_mask, master_dark, closest_dark, master_dir):
+def correct_outlier_darks(correct_outliers_params, master_dark, closest_dark, master_dir,mask):
     if correct_outliers_params['Replace Bool']:
         if correct_outliers_params['Replace Mode'] == 'Ave':
             print('Calculate Average Background')
-            coordinates = np.where(hot_pixels == True)
+            coordinates = np.where(mask.data == True)
             darkdata = (master_dark[closest_dark])
             Replaceable_mean=np.nanmean(darkdata)
             for i in range(0,np.shape(coordinates)[1]):
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
             
+            
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
             radius = int(correct_outliers_params['Radius of local Averaging'])
-            coordinates = np.where(hot_pixels == True)
+            coordinates = np.where(mask.data == True)
             darkdata = (master_dark[closest_dark])
             darkdata2 = darkdata.copy()  # copy since we don't want new values messing up new values
-            darkdata2.mask = hot_pixels.data | dark_threshold_mask
-            average_dark_value=np.nanmean(darkdata)
+            darkdata2.mask = mask.data
+            average_dark_value=np.nanmean(darkdata2)
             for i in range(0, np.shape(coordinates)[1]):
-                try:
-                    Replaceable_mean = np.nanmean(
-                        darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
-                except RuntimeWarning:  # Mean of empty slice
-                    Replaceable_mean = average_dark_value
-                except ValueError:
+                if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0) or ((coordinates[0][i]+radius)>np.shape(mask)[0]) or ((coordinates[1][i]+radius)>np.shape(mask)[1])):
+                    Replaceable_mean=average_dark_value
+                else:
                     try:
-                        Replaceable_mean = float(np.mean((darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])).data)
-                    
-                    except RuntimeWarning:
+                        Replaceable_mean = np.nanmean(
+                            darkdata2[(coordinates[0][i]-radius):(coordinates[0][i]+radius), (coordinates[1][i]-radius):(coordinates[1][i]+radius)])
+                    except :  # Mean of empty slice
                         Replaceable_mean = average_dark_value
+                 
+                
                         
                 if str(Replaceable_mean)=='nan':
                     Replaceable_mean=average_dark_value
                     
-                if (((coordinates[0][i]-radius)<0) or ((coordinates[1][i]-radius)<0)):
-                    Replaceable_mean=average_dark_value
-                    
+                
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean     
             
             
                 
-            dark_name_dir = (str(master_dir)+'\\master_dark_'+str(closest_dark)+'corrected.fits')
-            darkdata.write(dark_name_dir)
+        dark_name_dir = (str(master_dir)+'\\master_dark_'+str(closest_dark)+'corrected.fits')
+        darkdata.mask=mask
+        darkdata.write(dark_name_dir)
         
        
     return darkdata
@@ -933,17 +1059,18 @@ def find_hot_pixels(master_darks,dark_time,mask):
         u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
     if (dark_current):
         
-        hot_pixels = dark_current > 4*np.nanmean(dark_current)
+        hot_pixels = abs(dark_current.data) > abs(4*np.nanmean(dark_current))
         mask = mask | hot_pixels
+        mask = np.ma.masked_array(mask)
     else:
         mask = mask
     return mask
         
 def dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask):
     try:
-        dark_pix_over_max = master_darks[dark_time].data > float(
+        dark_pix_over_max = (master_darks[dark_time].data) > float(
             correct_outliers_params['Dark Frame Threshold Max'])
-        dark_pix_under_min = master_darks[dark_time].data < float(
+        dark_pix_under_min = (master_darks[dark_time].data) < float(
             correct_outliers_params['Dark Frame Threshold Min'])
         dark_threshold_mask = dark_pix_over_max | dark_pix_under_min
         mask = mask | dark_threshold_mask
