@@ -268,7 +268,7 @@ def Gui():
         #     window["-IN56-"].update(disabled=True)
         #     print("test")
         # print(values["-IN2-"])
-        if event == sg.WIN_CLOSED or event == "Exit":
+        if event == sg.WIN_CLOSED or event == "Exit" :
             window.close()
             break
         elif event == "Reduce":

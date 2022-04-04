@@ -33,7 +33,7 @@ from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord,\
     match_coordinates_sky
 from astropy.io import fits, ascii
-from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval
+from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval, LinearLSQFitter
 from astropy.modeling.models import Linear1D
 from astropy.stats import SigmaClip
 from astropy.stats import sigma_clip,\
@@ -61,6 +61,7 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from skimage import measure
 from tqdm import tqdm
 from random import shuffle, choice
+
 
 # from scipy.optimize import curve_fit
 
@@ -1327,7 +1328,7 @@ def create_auxiliary_data_table(auxiliary_data_columns):
     return auxiliary_data_table
 
 
-def init_large_table_columns():
+def init_large_table_columns(**kwargs):
     """
     Create all of the columns that will be turned into the large stars table.
 
@@ -1412,6 +1413,9 @@ def init_large_table_columns():
     num_stars = []
     img_names = []
     # X_rounded = []
+    
+    
+    
     large_table_columns = namedtuple('large_table_columns',
                                      ['field',
                                       'ref_star_name',
@@ -1479,7 +1483,7 @@ def init_large_table_columns():
 
 def update_large_table_columns(large_table_columns, filename,
                                matched_stars, hdr, exptime, ground_based=False,
-                               name_key='Name'):
+                               name_key='Name',**kwargs):
     """
     Update columns to be used for the large stars table based on information
     from the current image.
@@ -10571,7 +10575,7 @@ def _main_gb_new_boyd_method(
                 file_names.append(file)
                 filecount += 1
     "Split the files into those for calculation and those for verification."
-    shuffle(file_paths)  # why shuffle?
+    shuffle(file_paths)  
     split_decimal = 1  # when decimal is 1 then all
     split_filecount_location = math.ceil(split_decimal * filecount)
     calculation_files = file_paths[:split_filecount_location]
@@ -10585,6 +10589,10 @@ def _main_gb_new_boyd_method(
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
     "Iterate over the images."
+    
+    
+    #Create Boyde Table 
+    Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Airmass','Colour Filter'])
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10703,6 +10711,14 @@ def _main_gb_new_boyd_method(
                 f.write('\n')
                 excluded_files += 1
             continue
+        
+        
+        
+        # Step 1
+        #For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
+        [step1_fitted_slope,step1_fitted_intercept]=calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table)
+        
+        
         # Update the table that contains information on each detection of a
         # reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
@@ -10711,11 +10727,13 @@ def _main_gb_new_boyd_method(
                                                          hdr,
                                                          exptime,
                                                          ground_based=True,
-                                                         name_key=name_key)
+                                                         name_key=name_key
+                                                         )
         
         
-        ### Start Boy Transfromations ###
-        calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots)
+        
+        
+        
         
         
     # Complete the text file that stores information on files that were not used to calculate the transforms.
@@ -10749,12 +10767,32 @@ def _main_gb_new_boyd_method(
     
     
     
-def calculate_boyd_slopes(matched_stars,img_filter, reference_stars,save_plots):
+def calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table):
     '''
-    Takes the matched stars of an images, Calculates the instrumental magnitude
-    form the standard magntiude and plots the 
+    
+
+    Parameters
+    ----------
+    matched_stars : TYPE
+        DESCRIPTION.
+    img_filter : TYPE
+        DESCRIPTION.
+    reference_stars : TYPE
+        DESCRIPTION.
+    save_plots : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    Slope 
+        float
+    
+        DESCRIPTION.
 
     '''
+    
+    #Create Table with headers
+    
     
     # Create a dict object of column names that contain the colour indices
     # Keys are reference table column index
@@ -10769,7 +10807,7 @@ def calculate_boyd_slopes(matched_stars,img_filter, reference_stars,save_plots):
         
         # Iterate through macthed reference stars
         y_data=[]
-        
+        x_data=[]
         
         for row,reference_stars_values in enumerate(matched_stars.ref_star):
             
@@ -10784,11 +10822,45 @@ def calculate_boyd_slopes(matched_stars,img_filter, reference_stars,save_plots):
             #Difference between the two
             diff_mag=ref_mag-ins_mag
             y_data.append(diff_mag)
+            x_data.append(matched_stars.ref_star[row][colour_index])
             
-        x_data=np.ones(np.shape(y_data),dtype=np.int32)*int(colour_index)
+            
+        
         
         # Implement Linear Regression Model
+        fit = LinearLSQFitter(calc_uncertainties=True)
+        line_init=Linear1D()
         
+        
+        #fit, or_fit, line_init=init_linear_fitting(sigma=2.0)
+        #fitted_line, mask = fit(line_init, x_data, y_data)
+        #x_nan_indices = np.isnan(x_data)
+        #y_nan_indices = np.isnan(y_data)
+        #fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
+        or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
+        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
+        filtered_data=np.ma.masked_array(y_data,mask=mask)
+        
+        
+        ## Step 1 ##
         plt.figure()
-        plt.plot(x_data,y_data)
+        plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
+        plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
+        plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
+        plt.xlabel(colour_incides[colour_index])
+        plt.ylabel('V_ref-v_inst')
+        plt.legend()
+        plt.title('Step 1: V_ref-v_inst vs.' + colour_incides[colour_index] )
+        plt.show()
         
+        
+        
+        #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
+        
+        Boyde_Table.add_row(os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],np.mean(matched_stars.img_star_airmass),img_filter)
+    
+        
+        
+    return fitted_line1.slope.value, fitted_line1.intercept.value
+
+
