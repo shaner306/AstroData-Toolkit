@@ -10592,7 +10592,7 @@ def _main_gb_new_boyd_method(
     
     
     #Create Boyde Table 
-    Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Airmass','Colour Filter'])
+    Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Average Airmass','Colour Filter'],dtype=('str','float64','float64','str','float64','str'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10716,7 +10716,7 @@ def _main_gb_new_boyd_method(
         
         # Step 1
         #For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
-        [step1_fitted_slope,step1_fitted_intercept]=calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table)
+        Boyde_Table=calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table)
         
         
         # Update the table that contains information on each detection of a
@@ -10765,28 +10765,46 @@ def _main_gb_new_boyd_method(
     
     ### Start Boyd Transformation ###
     
+    # Calculating Second Step of Boyd Method
+    
+                
+    # Calculate Step 2
+    calculate_boyde_slope_2(Boyde_Table)
     
     
-def calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table):
+    
+def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table):
     '''
     
 
     Parameters
     ----------
-    matched_stars : TYPE
+    matched_stars : Table
+        describes the matched stars with the image stars
+    img_filter : str
+        Filter choosen
+    reference_stars : List of refertence stars 
         DESCRIPTION.
-    img_filter : TYPE
+    save_plots : bool
         DESCRIPTION.
-    reference_stars : TYPE
-        DESCRIPTION.
-    save_plots : TYPE
-        DESCRIPTION.
+    filepath : str
+        describes file path of the image
+    Boyde_Table : astropy.Table
+        Includes:
+            Image Name, 
+            C prime,
+            z prime, 
+            Index,
+            Average Airmass, 
+            average airmass of the image
+            
+            Colour Filter:
+                filter used when the image was taken
+        
 
     Returns
     -------
-    Slope 
-        float
-    
+    Boyde_Table : TYPE
         DESCRIPTION.
 
     '''
@@ -10798,7 +10816,7 @@ def calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,fi
     # Keys are reference table column index
     # Values are column names
     colour_incides={}
-    reference_magntiude_column = reference_stars.colnames.index("V_ref")
+    reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
     for column_num,colname in enumerate(reference_stars.colnames):
         if '-' in colname:
             colour_incides[column_num]=colname
@@ -10857,10 +10875,47 @@ def calculate_boyd_slopes(matched_stars,img_filter,reference_stars,save_plots,fi
         
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
         
-        Boyde_Table.add_row(os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],np.mean(matched_stars.img_star_airmass),img_filter)
+        Boyde_Table.add_row([os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],np.mean(matched_stars.img_star_airmass),img_filter])
     
         
         
-    return fitted_line1.slope.value, fitted_line1.intercept.value
+    return Boyde_Table
 
-
+def calculate_boyde_slope_2(Boyde_Table):
+    
+    Boyde_Table_grouped=Boyde_Table.group_by(['Colour Filter','Index (i.e. B-V)'])
+    
+    # Initialize Linear Regression Model
+    fit = LinearLSQFitter(calc_uncertainties=True)
+    line_init=Linear1D()
+    or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
+    
+    
+    for i,index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
+        x_data=[]
+        y_data=[]
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+            
+            print('Iterating through all files individually in groups')
+            
+            y_data.append(Boyde_Table_grouped[image]['C prime'])
+            x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
+        
+        # Fit the Data 
+        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
+        filtered_data=np.ma.masked_array(y_data,mask=mask)
+        
+        plt.figure()
+        plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
+        plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
+        plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
+        plt.xlabel('MEan Airmass')
+        plt.ylabel('C')
+        plt.legend()
+        plt.title( 'Boydes Second Slope of ' + Boyde_Table_grouped[index1]['Colour Filter'] + ' ' + Boyde_Table_grouped[index1]['Index (i.e. B-V)'] )
+        plt.show()
+        
+        k_prime_prime = fitted_line1.slope.value
+        colour_transform = fitted_line1.intercept.value
+        
+    return
