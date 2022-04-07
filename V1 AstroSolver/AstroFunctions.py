@@ -61,7 +61,7 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from skimage import measure
 from tqdm import tqdm
 from random import shuffle, choice
-
+from astropy.nddata import CCDData
 
 # from scipy.optimize import curve_fit
 
@@ -10592,7 +10592,7 @@ def _main_gb_new_boyd_method(
     
     
     #Create Boyde Table 
-    Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Average Airmass','Colour Filter'],dtype=('str','float64','float64','str','float64','str'))
+    Boyde_Table=Table(names=['Image Name','C','Z-prime','Index (i.e. B-V)','Average Airmass','Colour Filter'],dtype=('str','float64','float64','str','float64','str'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10716,7 +10716,7 @@ def _main_gb_new_boyd_method(
         
         # Step 1
         #For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
-        Boyde_Table=calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table)
+        Boyde_Table=calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table,airmass)
         
         
         # Update the table that contains information on each detection of a
@@ -10769,11 +10769,38 @@ def _main_gb_new_boyd_method(
     
                 
     # Calculate Step 2
-    calculate_boyde_slope_2(Boyde_Table)
+    Boyde_Table_grouped=calculate_boyde_slope_2(Boyde_Table)
+    plot_el=[]
+    plot_airmass=[]
+    plot_k_prime=[]
+    plot_fits_predicted_airmass=[]
+    for image in Boyde_Table_grouped:
+        
+        plot_el.append(float((star_aux_table['Elevation'][np.where(star_aux_table['filename']==image['Image Name'])]).value))
+        plot_airmass.append(float(image['Average Airmass']))
+        plot_k_prime.append(float(image['k_prime']))
+        plot_fits_predicted_airmass.append(1/np.cos(np.deg2rad(90-(CCDData.read([s for s in file_paths if image["Image Name"] in s][0],unit='adu').header['CENTALT']))))
+        
+    plt.figure()
+    plt.plot(plot_el,plot_airmass,'bo',fillstyle='none',label='Averaged Matched Stars Airmass')
+    plt.ylabel('Airmass')
+    plt.xlim([42.7,43.4])
+    plt.xlabel('Elevation Angle')
+    plt.title('Comparing Predicted Centrepoint vs. Averaged Matched Star Airmass ')
+    plt.plot(plot_el,plot_fits_predicted_airmass,'go',fillstyle='none',label='Predicted Centrepoint Airmass from FITS Elevation')
+    
+    #plt.plot(plot_el,plot_k_prime,'ro',label='k_prime')
+    plt.legend()
+    
+    plt.show()
+        
+    ascii.write(Boyde_Table_grouped, os.path.join(
+        save_loc, 'Boyde_Table.csv'), format='csv')
     
     
     
-def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table):
+    
+def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table,airmass):
     '''
     
 
@@ -10815,10 +10842,16 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
     # Create a dict object of column names that contain the colour indices
     # Keys are reference table column index
     # Values are column names
+    
+    fit = LinearLSQFitter(calc_uncertainties=True)
+    line_init=Linear1D()
+    or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
+    
+    
     colour_incides={}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
     for column_num,colname in enumerate(reference_stars.colnames):
-        if '-' in colname:
+        if (('-' in colname) and ('e' not in colname)):
             colour_incides[column_num]=colname
     # Iterate through indices
     for colour_index in colour_incides:
@@ -10834,6 +10867,7 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
             # Find Reference Magntitude:
             ref_mag=reference_stars_values[reference_magntiude_column]
             
+            
             # Instrumental Magnitude
             ins_mag=matched_stars.img_instr_mag[row]
             
@@ -10846,8 +10880,8 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
         
         
         # Implement Linear Regression Model
-        fit = LinearLSQFitter(calc_uncertainties=True)
-        line_init=Linear1D()
+        
+        
         
         
         #fit, or_fit, line_init=init_linear_fitting(sigma=2.0)
@@ -10855,27 +10889,30 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
         #x_nan_indices = np.isnan(x_data)
         #y_nan_indices = np.isnan(y_data)
         #fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
-        or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
+       
         fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
         filtered_data=np.ma.masked_array(y_data,mask=mask)
         
         
+        
         ## Step 1 ##
-        plt.figure()
-        plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
-        plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
-        plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
-        plt.xlabel(colour_incides[colour_index])
-        plt.ylabel('V_ref-v_inst')
-        plt.legend()
-        plt.title('Step 1: V_ref-v_inst vs.' + colour_incides[colour_index] )
-        plt.show()
+# =============================================================================
+#         plt.figure()
+#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
+#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
+#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
+#         plt.xlabel(colour_incides[colour_index])
+#         plt.ylabel('V_ref-v_inst')
+#         plt.legend()
+#         plt.title('Step 1: V_ref-v_inst vs.' + colour_incides[colour_index]+ 'in Filter ' + img_filter )
+#         plt.show()
+# =============================================================================
         
         
         
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
         
-        Boyde_Table.add_row([os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],np.mean(matched_stars.img_star_airmass),img_filter])
+        Boyde_Table.add_row([os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],airmass,img_filter])
     
         
         
@@ -10891,31 +10928,91 @@ def calculate_boyde_slope_2(Boyde_Table):
     or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
     
     
+    k_prime_prime_array=[]
+    colour_transform_array=[]
+    k_prime_array=[]
+    zero_point_array=[]
+    
     for i,index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
         x_data=[]
         y_data=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
             
-            print('Iterating through all files individually in groups')
             
-            y_data.append(Boyde_Table_grouped[image]['C prime'])
+            
+            y_data.append(Boyde_Table_grouped[image]['C'])
             x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
         
         # Fit the Data 
         fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
         filtered_data=np.ma.masked_array(y_data,mask=mask)
         
-        plt.figure()
-        plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
-        plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
-        plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
-        plt.xlabel('MEan Airmass')
-        plt.ylabel('C')
-        plt.legend()
-        plt.title( 'Boydes Second Slope of ' + Boyde_Table_grouped[index1]['Colour Filter'] + ' ' + Boyde_Table_grouped[index1]['Index (i.e. B-V)'] )
-        plt.show()
-        
         k_prime_prime = fitted_line1.slope.value
+        
         colour_transform = fitted_line1.intercept.value
         
-    return
+        
+# =============================================================================
+#         plt.figure()
+#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
+#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
+#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
+#         plt.xlabel('Mean Airmass')
+#         plt.ylabel('C')
+#         plt.legend()
+#         plt.title( 'Boydes Second Slope of ' + Boyde_Table_grouped[i]['Colour Filter'] + ' ' + Boyde_Table_grouped[i]['Index (i.e. B-V)'] )
+# =============================================================================
+        
+       
+        #plt.show()
+        
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+            k_prime_prime_array.append(k_prime_prime)
+            colour_transform_array.append(colour_transform)
+        
+        
+        
+    # Step 3    
+    for i,index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
+        x_data=[]
+        y_data=[]
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+            x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
+            y_data.append(Boyde_Table_grouped[image]['Z-prime'])
+            
+        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
+        filtered_data=np.ma.masked_array(y_data,mask=mask)
+        
+        k_prime = fitted_line1.slope.value
+        zero_point = fitted_line1.intercept.value
+        
+# =============================================================================
+#         plt.figure()
+#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
+#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
+#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
+#         plt.xlabel('Mean Airmass')
+#         plt.ylabel('Z_prime')
+#         plt.legend()
+#         plt.title( 'Boydes Third Slope of ' + Boyde_Table_grouped[i]['Colour Filter'] + ' ' + Boyde_Table_grouped[i]['Index (i.e. B-V)'] )
+#         plt.text(0,0,str('K prime:' + str(k_prime)))
+#         plt.text(0,0,str('Zero Point:' + str(zero_point)))
+#         plt.show()
+# =============================================================================
+        
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+            k_prime_array.append(k_prime)
+            zero_point_array.append(zero_point)
+                
+            
+    
+    Boyde_Table_grouped['k_prime_prime'] = k_prime_prime_array
+    Boyde_Table_grouped['colour_transform'] = colour_transform_array
+    Boyde_Table_grouped['k_prime'] = k_prime_array
+    Boyde_Table_grouped['zero_point'] = zero_point_array
+              
+    
+        
+    
+        
+    return Boyde_Table_grouped
