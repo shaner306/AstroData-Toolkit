@@ -10770,37 +10770,8 @@ def _main_gb_new_boyd_method(
                 
     # Calculate Step 2
     Boyde_Table_grouped=calculate_boyde_slope_2(Boyde_Table)
-    plot_el=[]
-    plot_airmass=[]
-    plot_k_prime=[]
-    plot_fits_predicted_airmass=[]
-    plot_el_predicted=[]
-    for image in Boyde_Table_grouped:
-        
-        
-        
-                
-                
-        
-        plot_el.append(float((star_aux_table['Elevation'][np.where(star_aux_table['filename']==image['Image Name'])]).value))
-        plot_airmass.append(float(image['Average Airmass']))
-        plot_k_prime.append(float(image['k_prime']))
-        for file_path in file_paths:
-            if os.path.basename(file_path)==image["Image Name"]:
-                plot_fits_predicted_airmass.append(1/np.cos(np.deg2rad(90-(CCDData.read(file_path,unit='adu').header['CENTALT']))))
-                plot_el_predicted.append(float(CCDData.read(file_path,unit='adu').header['CENTALT']))
-    plt.figure()
-    plt.plot(plot_el,plot_airmass,'bo',fillstyle='none',label='Averaged Matched Stars Airmass')
-    plt.ylabel('Airmass')
-    plt.xlim([42.7,43.4])
-    plt.xlabel('Elevation Angle')
-    plt.title('Comparing Predicted Centrepoint vs. Averaged Matched Star Airmass ')
-    plt.plot(plot_el_predicted,plot_fits_predicted_airmass,'go',fillstyle='none',label='Predicted Centrepoint Airmass from FITS Elevation')
     
-    #plt.plot(plot_el,plot_k_prime,'ro',label='k_prime')
-    plt.legend()
-    plt.show()
-        
+    # Write Boyde Table 
     ascii.write(Boyde_Table_grouped, os.path.join(
         save_loc, 'Boyde_Table.csv'), format='csv')
     
