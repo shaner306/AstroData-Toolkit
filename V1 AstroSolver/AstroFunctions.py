@@ -96,7 +96,7 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
         The number of standard deviations to use for both the lower and upper 
         clipping limit. The default is 3.0.
     slope : float
-    
+
     intercept: float
 
     Returns
@@ -375,7 +375,8 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
+    iraffind = IRAFStarFinder(
+        threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -1413,9 +1414,7 @@ def init_large_table_columns(**kwargs):
     num_stars = []
     img_names = []
     # X_rounded = []
-    
-    
-    
+
     large_table_columns = namedtuple('large_table_columns',
                                      ['field',
                                       'ref_star_name',
@@ -1483,7 +1482,7 @@ def init_large_table_columns(**kwargs):
 
 def update_large_table_columns(large_table_columns, filename,
                                matched_stars, hdr, exptime, ground_based=False,
-                               name_key='Name',**kwargs):
+                               name_key='Name', **kwargs):
     """
     Update columns to be used for the large stars table based on information
     from the current image.
@@ -3782,9 +3781,12 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
         len(matched_stars.img_instr_mag)
     except TypeError:
         return
-    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(
+        matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
-    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma).value
+    err_sum = app_mag_sigma + \
+        np.nan_to_num(matched_stars.img_instr_mag_sigma,
+                      nan=max_instr_filter_sigma).value
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     x = matched_stars.ref_star[colour_index]
@@ -6516,7 +6518,6 @@ def _main_gb_transform_calc(directory,
                             elev_key='SITEELEV',
                             name_key='Name',
                             **kwargs):
-    
     """
     Taking 
 
@@ -6530,10 +6531,10 @@ def _main_gb_transform_calc(directory,
     remove_large_airmass_bool: Boolean
     file_suffix: tuple describing the file suffixes to be used in 
     exposure_key= FITS Keyword to be used to access the exposure time of the image
-    
+
 
     Returns
-    
+
     -------
 
     Nil
@@ -6554,7 +6555,7 @@ def _main_gb_transform_calc(directory,
         f.write('\t')
         f.write('Reason')
         f.write('\n')
-    
+
     "Create an array of all .fits files in the directory (including subfolders)."
     excluded_files = 0
     filecount = 0
@@ -6578,12 +6579,12 @@ def _main_gb_transform_calc(directory,
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
-        
+
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
-    # for dirpath, dirnames, filenames in os.walk(directory):
-    #     for filename in filenames:
-    #         if filename.endswith((file_suffix)):
+        # for dirpath, dirnames, filenames in os.walk(directory):
+        #     for filename in filenames:
+        #         if filename.endswith((file_suffix)):
         # filepath = os.path.join(dirpath, filename)
         # print(filepath)
         hdr, imgdata = read_fits_file(filepath)
@@ -6642,14 +6643,14 @@ def _main_gb_transform_calc(directory,
                 f.write('\n')
                 excluded_files += 1
             continue
-    
+
         instr_filter = get_instr_filter_name(hdr)
         colour_indices = get_all_colour_indices(instr_filter)
         # print("match")
         for colour_index in colour_indices:
-    
+
             field = get_field_name(matched_stars, name_key=name_key)
-    
+
             try:
                 len(matched_stars.img_instr_mag)
             except TypeError:
@@ -6661,9 +6662,10 @@ def _main_gb_transform_calc(directory,
                     excluded_files += 1
                 # print("Only 1 reference star detected in the image.")
                 continue
-    
+
             if np.isnan(matched_stars.ref_star[colour_index]).any():
-                no_nan_indices = np.invert(np.isnan(matched_stars.ref_star[colour_index]))
+                no_nan_indices = np.invert(
+                    np.isnan(matched_stars.ref_star[colour_index]))
                 matched_stars = matched_stars._replace(
                     ref_star_index=matched_stars.ref_star_index[no_nan_indices],
                     img_star_index=matched_stars.img_star_index[no_nan_indices],
@@ -6721,16 +6723,21 @@ def _main_gb_transform_calc(directory,
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
         f.write('\t')
-        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+        f.write(
+            f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
     gb_transform_table = create_gb_transform_table(gb_transform_table_columns)
     auxiliary_data_table = create_auxiliary_data_table(auxiliary_data_columns)
     if remove_large_airmass_bool:
         gb_transform_table = remove_large_airmass(gb_transform_table, 3.0)
     if save_plots:
-        ascii.write(gb_transform_table, f"{os.path.join(save_loc, 'gb_large_transform_table')}.csv", format='csv')
-        ascii.write(auxiliary_data_table, f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv')
-        ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
+        ascii.write(gb_transform_table,
+                    f"{os.path.join(save_loc, 'gb_large_transform_table')}.csv", format='csv')
+        ascii.write(auxiliary_data_table,
+                    f"{os.path.join(save_loc, 'auxiliary_data_table')}.csv", format='csv')
+        ascii.write(large_stars_table, os.path.join(
+            save_loc, 'large_stars_table.csv'), format='csv')
         gb_final_transforms = ground_based_second_order_transforms(gb_transform_table,
                                                                    plot_results=plot_results,
                                                                    save_plots=save_plots,
@@ -6745,9 +6752,10 @@ def _main_gb_transform_calc(directory,
             'Z_f': '%0.3f',
             'Z_f_sigma': '%0.3f'
         }
-        
-        ascii.write(gb_final_transforms,f"{os.path.join(save_loc, '_gb_final_transforms')}.csv",format='csv')
-        write_table_to_latex(gb_final_transforms,f"{os.path.join(save_loc,'gb_final_transforms')}.txt",
+
+        ascii.write(gb_final_transforms,
+                    f"{os.path.join(save_loc, '_gb_final_transforms')}.csv", format='csv')
+        write_table_to_latex(gb_final_transforms, f"{os.path.join(save_loc,'gb_final_transforms')}.txt",
                              formats=formats)
         formats = {
             'exptime': '%0.3f',
@@ -6756,17 +6764,13 @@ def _main_gb_transform_calc(directory,
             'avg mag_sigma': '%0.3f',
             'std mag_sigma': '%0.3f'
         }
-        
+
     else:
         gb_final_transforms = ground_based_second_order_transforms(
             gb_transform_table,
             plot_results=plot_results,
             save_plots=save_plots)
     return gb_final_transforms, auxiliary_data_table
-
-
-    
-    
 
 
 def verify_gb_transforms(directory,
@@ -6787,7 +6791,7 @@ def verify_gb_transforms(directory,
         unique_id = kwargs.get('unique_id')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-    
+
     for dirpath, dirnames, filenames in os.walk(directory):
         for filename in filenames:
             if filename.endswith(file_suffix):
@@ -6839,7 +6843,8 @@ def verify_gb_transforms(directory,
                                                exptime,
                                                ground_based=True,
                                                name_key=name_key)
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
@@ -6964,7 +6969,7 @@ def _main_gb_transform_calc_TEST(directory,
             f.write('\n'+f'{calc_file}'+'\t'+'Calculation')
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
-        
+
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # filepath = os.path.join(dirpath, filename)
@@ -7032,13 +7037,16 @@ def _main_gb_transform_calc_TEST(directory,
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
         f.write('\t')
-        f.write(f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
+        f.write(
+            f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
     # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
     if save_plots:
-        ascii.write(stars_table, os.path.join(save_loc, 'stars_table.csv'), format='csv')
+        ascii.write(stars_table, os.path.join(
+            save_loc, 'stars_table.csv'), format='csv')
     gb_transform_table =\
         calc_gb_first_transforms_AVG(stars_table,
                                      different_filter_list,
@@ -7256,7 +7264,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
                 the star in <filter>. There is a different
                 column for each different filter used across the images.
                 Only output if ground_based is True.
-                
+
     different_filter_list : List
         Different Filter List
     save_plots : Boolean
@@ -7270,7 +7278,7 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
         DESCRIPTION.
 
     '''
-    
+
     stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(
         stars_table)
     slope_filters = [
@@ -7501,8 +7509,7 @@ def second_order_extinction_calc_Warner(slopes_table,
             filter_column.append(different_filter)
             CI_column.append(colour_index)
             # print(slopes_table[colour_index])
-            
-            
+
             #  FIXME: lenght of ci_plot might not be numerically stable. See Numpy Docs on arange
             ci_plot = np.arange(min(slopes_table[colour_index][~np.isnan(slopes_table[colour_index])]) - 0.1,
                                 max(slopes_table[colour_index][~np.isnan(
@@ -9069,7 +9076,6 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                 filecount += 1
     "Split the files into those for calculation and those for verification."
 
-    
     shuffle(file_paths)
     split_decimal = 1
     split_filecount_location = math.ceil(split_decimal * filecount)
@@ -9218,8 +9224,10 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     ascii.write(star_aux_table, os.path.join(
         save_loc, 'auxiliary_table.csv'), format='csv')
     # Create an AstroPy table of each reference star detection and write it to a .csv file.
-    large_stars_table = create_large_stars_table(large_table_columns, ground_based=True)
-    ascii.write(large_stars_table, os.path.join(save_loc, 'large_stars_table.csv'), format='csv')
+    large_stars_table = create_large_stars_table(
+        large_table_columns, ground_based=True)
+    ascii.write(large_stars_table, os.path.join(
+        save_loc, 'large_stars_table.csv'), format='csv')
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass,
     # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
@@ -9515,7 +9523,7 @@ def _main_gb_transform_calc_Buchheim(directory,
         stars_table, different_filter_list, save_plots, save_loc=save_loc)
     ascii.write(slopes_table, os.path.join(
         save_loc, 'slopes_table.csv'), format='csv')
-    
+
     # Calculate the first and second order extinctions.
     second_order_extinction_calc_Buchheim(stars_table, different_filter_list,
                                           save_plots,
@@ -9531,7 +9539,6 @@ def _main_gb_transform_calc_Buchheim(directory,
         stars_table, extinction_table_Buckhheim, different_filter_list)
 
     ############# Begin the Warner Transforms #############
-
 
     # Finish the transform by calculating the colour transform and zero point.
     Buckhheim_final_transform_table =\
@@ -9734,15 +9741,23 @@ def _sky_survey_calc(directory,
     mean_bsb = np.mean(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
     std_bsb = np.std(star_aux_table['BSB'][star_aux_table['BSB'] > 5])
 
-    min_fwhm_arcsec = min(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    max_fwhm_arcsec = max(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    mean_fwhm_arcsec = np.mean(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    std_fwhm_arcsec = np.std(star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    min_fwhm_arcsec = min(
+        star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_arcsec = max(
+        star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_arcsec = np.mean(
+        star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_arcsec = np.std(
+        star_aux_table['FWHM_arcsec'][~np.isnan(star_aux_table['FWHM_arcsec'])])
 
-    min_fwhm_pixel = min(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    max_fwhm_pixel = max(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    mean_fwhm_pixel = np.mean(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
-    std_fwhm_pixel = np.std(star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    min_fwhm_pixel = min(
+        star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    max_fwhm_pixel = max(
+        star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    mean_fwhm_pixel = np.mean(
+        star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    std_fwhm_pixel = np.std(
+        star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
 
     with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
         f.write(f'Minimum BSB:\t{min_bsb}')
@@ -9792,7 +9807,8 @@ def _sky_survey_calc(directory,
     plt.show()
     plt.close()
 
-    times_list = np.array(star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
+    times_list = np.array(
+        star_aux_table['Time (JD)'][star_aux_table['BSB'] > 5])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
 
@@ -10531,21 +10547,21 @@ def edge_Protect(bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
     return im_mean, bg_rem, im_rms
 
 
-### New Boyd Method ### 
+### New Boyd Method ###
 def _main_gb_new_boyd_method(
-    directory,
-    ref_stars_file,
-    plot_results=False,
-    save_plots=False,
-    remove_large_airmass_bool=False,
-    file_suffix=(".fits", ".fit", ".fts"),
-    exposure_key='EXPTIME',
-    lat_key='SITELAT',
-    lon_key='SITELONG',
-    elev_key='SITEELEV',
-    name_key='Name',
-    **kwargs):
-    
+        directory,
+        ref_stars_file,
+        plot_results=False,
+        save_plots=False,
+        remove_large_airmass_bool=False,
+        file_suffix=(".fits", ".fit", ".fts"),
+        exposure_key='EXPTIME',
+        lat_key='SITELAT',
+        lon_key='SITELONG',
+        elev_key='SITEELEV',
+        name_key='Name',
+        **kwargs):
+
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
     star_aux_table_columns = init_star_aux_table_columns()
@@ -10575,7 +10591,7 @@ def _main_gb_new_boyd_method(
                 file_names.append(file)
                 filecount += 1
     "Split the files into those for calculation and those for verification."
-    shuffle(file_paths)  
+    shuffle(file_paths)
     split_decimal = 1  # when decimal is 1 then all
     split_filecount_location = math.ceil(split_decimal * filecount)
     calculation_files = file_paths[:split_filecount_location]
@@ -10589,10 +10605,10 @@ def _main_gb_new_boyd_method(
         for verify_file in verification_files:
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
     "Iterate over the images."
-    
-    
-    #Create Boyde Table 
-    Boyde_Table=Table(names=['Image Name','C','Z-prime','Index (i.e. B-V)','Average Airmass','Colour Filter'],dtype=('str','float64','float64','str','float64','str'))
+
+    # Create Boyde Table
+    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Average Airmass',
+                        'Colour Filter'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10673,7 +10689,11 @@ def _main_gb_new_boyd_method(
         # Take the average of all stars' Az/El/airmass and store as a variable.
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
-        airmass = np.mean(altazpositions.secz)
+        #airmass = np.mean(altazpositions.secz)
+        predicted_airmass = 1 / \
+            np.cos(np.deg2rad(
+                90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
+        airmass = predicted_airmass
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
         star_aux_table_columns =\
             update_star_aux_columns(star_aux_table_columns,
@@ -10711,14 +10731,13 @@ def _main_gb_new_boyd_method(
                 f.write('\n')
                 excluded_files += 1
             continue
-        
-        
-        
+
         # Step 1
-        #For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
-        Boyde_Table=calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table,airmass)
-        
-        
+
+        # For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
+        Boyde_Table = calculate_boyde_slopes(
+            matched_stars, img_filter, reference_stars, filepath, Boyde_Table, predicted_airmass, save_plots, save_loc)
+
         # Update the table that contains information on each detection of a
         # reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
@@ -10729,13 +10748,7 @@ def _main_gb_new_boyd_method(
                                                          ground_based=True,
                                                          name_key=name_key
                                                          )
-        
-        
-        
-        
-        
-        
-        
+
     # Complete the text file that stores information on files that were not used to calculate the transforms.
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('Total excluded:')
@@ -10762,25 +10775,23 @@ def _main_gb_new_boyd_method(
     stars_table, different_filter_list = group_each_star_GB(large_stars_table)
     ascii.write(stars_table, os.path.join(
         save_loc, 'stars_table.csv'), format='csv')
-    
+
     ### Start Boyd Transformation ###
-    
+
     # Calculating Second Step of Boyd Method
-    
-                
+
     # Calculate Step 2
-    Boyde_Table_grouped=calculate_boyde_slope_2(Boyde_Table)
-    
-    # Write Boyde Table 
+    Boyde_Table_grouped = calculate_boyde_slope_2(
+        Boyde_Table, save_plots, save_loc)
+
+    # Write Boyde Table
     ascii.write(Boyde_Table_grouped, os.path.join(
         save_loc, 'Boyde_Table.csv'), format='csv')
-    
-    
-    
-    
-def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,filepath,Boyde_Table,airmass):
+
+
+def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath, Boyde_Table, airmass, save_plots, sav_loc):
     '''
-    
+
 
     Parameters
     ----------
@@ -10802,10 +10813,10 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
             Index,
             Average Airmass, 
             average airmass of the image
-            
+
             Colour Filter:
                 filter used when the image was taken
-        
+
 
     Returns
     -------
@@ -10813,187 +10824,184 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
         DESCRIPTION.
 
     '''
-    
-    #Create Table with headers
-    
-    
+
+    # Create Table with headers
+
     # Create a dict object of column names that contain the colour indices
     # Keys are reference table column index
     # Values are column names
-    
+
     fit = LinearLSQFitter(calc_uncertainties=True)
-    line_init=Linear1D()
-    or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
-    
-    
-    colour_incides={}
+    line_init = Linear1D()
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=2)
+
+    colour_incides = {}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
-    for column_num,colname in enumerate(reference_stars.colnames):
+    for column_num, colname in enumerate(reference_stars.colnames):
         if (('-' in colname) and ('e' not in colname)):
-            colour_incides[column_num]=colname
+            colour_incides[column_num] = colname
     # Iterate through indices
     for colour_index in colour_incides:
-        
+
         # Iterate through macthed reference stars
-        y_data=[]
-        x_data=[]
-        
-        for row,reference_stars_values in enumerate(matched_stars.ref_star):
-            
-            # Reference Magntiude- instrumental magntiude 
-            
+        y_data = []
+        x_data = []
+
+        for row, reference_stars_values in enumerate(matched_stars.ref_star):
+
+            # Reference Magntiude- instrumental magntiude
+
             # Find Reference Magntitude:
-            ref_mag=reference_stars_values[reference_magntiude_column]
-            
-            
+            ref_mag = reference_stars_values[reference_magntiude_column]
+
             # Instrumental Magnitude
-            ins_mag=matched_stars.img_instr_mag[row]
-            
-            #Difference between the two
-            diff_mag=ref_mag-ins_mag
+            ins_mag = matched_stars.img_instr_mag[row]
+
+            # Difference between the two
+            diff_mag = ref_mag-ins_mag
             y_data.append(diff_mag)
             x_data.append(matched_stars.ref_star[row][colour_index])
-            
-            
-        
-        
+
         # Implement Linear Regression Model
-        
-        
-        
-        
+
         #fit, or_fit, line_init=init_linear_fitting(sigma=2.0)
         #fitted_line, mask = fit(line_init, x_data, y_data)
         #x_nan_indices = np.isnan(x_data)
         #y_nan_indices = np.isnan(y_data)
-        #fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
-       
-        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
-        filtered_data=np.ma.masked_array(y_data,mask=mask)
-        
-        
-        
+        # fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
+
+        fitted_line1, mask = or_fit(
+            line_init, np.array(x_data), np.array(y_data))
+        filtered_data = np.ma.masked_array(y_data, mask=mask)
+
         ## Step 1 ##
         if save_plots:
             print('Save Plots')
-            
-# =============================================================================
-#         plt.figure()
-#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
-#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
-#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
-#         plt.xlabel(colour_incides[colour_index])
-#         plt.ylabel('V_ref-v_inst')
-#         plt.legend()
-#         plt.title('Step 1: V_ref-v_inst vs.' + colour_incides[colour_index]+ 'in Filter ' + img_filter )
-#         plt.show()
-# =============================================================================
-        
-        
-        
+
+            plt.figure()
+            plt.plot(x_data, y_data, 'ro',
+                     fillstyle='none', label='Clipped Data')
+            plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.xlabel(colour_incides[colour_index])
+            plt.ylabel('V_ref-v_inst')
+            plt.legend()
+            plt.text(0, 0, str('Z prime' + str(fitted_line1.intercept.value)))
+            plt.text(0, 0, str('C:' + str(fitted_line1.slope.value)))
+            plt.title('Step 1: V_ref-v_inst vs.' +
+                      colour_incides[colour_index] + '_in Filter ' + img_filter)
+
+            plt.savefig(str(sav_loc)+'Boyde_step_1_' +
+                        str(colour_incides[colour_index])+'_'+str(img_filter)+'.png')
+            plt.show()
+            plt.close()
+
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
-        
-        Boyde_Table.add_row([os.path.basename(filepath),fitted_line1.slope.value,fitted_line1.intercept.value,colour_incides[colour_index],airmass,img_filter])
-    
-        
-        
+
+        Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
+                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter])
+
     return Boyde_Table
 
-def calculate_boyde_slope_2(Boyde_Table):
-    
-    Boyde_Table_grouped=Boyde_Table.group_by(['Colour Filter','Index (i.e. B-V)'])
-    
+
+def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
+
+    Boyde_Table_grouped = Boyde_Table.group_by(
+        ['Colour Filter', 'Index (i.e. B-V)'])
+
     # Initialize Linear Regression Model
     fit = LinearLSQFitter(calc_uncertainties=True)
-    line_init=Linear1D()
-    or_fit=FittingWithOutlierRemoval(fit,sigma_clip,niter=300,sigma=2)
-    
-    
-    k_prime_prime_array=[]
-    colour_transform_array=[]
-    k_prime_array=[]
-    zero_point_array=[]
-    
-    for i,index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
-        x_data=[]
-        y_data=[]
-        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
-            
-            
-            
+    line_init = Linear1D()
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=2)
+
+    k_prime_prime_array = []
+    colour_transform_array = []
+    k_prime_array = []
+    zero_point_array = []
+
+    for i, index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
+        x_data = []
+        y_data = []
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
+
             y_data.append(Boyde_Table_grouped[image]['C'])
             x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
-        
-        # Fit the Data 
-        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
-        filtered_data=np.ma.masked_array(y_data,mask=mask)
-        
+
+        # Fit the Data
+        fitted_line1, mask = or_fit(
+            line_init, np.array(x_data), np.array(y_data))
+        filtered_data = np.ma.masked_array(y_data, mask=mask)
+
         k_prime_prime = fitted_line1.slope.value
-        
+
         colour_transform = fitted_line1.intercept.value
-        
-        
-# =============================================================================
-#         plt.figure()
-#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
-#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
-#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
-#         plt.xlabel('Mean Airmass')
-#         plt.ylabel('C')
-#         plt.legend()
-#         plt.title( 'Boydes Second Slope of ' + Boyde_Table_grouped[i]['Colour Filter'] + ' ' + Boyde_Table_grouped[i]['Index (i.e. B-V)'] )
-# =============================================================================
-        
-       
-        #plt.show()
-        
-        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+
+        if save_plots is True:
+
+            plt.figure()
+            plt.plot(x_data, y_data, 'ro',
+                     fillstyle='none', label='Clipped Data')
+            plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.xlabel('Mean Airmass')
+            plt.ylabel('C')
+            plt.legend()
+            plt.text(0, 0, str('K prime prime:' + str(k_prime_prime)))
+            plt.text(0, 0, str('Colour Transform:' + str(colour_transform)))
+            plt.title('Boydes Second Slope of ' +
+                      Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
+
+            plt.savefig(str(save_loc)+'Boyde_step_2_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
+                Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
+            plt.show()
+            plt.close()
+
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             k_prime_prime_array.append(k_prime_prime)
             colour_transform_array.append(colour_transform)
-        
-        
-        
-    # Step 3    
-    for i,index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
-        x_data=[]
-        y_data=[]
-        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+
+    # Step 3
+    for i, index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
+        x_data = []
+        y_data = []
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
             y_data.append(Boyde_Table_grouped[image]['Z-prime'])
-            
-        fitted_line1,mask=or_fit(line_init,np.array(x_data),np.array(y_data))
-        filtered_data=np.ma.masked_array(y_data,mask=mask)
-        
+
+        fitted_line1, mask = or_fit(
+            line_init, np.array(x_data), np.array(y_data))
+        filtered_data = np.ma.masked_array(y_data, mask=mask)
+
         k_prime = fitted_line1.slope.value
         zero_point = fitted_line1.intercept.value
-        
-# =============================================================================
-#         plt.figure()
-#         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
-#         plt.plot(x_data,filtered_data,'ro',label='Filtered Data')
-#         plt.plot(x_data,fitted_line1(x_data),'k:',label='Fitted Model')
-#         plt.xlabel('Mean Airmass')
-#         plt.ylabel('Z_prime')
-#         plt.legend()
-#         plt.title( 'Boydes Third Slope of ' + Boyde_Table_grouped[i]['Colour Filter'] + ' ' + Boyde_Table_grouped[i]['Index (i.e. B-V)'] )
-#         plt.text(0,0,str('K prime:' + str(k_prime)))
-#         plt.text(0,0,str('Zero Point:' + str(zero_point)))
-#         plt.show()
-# =============================================================================
-        
-        for image in np.arange(Boyde_Table_grouped.groups.indices[i],index1):
+
+        if save_plots is True:
+
+            plt.figure()
+            plt.plot(x_data, y_data, 'ro',
+                     fillstyle='none', label='Clipped Data')
+            plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.xlabel('Mean Airmass')
+            plt.ylabel('Z_prime')
+            plt.legend()
+            plt.title('Boydes Third Slope of ' +
+                      Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
+            plt.text(0, 0, str('K prime:' + str(k_prime)))
+            plt.text(0, 0, str('Zero Point:' + str(zero_point)))
+
+            plt.savefig(str(save_loc)+'Boyde_step_3_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
+                Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
+            plt.show()
+            plt.close()
+
+        for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             k_prime_array.append(k_prime)
             zero_point_array.append(zero_point)
-                
-            
-    
+
     Boyde_Table_grouped['k_prime_prime'] = k_prime_prime_array
     Boyde_Table_grouped['colour_transform'] = colour_transform_array
     Boyde_Table_grouped['k_prime'] = k_prime_array
     Boyde_Table_grouped['zero_point'] = zero_point_array
-              
-    
-        
-    
-        
+
     return Boyde_Table_grouped

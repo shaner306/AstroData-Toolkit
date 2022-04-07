@@ -56,6 +56,7 @@ Aux_Table = Table(names=header, dtype=['str', 'float64', 'str', 'float64', 'floa
                   'float64', 'float64', 'float64', 'float64', 'float64', 'float64', 'float64' ])
 for row in csvreader:
     Aux_Table.add_row(row)
+file.close()
 
 # %% Plot Airmass
 
@@ -67,7 +68,10 @@ plot_fits_predicted_airmass = []
 plot_el_predicted = []
 for image in Boyde_Table:
     plot_el.append(float(Aux_Table['Elevation'][[np.where(Aux_Table['filename'] == image['Image Name'])]]))
-    plot_airmass.append(float(image['Average Airmass']))
+    plot_airmass.append(float(Aux_Table['X'][[np.where(Aux_Table['filename'] == image['Image Name'])]]))
+# =============================================================================
+#     plot_airmass.append(float(image['Average Airmass']))
+# =============================================================================
     for file_path in file_paths:
         if os.path.basename(file_path)==image['Image Name']:
             plot_fits_predicted_airmass.append(1/np.cos(np.deg2rad(90-(CCDData.read(file_path, unit='adu').header['CENTALT']))))
@@ -88,9 +92,9 @@ for image in Boyde_Table:
 # plt.figure()
 # =============================================================================
 plt.plot(plot_el, plot_airmass, 'bo', fillstyle='none',
-         label='Averaged Matched Stars Airmass')
+         label='Boyde Table ')
 plt.ylabel('Airmass')
-plt.xlim([42.7, 43.4])
+plt.xlim([42.7,43.4])
 plt.xlabel('Elevation Angle')
 plt.title('Comparing Predicted Centrepoint vs. Averaged Matched Star Airmass ')
 plt.plot(plot_el_predicted, plot_fits_predicted_airmass, 'go',
