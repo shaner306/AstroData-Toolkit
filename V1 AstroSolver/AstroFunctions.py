@@ -10774,24 +10774,31 @@ def _main_gb_new_boyd_method(
     plot_airmass=[]
     plot_k_prime=[]
     plot_fits_predicted_airmass=[]
+    plot_el_predicted=[]
     for image in Boyde_Table_grouped:
+        
+        
+        
+                
+                
         
         plot_el.append(float((star_aux_table['Elevation'][np.where(star_aux_table['filename']==image['Image Name'])]).value))
         plot_airmass.append(float(image['Average Airmass']))
         plot_k_prime.append(float(image['k_prime']))
-        plot_fits_predicted_airmass.append(1/np.cos(np.deg2rad(90-(CCDData.read([s for s in file_paths if image["Image Name"] in s][0],unit='adu').header['CENTALT']))))
-        
+        for file_path in file_paths:
+            if os.path.basename(file_path)==image["Image Name"]:
+                plot_fits_predicted_airmass.append(1/np.cos(np.deg2rad(90-(CCDData.read(file_path,unit='adu').header['CENTALT']))))
+                plot_el_predicted.append(float(CCDData.read(file_path,unit='adu').header['CENTALT']))
     plt.figure()
     plt.plot(plot_el,plot_airmass,'bo',fillstyle='none',label='Averaged Matched Stars Airmass')
     plt.ylabel('Airmass')
     plt.xlim([42.7,43.4])
     plt.xlabel('Elevation Angle')
     plt.title('Comparing Predicted Centrepoint vs. Averaged Matched Star Airmass ')
-    plt.plot(plot_el,plot_fits_predicted_airmass,'go',fillstyle='none',label='Predicted Centrepoint Airmass from FITS Elevation')
+    plt.plot(plot_el_predicted,plot_fits_predicted_airmass,'go',fillstyle='none',label='Predicted Centrepoint Airmass from FITS Elevation')
     
     #plt.plot(plot_el,plot_k_prime,'ro',label='k_prime')
     plt.legend()
-    
     plt.show()
         
     ascii.write(Boyde_Table_grouped, os.path.join(
@@ -10813,7 +10820,7 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
     reference_stars : List of refertence stars 
         DESCRIPTION.
     save_plots : bool
-        DESCRIPTION.
+        boolean which determines whether the plots will be saved
     filepath : str
         describes file path of the image
     Boyde_Table : astropy.Table
@@ -10896,6 +10903,9 @@ def calculate_boyde_slopes(matched_stars,img_filter,reference_stars,save_plots,f
         
         
         ## Step 1 ##
+        if save_plots:
+            print('Save Plots')
+            
 # =============================================================================
 #         plt.figure()
 #         plt.plot(x_data,y_data,'ro',fillstyle='none',label='Clipped Data')
