@@ -10607,7 +10607,7 @@ def _main_gb_new_boyd_method(
     "Iterate over the images."
 
     # Create Boyde Table
-    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Average Airmass',
+    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
                         'Colour Filter'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
@@ -10735,9 +10735,11 @@ def _main_gb_new_boyd_method(
         # Step 1
 
         # For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
-        Boyde_Table = calculate_boyde_slopes(
+        try:
+            Boyde_Table = calculate_boyde_slopes(
             matched_stars, img_filter, reference_stars, filepath, Boyde_Table, predicted_airmass, save_plots, save_loc)
-
+        except:
+            continue
         # Update the table that contains information on each detection of a
         # reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
@@ -10756,14 +10758,9 @@ def _main_gb_new_boyd_method(
         f.write(
             f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
     # Create an AstroPy table of the auxiliary data and write it to a .csv file.
-    star_aux_table = create_star_aux_table(star_aux_table_columns)
-    ascii.write(star_aux_table, os.path.join(
-        save_loc, 'auxiliary_table.csv'), format='csv')
-    # Create an AstroPy table of each reference star detection and write it to a .csv file.
-    large_stars_table = create_large_stars_table(
-        large_table_columns, ground_based=True)
-    ascii.write(large_stars_table, os.path.join(
-        save_loc, 'large_stars_table.csv'), format='csv')
+    
+    
+    
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of
     # star X at 2 airmass,
@@ -10772,21 +10769,41 @@ def _main_gb_new_boyd_method(
     # This creates that table, stores the different filters used to take the
     # images (e.g. BVRI or BGR),
     # and writes it to a .csv file.
-    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
-    ascii.write(stars_table, os.path.join(
-        save_loc, 'stars_table.csv'), format='csv')
-
+    try:
+        star_aux_table = create_star_aux_table(star_aux_table_columns)
+        ascii.write(star_aux_table, os.path.join(
+            save_loc, 'auxiliary_table.csv'), format='csv')
+        # Create an AstroPy table of each reference star detection and write it to a .csv file.
+        large_stars_table = create_large_stars_table(
+            large_table_columns, ground_based=True)
+        ascii.write(large_stars_table, os.path.join(
+            save_loc, 'large_stars_table.csv'), format='csv')
+        stars_table, different_filter_list = group_each_star_GB(large_stars_table)
+        ascii.write(stars_table, os.path.join(
+            save_loc, 'stars_table.csv'), format='csv')
+    except Exception:
+        print(Exception)
+        
     ### Start Boyd Transformation ###
 
     # Calculating Second Step of Boyd Method
-
+    ascii.write(Boyde_Table, os.path.join(
+        save_loc, 'Boyde_Table1.csv'), format='csv')
+    
     # Calculate Step 2
-    Boyde_Table_grouped = calculate_boyde_slope_2(
-        Boyde_Table, save_plots, save_loc)
+    try:
+        Boyde_Table_grouped = calculate_boyde_slope_2(
+            Boyde_Table, save_plots, save_loc)
+        ascii.write(Boyde_Table_grouped, os.path.join(
+            save_loc, 'Boyde_Table2.csv'), format='csv')
+    except Exception:
+        
+        raise Exception
 
-    # Write Boyde Table
-    ascii.write(Boyde_Table_grouped, os.path.join(
-        save_loc, 'Boyde_Table.csv'), format='csv')
+    # Write Boyde Tables
+    
+    
+    
 
 
 def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath, Boyde_Table, airmass, save_plots, sav_loc):
@@ -10811,8 +10828,8 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath,
             C prime,
             z prime, 
             Index,
-            Average Airmass, 
-            average airmass of the image
+            Airmass, 
+            Airmass of the image
 
             Colour Filter:
                 filter used when the image was taken
@@ -10882,12 +10899,11 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath,
             plt.plot(x_data, y_data, 'ro',
                      fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
             plt.xlabel(colour_incides[colour_index])
             plt.ylabel('V_ref-v_inst')
             plt.legend()
-            plt.text(0, 0, str('Z prime' + str(fitted_line1.intercept.value)))
-            plt.text(0, 0, str('C:' + str(fitted_line1.slope.value)))
+            
             plt.title('Step 1: V_ref-v_inst vs.' +
                       colour_incides[colour_index] + '_in Filter ' + img_filter)
 
@@ -10925,7 +10941,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
 
             y_data.append(Boyde_Table_grouped[image]['C'])
-            x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
+            x_data.append(Boyde_Table_grouped[image]['Airmass'])
 
         # Fit the Data
         fitted_line1, mask = or_fit(
@@ -10942,12 +10958,11 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
             plt.plot(x_data, y_data, 'ro',
                      fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label=('k":'+str(k_prime_prime)+'T:'+str(colour_transform)))
             plt.xlabel('Mean Airmass')
             plt.ylabel('C')
             plt.legend()
-            plt.text(0, 0, str('K prime prime:' + str(k_prime_prime)))
-            plt.text(0, 0, str('Colour Transform:' + str(colour_transform)))
+           
             plt.title('Boydes Second Slope of ' +
                       Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
 
@@ -10965,7 +10980,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
         x_data = []
         y_data = []
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
-            x_data.append(Boyde_Table_grouped[image]['Average Airmass'])
+            x_data.append(Boyde_Table_grouped[image]['Airmass'])
             y_data.append(Boyde_Table_grouped[image]['Z-prime'])
 
         fitted_line1, mask = or_fit(
@@ -10981,14 +10996,14 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
             plt.plot(x_data, y_data, 'ro',
                      fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label='Fitted Model')
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
+# label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.xlabel('Mean Airmass')
             plt.ylabel('Z_prime')
             plt.legend()
             plt.title('Boydes Third Slope of ' +
                       Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
-            plt.text(0, 0, str('K prime:' + str(k_prime)))
-            plt.text(0, 0, str('Zero Point:' + str(zero_point)))
+            
 
             plt.savefig(str(save_loc)+'Boyde_step_3_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
                 Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')

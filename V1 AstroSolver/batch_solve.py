@@ -73,9 +73,9 @@ for dirs in list_subfolders_with_paths:
 
         
 #%% Batch Solve           
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-11-21\Landolt Stars'
-catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
-refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-25-New\Siderial Stare Mode'
+catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
+refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
 
 # Pinpoint Solve Parameters
@@ -106,17 +106,19 @@ for dirs in list_subfolders_with_paths:
                 break
     Sample_image = CCDData.read(sample_image,unit='adu')
     
-    Main.pinpoint_solve(dirs,
-                        catalog_dir,
-                        max_mag,
-                        sigma,
-                        catalog_exp,
-                        match_residual,
-                        max_solve_time,
-                        catalog,
-                        space_based_bool,
-                        use_sextractor,
-                        all_sky_solve)
+# =============================================================================
+#     Main.pinpoint_solve(dirs,
+#                         catalog_dir,
+#                         max_mag,
+#                         sigma,
+#                         catalog_exp,
+#                         match_residual,
+#                         max_solve_time,
+#                         catalog,
+#                         space_based_bool,
+#                         use_sextractor,
+#                         all_sky_solve)
+# =============================================================================
     
     try:
         plot_results = True
@@ -147,19 +149,18 @@ for dirs in list_subfolders_with_paths:
         except KeyError:
             save_loc = os.path.join(dirs, 'Outputs')
                 
-        Warner_final_transform_table =\
-            astro._main_gb_transform_calc_Warner(
-                dirs,
-                refstar_dir,
-                plot_results=plot_results,
-                save_plots=save_plots,
-                file_suffix=file_suffix,
-                exposure_key=exposure_key,
-                name_key=name_key, lat_key=lat_key,
-                lon_key=lon_key, elev_key=elev_key,
-                save_loc=save_loc, unique_id=unique_id)
-    except:
-        print('Error')
+        NewBoydMethod=astro._main_gb_new_boyd_method(
+          dirs,
+          refstar_dir,
+          plot_results=plot_results,
+          save_plots=save_plots,
+          file_suffix=file_suffix,
+          exposure_key=exposure_key,
+          name_key=name_key, lat_key=lat_key,
+          lon_key=lon_key, elev_key=elev_key,
+          save_loc=save_loc, unique_id=unique_id)
+    except Exception:
+        continue
      
 #%% Create Combined Large Star Table
 import csv
@@ -181,3 +182,62 @@ with open(file,"a+",newline='\n') as f:
                 for row in csvreader:
                     writer.writerow(row)
     f.close()
+    
+# %% Create Combined Boyd Tables
+import csv
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-24\Siderial Stare Mode'
+first_switch=True
+file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
+# =============================================================================
+# file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"\\Boyde_Table1_Combined.csv"
+# if os.path.isdir(file) == True:
+#     with open(file,"w+",newline='\n') as f:
+#         writer=csv.writer(f,delimiter=',')
+#         for dirpath,dirname,file in os.walk(dataset_folder):
+#             for name in file:
+#                 if name=='Boyde_Table1.csv':
+#                     f2=open(os.path.join(dirpath,name),'r',newline='\n')
+#                     csvreader=csv.reader(f2,delimiter=',')
+#                     if first_switch==True:
+#                         print('first line')
+#                         first_switch=False
+#                     else:
+#                         next(csvreader)
+#                     for row in csvreader:
+#                         writer.writerow(row)
+# =============================================================================
+with open(file,"a+",newline='\n') as f:
+    writer=csv.writer(f,delimiter=',')
+    for dirpath,dirname,file in os.walk(dataset_folder):
+        for name in file:
+            if name=='Boyde_Table1.csv':
+                f2=open(os.path.join(dirpath,name),'r',newline='\n')
+                csvreader=csv.reader(f2,delimiter=',')
+                if first_switch==True:
+                    print('first line')
+                    first_switch=False
+                else:
+                    next(csvreader)
+                for row in csvreader:
+                    writer.writerow(row)
+# %% Perform steps 2 and 3 of Boyd Method
+from astropy.table import Table, QTable, hstack
+from astropy.io import fits, ascii
+import csv
+#dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
+
+#file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
+file=r'D:/School/Work - Winter 2022/Work/2021-04-24/Siderial Stare Mode/Siderial Stare ModeBoyde_Table1_Combined.csv'
+dataset_folder=os.path.dirname(file)
+header=[]
+
+with open(file,'r',newline='\n') as f:
+    csvreader=csv.reader(f)
+    header=next(csvreader)
+    Big_Boyde_Table=Table(names=header,dtype=['str','float64','float64','str','float64','str'])
+    for row in csvreader:
+        Big_Boyde_Table.add_row(row)
+        
+Boyde_Table2=astro.calculate_boyde_slope_2(Big_Boyde_Table, True, str(dataset_folder+'\\Output'))
+ascii.write(Boyde_Table2, os.path.join(
+    str(os.path.dirname(file)), 'Combined_Boyde_Table2.csv'), format='csv')
