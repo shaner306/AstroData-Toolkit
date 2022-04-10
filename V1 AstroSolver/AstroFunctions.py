@@ -10690,10 +10690,24 @@ def _main_gb_new_boyd_method(
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         #airmass = np.mean(altazpositions.secz)
-        predicted_airmass = 1 / \
-            np.cos(np.deg2rad(
-                90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
-        airmass = predicted_airmass
+# =============================================================================
+#         predicted_airmass = 1 / \
+#             np.cos(np.deg2rad(
+#                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
+# =============================================================================
+        
+        predicted_airmass=float(hdr['AIRMASS'])
+        if predicted_airmass>3:
+            # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
+            
+            # for now we will ignore all values above 2, but further calcualtions will need to be prodcued 
+            
+            # TODO: Write code that handles high variability airmasses (i.e airmass>2)
+            continue 
+        else:
+            # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data 
+            airmass = predicted_airmass
+            
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
         star_aux_table_columns =\
             update_star_aux_columns(star_aux_table_columns,
@@ -10737,7 +10751,7 @@ def _main_gb_new_boyd_method(
         # For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
         try:
             Boyde_Table = calculate_boyde_slopes(
-            matched_stars, img_filter, reference_stars, filepath, Boyde_Table, predicted_airmass, save_plots, save_loc)
+            matched_stars, img_filter, reference_stars.colnames, filepath, Boyde_Table, predicted_airmass, save_plots, save_loc)
         except:
             continue
         # Update the table that contains information on each detection of a
@@ -10806,18 +10820,18 @@ def _main_gb_new_boyd_method(
     
 
 
-def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath, Boyde_Table, airmass, save_plots, sav_loc):
+def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, filepath, Boyde_Table, airmass, save_plots, sav_loc):
     '''
 
 
     Parameters
     ----------
     matched_stars : Table
-        describes the matched stars with the image stars
+        matched stars is a subsect of the reference stars which have arrays corresponding to the image stars- iraf sources detected in the image
     img_filter : str
-        Filter choosen
-    reference_stars : List of refertence stars 
-        DESCRIPTION.
+        Jouhnson-Cousins Filter for the particular calculation file
+    reference_stars_colnames : Table
+        Lists the reference stars
     save_plots : bool
         boolean which determines whether the plots will be saved
     filepath : str
@@ -10854,7 +10868,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath,
 
     colour_incides = {}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
-    for column_num, colname in enumerate(reference_stars.colnames):
+    for column_num, colname in enumerate(matched_stars.ref_star.colnames):
         if (('-' in colname) and ('e' not in colname)):
             colour_incides[column_num] = colname
     # Iterate through indices
@@ -10864,18 +10878,38 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars, filepath,
         y_data = []
         x_data = []
 
-        for row, reference_stars_values in enumerate(matched_stars.ref_star):
+        for row, matched_ref_star_vals in enumerate(matched_stars.ref_star):
 
             # Reference Magntiude- instrumental magntiude
 
             # Find Reference Magntitude:
-            ref_mag = reference_stars_values[reference_magntiude_column]
+            ref_mag = matched_ref_star_vals[reference_magntiude_column]
 
             # Instrumental Magnitude
             ins_mag = matched_stars.img_instr_mag[row]
 
             # Difference between the two
-            diff_mag = ref_mag-ins_mag
+            if (img_filter == 'V') or (img_filter == 'G'):
+                diff_mag = ref_mag-ins_mag
+            else:
+                matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
+                if len(matched_index) ==0:
+                    matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if ('V-'+ str(img_filter) in matched_stars.ref_star.colnames[i])]
+                    if len(matched_index)==0:
+                        print('Could not find corresponding index')
+                        break
+                    else:
+                        ref_filter_mag=-(matched_ref_star_vals[matched_index[0]]-ref_mag)
+                        diff_mag=ref_filter_mag-ins_mag
+                    
+                    
+                else:
+                    # Execute minus block
+                    ref_filter_mag=matched_ref_star_vals[matched_index[0]]+ref_mag
+                    diff_mag=ref_filter_mag-ins_mag
+                    
+               
+                    
             y_data.append(diff_mag)
             x_data.append(matched_stars.ref_star[row][colour_index])
 
