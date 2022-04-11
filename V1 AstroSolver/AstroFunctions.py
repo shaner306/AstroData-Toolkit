@@ -10608,7 +10608,7 @@ def _main_gb_new_boyd_method(
 
     # Create Boyde Table
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
-                        'Colour Filter'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str'))
+                        'Colour Filter','Approximate Standard Error'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str','float64'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10867,16 +10867,24 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=2)
 
     colour_incides = {}
+    colour_indices_errors={}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
+    reference_magntiude_column_error = matched_stars.ref_star.colnames.index("e_V")
     for column_num, colname in enumerate(matched_stars.ref_star.colnames):
         if (('-' in colname) and ('e' not in colname)):
             colour_incides[column_num] = colname
+        if (('-' in colname) and ('e' in colname)):
+            colour_indices_errors[column_num]=colname
+
+
+
     # Iterate through indices
     for colour_index in colour_incides:
 
         # Iterate through macthed reference stars
         y_data = []
         x_data = []
+        y_data_e=[]
 
         for row, matched_ref_star_vals in enumerate(matched_stars.ref_star):
 
@@ -10884,6 +10892,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
 
             # Find Reference Magntitude:
             ref_mag = matched_ref_star_vals[reference_magntiude_column]
+            ref_mag_e=matched_ref_star_vals[reference_magntiude_column_error]
 
             # Instrumental Magnitude
             ins_mag = matched_stars.img_instr_mag[row]
@@ -10891,6 +10900,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
             # Difference between the two
             if (img_filter == 'V') or (img_filter == 'G'):
                 diff_mag = ref_mag-ins_mag
+                diff_mag_error=ref_mag_e
             else:
                 matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
                 if len(matched_index) ==0:
@@ -10901,16 +10911,18 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
                     else:
                         ref_filter_mag=-(matched_ref_star_vals[matched_index[0]]-ref_mag)
                         diff_mag=ref_filter_mag-ins_mag
+                        diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
                     
                     
                 else:
-                    # Execute minus block
                     ref_filter_mag=matched_ref_star_vals[matched_index[0]]+ref_mag
                     diff_mag=ref_filter_mag-ins_mag
+                    diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
                     
                
                     
             y_data.append(diff_mag)
+            y_data_e.append(diff_mag_error)
             x_data.append(matched_stars.ref_star[row][colour_index])
 
         # Implement Linear Regression Model
@@ -10922,16 +10934,27 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
         # fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
 
         fitted_line1, mask = or_fit(
-            line_init, np.array(x_data), np.array(y_data))
+            line_init, np.array(x_data), np.array(y_data),weights=1.0/(np.array(y_data_e)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)
 
-        ## Step 1 ##
+
+        # TODO: Confirm with Don that this is the right equations
+        residuals = filtered_data - (fitted_line1((x_data)))
+        filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
+        std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
+        se_residuals=std_residuals/np.sqrt(np.count_nonzero(residuals.mask == False))
+        ave_data_e=np.mean(filtered_data_e)
+        ave_se=se_residuals+ave_data_e
+
+
+        # Plotting #
         if save_plots:
-            print('Save Plots')
+            # print('Save Plots')
 
             plt.figure()
-            plt.plot(x_data, y_data, 'ro',
-                     fillstyle='none', label='Clipped Data')
+            plt.errorbar(x_data,y_data,yerr=y_data_e,fmt='ko',fillstyle='none',label='Clipped Data')
+            #plt.plot(x_data, y_data, 'ro',
+            #         fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
             plt.xlabel(colour_incides[colour_index])
@@ -10943,13 +10966,13 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
 
             plt.savefig(str(sav_loc)+'Boyde_step_1_' +
                         str(colour_incides[colour_index])+'_'+str(img_filter)+'.png')
-            plt.show()
+
             plt.close()
 
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
         Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
-                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter])
+                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter,ave_se])
 
     return Boyde_Table
 
@@ -10972,14 +10995,15 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
     for i, index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
         x_data = []
         y_data = []
+        y_data_se=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
 
             y_data.append(Boyde_Table_grouped[image]['C'])
             x_data.append(Boyde_Table_grouped[image]['Airmass'])
-
+            y_data_se.append(Boyde_Table_grouped[image]['Approximate Standard Error'])
         # Fit the Data
         fitted_line1, mask = or_fit(
-            line_init, np.array(x_data), np.array(y_data))
+            line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_se)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)
 
         k_prime_prime = fitted_line1.slope.value
@@ -10989,8 +11013,8 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
         if save_plots is True:
 
             plt.figure()
-            plt.plot(x_data, y_data, 'ro',
-                     fillstyle='none', label='Clipped Data')
+            plt.errorbar(x_data, y_data, yerr=y_data_se, fmt='ko', fillstyle='none', label='Clipped Data')
+
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=('k":'+str(k_prime_prime)+'T:'+str(colour_transform)))
             plt.xlabel('Mean Airmass')
@@ -11002,7 +11026,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
 
             plt.savefig(str(save_loc)+'Boyde_step_2_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
                 Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
-            plt.show()
+            #plt.show()
             plt.close()
 
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
@@ -11041,7 +11065,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
 
             plt.savefig(str(save_loc)+'Boyde_step_3_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
                 Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
-            plt.show()
+            #plt.show()
             plt.close()
 
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
