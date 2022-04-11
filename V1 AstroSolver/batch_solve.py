@@ -6,6 +6,7 @@ Created on Mon Mar 21 11:48:29 2022
 
 @author: mstew
 """
+##
 import os
 import Main
 import AstroFunctions as astro
@@ -13,7 +14,7 @@ from astropy.nddata import CCDData
 from pathlib import Path
 
 
-#%% Batch Reduce Images
+##  %% Batch Reduce Images
 
 # Manually set the image Reduction Parameters
 
@@ -72,7 +73,7 @@ for dirs in list_subfolders_with_paths:
 
 
         
-#%% Batch Solve           
+## %% Batch Solve
 dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-25-New\Siderial Stare Mode'
 catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
@@ -162,7 +163,7 @@ for dirs in list_subfolders_with_paths:
     except Exception:
         continue
      
-#%% Create Combined Large Star Table
+## %% Create Combined Large Star Table
 import csv
 dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-30\Siderial Stare Mode Reduced No Dark Scale'
 first_switch=True
@@ -220,14 +221,19 @@ with open(file,"a+",newline='\n') as f:
                     next(csvreader)
                 for row in csvreader:
                     writer.writerow(row)
-# %% Perform steps 2 and 3 of Boyd Method
+## %% Perform steps 2 and 3 of Boyd Method
 from astropy.table import Table, QTable, hstack
 from astropy.io import fits, ascii
 import csv
+import os
+import Main
+import AstroFunctions as astro
+from astropy.nddata import CCDData
+from pathlib import Path
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r'D:/School/Work - Winter 2022/Work/2021-04-24/Siderial Stare Mode/Siderial Stare ModeBoyde_Table1_Combined.csv'
+file=r'D:\School\Work - Winter 2022\Work\2021-04 Combined\2021-04 Combined BoydeTable 1.csv'
 dataset_folder=os.path.dirname(file)
 header=[]
 
