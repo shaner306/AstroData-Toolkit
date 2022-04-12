@@ -10608,7 +10608,7 @@ def _main_gb_new_boyd_method(
 
     # Create Boyde Table
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
-                        'Colour Filter','Approximate Standard Error'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str','float64'))
+                        'Colour Filter','Step1_Standard_Deviation','Number of Valid Matched Stars'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str','float64','int'))
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10805,9 +10805,10 @@ def _main_gb_new_boyd_method(
         save_loc, 'Boyde_Table1.csv'), format='csv')
     
     # Calculate Step 2
+    match_stars_lim=4
     try:
         Boyde_Table_grouped = calculate_boyde_slope_2(
-            Boyde_Table, save_plots, save_loc)
+            Boyde_Table, save_plots, save_loc,match_stars_lim)
         ascii.write(Boyde_Table_grouped, os.path.join(
             save_loc, 'Boyde_Table2.csv'), format='csv')
     except Exception:
@@ -10864,7 +10865,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
 
     fit = LinearLSQFitter(calc_uncertainties=True)
     line_init = Linear1D()
-    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=2)
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=3)
 
     colour_incides = {}
     colour_indices_errors={}
@@ -10944,7 +10945,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
         se_residuals=std_residuals/np.sqrt(np.count_nonzero(residuals.mask == False))
         ave_data_e=np.mean(filtered_data_e)
-        ave_se=se_residuals+ave_data_e
+        ave_std=abs(std_residuals)+abs(ave_data_e)
 
 
         # Plotting #
@@ -10962,22 +10963,22 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
             plt.legend()
             
             plt.title('Step 1: V_ref-v_inst vs.' +
-                      colour_incides[colour_index] + '_in Filter ' + img_filter)
+                      colour_incides[colour_index] + '_in Filter ' + img_filter +" With image " + os.path.basename(filepath))
 
             plt.savefig(str(sav_loc)+'Boyde_step_1_' +
-                        str(colour_incides[colour_index])+'_'+str(img_filter)+'.png')
+                        str(colour_incides[colour_index])+'_'+str(img_filter)+ os.path.basename(filepath) +'.png')
 
             plt.close()
 
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
         Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
-                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter,ave_se])
+                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
 
     return Boyde_Table
 
 
-def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
+def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     Boyde_Table_grouped = Boyde_Table.group_by(
         ['Colour Filter', 'Index (i.e. B-V)'])
@@ -10985,7 +10986,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
     # Initialize Linear Regression Model
     fit = LinearLSQFitter(calc_uncertainties=True)
     line_init = Linear1D()
-    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=2)
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=3)
 
     k_prime_prime_array = []
     colour_transform_array = []
@@ -10997,10 +10998,11 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc):
         y_data = []
         y_data_se=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
+            if Boyde_Table_grouped[image]['Number of Valid Matched Stars'] >= match_stars_lim:
 
-            y_data.append(Boyde_Table_grouped[image]['C'])
-            x_data.append(Boyde_Table_grouped[image]['Airmass'])
-            y_data_se.append(Boyde_Table_grouped[image]['Approximate Standard Error'])
+                y_data.append(Boyde_Table_grouped[image]['C'])
+                x_data.append(Boyde_Table_grouped[image]['Airmass'])
+                y_data_se.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
         # Fit the Data
         fitted_line1, mask = or_fit(
             line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_se)**2))

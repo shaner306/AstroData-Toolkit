@@ -74,7 +74,7 @@ for dirs in list_subfolders_with_paths:
 
         
 ## %% Batch Solve
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-25-New\Siderial Stare Mode'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2'
 catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
@@ -86,7 +86,7 @@ max_solve_time=60
 match_residual=1.5
 catalog=11
 catalog_exp=0.8
-use_sextractor=True
+use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
 
@@ -184,9 +184,9 @@ with open(file,"a+",newline='\n') as f:
                     writer.writerow(row)
     f.close()
     
-# %% Create Combined Boyd Tables
+## %% Create Combined Boyd Tables
 import csv
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-24\Siderial Stare Mode'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -233,17 +233,17 @@ from pathlib import Path
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r'D:\School\Work - Winter 2022\Work\2021-04 Combined\2021-04 Combined BoydeTable 1.csv'
+file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2\2022-03-16 - Copy 2Boyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
 with open(file,'r',newline='\n') as f:
     csvreader=csv.reader(f)
     header=next(csvreader)
-    Big_Boyde_Table=Table(names=header,dtype=['str','float64','float64','str','float64','str'])
+    Big_Boyde_Table=Table(names=header,dtype=['str','float64','float64','str','float64','str','float64','int'])
     for row in csvreader:
         Big_Boyde_Table.add_row(row)
         
-Boyde_Table2=astro.calculate_boyde_slope_2(Big_Boyde_Table, True, str(dataset_folder+'\\Output'))
+Boyde_Table2=astro.calculate_boyde_slope_2(Big_Boyde_Table, True, str(dataset_folder+'\\Output'),4)
 ascii.write(Boyde_Table2, os.path.join(
     str(os.path.dirname(file)), 'Combined_Boyde_Table2.csv'), format='csv')
