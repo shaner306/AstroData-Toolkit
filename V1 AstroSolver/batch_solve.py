@@ -74,7 +74,7 @@ for dirs in list_subfolders_with_paths:
 
         
 ## %% Batch Solve
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
 catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 

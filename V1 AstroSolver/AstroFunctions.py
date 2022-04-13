@@ -10606,9 +10606,7 @@ def _main_gb_new_boyd_method(
             f.write('\n'+f'{verify_file}'+'\t'+'Verification')
     "Iterate over the images."
 
-    # Create Boyde Table
-    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
-                        'Colour Filter','Step1_Standard_Deviation','Number of Valid Matched Stars'], dtype=('str', 'float64', 'float64', 'str', 'float64', 'str','float64','int'))
+
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
         hdr, imgdata = read_fits_file(filepath)
@@ -10749,11 +10747,7 @@ def _main_gb_new_boyd_method(
         # Step 1
 
         # For each image calculate the slope and the intercept of V_ref-v_instrumental vs. Colour indices
-        try:
-            Boyde_Table = calculate_boyde_slopes(
-            matched_stars, img_filter, reference_stars.colnames, filepath, Boyde_Table, predicted_airmass, save_plots, save_loc)
-        except:
-            continue
+
         # Update the table that contains information on each detection of a
         # reference star.
         large_table_columns = update_large_table_columns(large_table_columns,
@@ -10799,10 +10793,104 @@ def _main_gb_new_boyd_method(
         print(Exception)
         
     ### Start Boyd Transformation ###
+        # Create Boyde Table
+    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
+                               'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
+                        dtype=('str', 'float64', 'float64', 'str', 'float64', 'str', 'float64', 'int'))
+    for file_num, filepath in enumerate(tqdm(calculation_files)):
+        # Read the fits file. Stores the header and image to variables.
+        hdr, imgdata = read_fits_file(filepath)
+        # Read the exposure time of the image.
+        exptime = hdr[exposure_key]
+        # Calculate the image background and standard deviation.
+        bkg, bkg_std = calculate_img_bkg(imgdata)
+        # Detect point sources in the image.
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        # If no stars are in the image, log it and go to the next one.
+        if not irafsources:
+            continue
+        # Calculate the number of point sources detected.
+        num_sources = len(irafsources)
+        # Calculate the FWHM in pixels.
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        # Do PSF photometry on the detected sources.
+        photometry_result = perform_photometry(
+            irafsources, fwhm, imgdata, bkg=bkg)
+        # Store the flux and uncertainty of the stars in a separate variable.
+        fluxes = np.array(photometry_result['flux_fit'])
+        fluxes_unc = np.array(photometry_result['flux_unc'])
+        # Convert the flux and uncertainty to magnitude and its uncertainty.
+        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags_sigma, snr = calculate_magnitudes_sigma(
+            photometry_result, exptime)
+        # Read the World Coordinate System transformation added to the
+        # fits header by a plate solving software (external to this program, e.g. PinPoint).
+        wcs = WCS(hdr)
+        # Convert the stars' (x,y) centroid locations to (RA,dec).
+        skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
+
+        # If there's no plate solution, it will raise and AttributeError.
+        # This catches that error, logs it, and moves onto the next image.
+
+        # Convert the FWHM from pixels to arcsec.
+
+        # If it can't convert from pixels to arcsec (e.g. the focal length
+        # wasn't defined in the header),
+        # store it as NaN.
+
+
+        # Read the time from the fits header and then convert it to
+        # Julian Date.
+        t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+
+        # Store the filter used to take the image as a variable.
+        img_filter = hdr['FILTER']
+        # Calculate the background sky brightness and standard deviation.
+
+        # Take the average of all stars' Az/El/airmass and store as a variable.
+
+        # airmass = np.mean(altazpositions.secz)
+        # =============================================================================
+        #         predicted_airmass = 1 / \
+        #             np.cos(np.deg2rad(
+        #                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
+        # =============================================================================
+        matched_stars = find_ref_stars(reference_stars,
+                                       ref_star_positions,
+                                       skypositions,
+                                       instr_mags,
+                                       instr_mags_sigma,
+                                       snr,
+                                       fluxes,
+                                       fluxes_unc,
+                                       ground_based=True,
+                                       altazpositions=altazpositions)
+
+        predicted_airmass = float(hdr['AIRMASS'])
+        if predicted_airmass > 3:
+            # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
+
+            # for now we will ignore all values above 2, but further calcualtions will need to be prodcued
+
+            # TODO: Write code that handles high variability airmasses (i.e airmass>2)
+            continue
+        else:
+            # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data
+
+            try:
+                Boyde_Table = calculate_boyde_slopes(
+                    matched_stars, img_filter, reference_stars.colnames, filepath, Boyde_Table, predicted_airmass, save_plots,
+                    save_loc,stars_table)
+            except:
+                continue
+
 
     # Calculating Second Step of Boyd Method
-    ascii.write(Boyde_Table, os.path.join(
-        save_loc, 'Boyde_Table1.csv'), format='csv')
+    try:
+        ascii.write(Boyde_Table, os.path.join(
+            save_loc, 'Boyde_Table1.csv'), format='csv')
+    except:
+        print('Could Not Save Boyde Table')
     
     # Calculate Step 2
     match_stars_lim=4
@@ -10815,13 +10903,13 @@ def _main_gb_new_boyd_method(
         
         raise Exception
 
-    # Write Boyde Tables
+
     
     
     
 
 
-def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, filepath, Boyde_Table, airmass, save_plots, sav_loc):
+def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, filepath, Boyde_Table, airmass, save_plots, sav_loc,stars_table):
     '''
 
 
@@ -10898,6 +10986,14 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
             # Instrumental Magnitude
             ins_mag = matched_stars.img_instr_mag[row]
 
+            mag_unc_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
+            #mag_unc_column = [i for i,colname in enumerate(stars_table.colnames) if str() == colname]
+            mag_unc=np.max(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
+            if mag_unc==0 or mag_unc==np.nan or mag_unc<np.nanmean((stars_table[str(img_filter.lower()+'_sigma')])*0.25):
+                # If magnitude uncertainty is 0 or np.nan skip entry
+                continue
+
+
             # Difference between the two
             if (img_filter == 'V') or (img_filter == 'G'):
                 diff_mag = ref_mag-ins_mag
@@ -10913,17 +11009,20 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
                         ref_filter_mag=-(matched_ref_star_vals[matched_index[0]]-ref_mag)
                         diff_mag=ref_filter_mag-ins_mag
                         diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
+
                     
                     
                 else:
                     ref_filter_mag=matched_ref_star_vals[matched_index[0]]+ref_mag
                     diff_mag=ref_filter_mag-ins_mag
                     diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
+
+                    matched_ref_star_vals
                     
                
                     
             y_data.append(diff_mag)
-            y_data_e.append(diff_mag_error)
+            y_data_e.append(diff_mag_error+mag_unc)
             x_data.append(matched_stars.ref_star[row][colour_index])
 
         # Implement Linear Regression Model
@@ -10940,6 +11039,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, reference_stars_colnames, 
 
 
         # TODO: Confirm with Don that this is the right equations
+        # Calculate the residuals and accuracy of the computed data
         residuals = filtered_data - (fitted_line1((x_data)))
         filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
