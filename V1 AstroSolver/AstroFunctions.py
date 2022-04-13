@@ -10804,6 +10804,9 @@ def _main_gb_new_boyd_method(
     ascii.write(Boyde_Table, os.path.join(
         save_loc, 'Boyde_Table1.csv'), format='csv')
     
+    
+    
+    
     # Calculate Step 2
     match_stars_lim=4
     try:
@@ -10990,32 +10993,39 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     k_prime_prime_array = []
     colour_transform_array = []
+    step2_uncertainty_array=[]
     k_prime_array = []
     zero_point_array = []
+    step3_uncertainty_array=[]
 
     for i, index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
         x_data = []
         y_data = []
-        y_data_se=[]
+        y_data_e=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             if Boyde_Table_grouped[image]['Number of Valid Matched Stars'] >= match_stars_lim:
 
                 y_data.append(Boyde_Table_grouped[image]['C'])
                 x_data.append(Boyde_Table_grouped[image]['Airmass'])
-                y_data_se.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
+                y_data_e.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
         # Fit the Data
         fitted_line1, mask = or_fit(
-            line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_se)**2))
+            line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)
 
+        # Get K Prime Prime and Colour transform
         k_prime_prime = fitted_line1.slope.value
-
         colour_transform = fitted_line1.intercept.value
-
+        
+        # Get Uncertainty from Slope 2 fitted line
+        residuals = filtered_data - (fitted_line1((x_data)))
+        filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
+        std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
+        
         if save_plots is True:
 
             plt.figure()
-            plt.errorbar(x_data, y_data, yerr=y_data_se, fmt='ko', fillstyle='none', label='Clipped Data')
+            plt.errorbar(x_data, y_data, yerr=y_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
 
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=('k":'+str(k_prime_prime)+'T:'+str(colour_transform)))
@@ -11034,29 +11044,44 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             k_prime_prime_array.append(k_prime_prime)
             colour_transform_array.append(colour_transform)
+            step2_uncertainty_array.append(std_residuals)
 
     # Step 3
     for i, index1 in enumerate(Boyde_Table_grouped.groups.indices[1:]):
         x_data = []
         y_data = []
+        y_data_e2=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             x_data.append(Boyde_Table_grouped[image]['Airmass'])
             y_data.append(Boyde_Table_grouped[image]['Z-prime'])
+            y_data_e2.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
 
-        fitted_line1, mask = or_fit(
-            line_init, np.array(x_data), np.array(y_data))
+        fitted_line2, mask = or_fit(
+            line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e2)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)
 
+
+        # Calcualte Residuals
+        residuals = filtered_data - (fitted_line2((x_data)))
+        std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
+
+        
+        
+        # Get Important Values
         k_prime = fitted_line1.slope.value
         zero_point = fitted_line1.intercept.value
 
         if save_plots is True:
 
             plt.figure()
-            plt.plot(x_data, y_data, 'ro',
-                     fillstyle='none', label='Clipped Data')
+# =============================================================================
+#             plt.plot(x_data, y_data, 'ro',
+#                      fillstyle='none', label='Clipped Data')
+#             
+# =============================================================================
+            plt.errorbar(x_data, y_data, yerr=y_data_e2, fmt='ko', fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
+            plt.plot(x_data, fitted_line2(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
 # label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.xlabel('Mean Airmass')
             plt.ylabel('Z_prime')
@@ -11073,6 +11098,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             k_prime_array.append(k_prime)
             zero_point_array.append(zero_point)
+            step3_uncertainty_array.append(std_residuals)
 
     Boyde_Table_grouped['k_prime_prime'] = k_prime_prime_array
     Boyde_Table_grouped['colour_transform'] = colour_transform_array
