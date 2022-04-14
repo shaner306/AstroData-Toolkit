@@ -14,7 +14,7 @@ from astropy.nddata import CCDData
 from pathlib import Path
 
 
-##  %% Batch Reduce Images
+# %% Batch Reduce Images
 
 # Manually set the image Reduction Parameters
 
@@ -73,7 +73,7 @@ for dirs in list_subfolders_with_paths:
 
 
         
-## %% Batch Solve
+# %% Batch Solve
 dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
 catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
 refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
@@ -184,7 +184,7 @@ with open(file,"a+",newline='\n') as f:
                     writer.writerow(row)
     f.close()
     
-## %% Create Combined Boyd Tables
+# %% Create Combined Boyd Tables
 import csv
 dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2'
 first_switch=True
@@ -221,7 +221,7 @@ with open(file,"a+",newline='\n') as f:
                     next(csvreader)
                 for row in csvreader:
                     writer.writerow(row)
-## %% Perform steps 2 and 3 of Boyd Method
+# %% Perform steps 2 and 3 of Boyd Method
 from astropy.table import Table, QTable, hstack
 from astropy.io import fits, ascii
 import csv
@@ -240,7 +240,7 @@ header=[]
 with open(file,'r',newline='\n') as f:
     csvreader=csv.reader(f)
     header=next(csvreader)
-    Big_Boyde_Table=Table(names=header,dtype=['str','float64','float64','str','float64','str','float64','int'])
+    Big_Boyde_Table=Table(names=header,dtype=['str','float64','float64','str','float64','float64','str','float64','int'])
     for row in csvreader:
         Big_Boyde_Table.add_row(row)
         

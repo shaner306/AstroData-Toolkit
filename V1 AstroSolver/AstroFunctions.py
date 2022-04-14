@@ -10687,7 +10687,7 @@ def _main_gb_new_boyd_method(
         # Take the average of all stars' Az/El/airmass and store as a variable.
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
-        #airmass = np.mean(altazpositions.secz)
+        airmass = np.mean(altazpositions.secz)
 # =============================================================================
 #         predicted_airmass = 1 / \
 #             np.cos(np.deg2rad(
@@ -10695,6 +10695,8 @@ def _main_gb_new_boyd_method(
 # =============================================================================
         
         predicted_airmass=float(hdr['AIRMASS'])
+        #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
+        
         if predicted_airmass>3:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
             
@@ -10795,15 +10797,16 @@ def _main_gb_new_boyd_method(
         
     ### Start Boyd Transformation ###
         # Create Boyde Table
-    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass',
+    Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
-                        dtype=('str', 'float64', 'float64', 'str', 'float64', 'str', 'float64', 'int'))
+                        dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
     for filepath in matched_stars_dict:
         
         matched_stars=matched_stars_dict[filepath]
-        hdr, imgdata = read_fits_file(filepath)
-
-        predicted_airmass = float(hdr['AIRMASS'])
+        
+        
+        
+        
         if predicted_airmass > 3:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
 
@@ -10816,7 +10819,7 @@ def _main_gb_new_boyd_method(
 
             try:
                 Boyde_Table = calculate_boyde_slopes(
-                    matched_stars, img_filter, filepath, Boyde_Table, predicted_airmass, save_plots,
+                    matched_stars, filepath, Boyde_Table, save_plots,
                     save_loc,stars_table)
             except:
                 continue
@@ -10849,7 +10852,7 @@ def _main_gb_new_boyd_method(
     
 
 
-def calculate_boyde_slopes(matched_stars, img_filter, filepath, Boyde_Table, airmass, save_plots, sav_loc,stars_table):
+def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav_loc,stars_table):
     '''
 
 
@@ -10884,7 +10887,16 @@ def calculate_boyde_slopes(matched_stars, img_filter, filepath, Boyde_Table, air
         DESCRIPTION.
 
     '''
+    hdr, imgdata = read_fits_file(filepath)
 
+    predicted_airmass = float(hdr['AIRMASS'])
+    img_filter=str(hdr['FILTER'])
+    
+    airmass_std=np.sqrt(sum((matched_stars.img_star_airmass-predicted_airmass)**2)/(np.count_nonzero(matched_stars.img_star_airmass)-1))
+    
+    
+    airmass=predicted_airmass
+    
     # Create Table with headers
 
     # Create a dict object of column names that contain the colour indices
@@ -10957,7 +10969,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, filepath, Boyde_Table, air
                     diff_mag=ref_filter_mag-ins_mag
                     diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
 
-                    matched_ref_star_vals
+                    
                     
                
                     
@@ -11013,7 +11025,7 @@ def calculate_boyde_slopes(matched_stars, img_filter, filepath, Boyde_Table, air
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
         Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
-                            fitted_line1.intercept.value, colour_incides[colour_index], airmass, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
+                            fitted_line1.intercept.value, colour_incides[colour_index], airmass,airmass_std, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
 
     return Boyde_Table
 
@@ -11039,12 +11051,14 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         x_data = []
         y_data = []
         y_data_e=[]
+        x_data_e=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             if Boyde_Table_grouped[image]['Number of Valid Matched Stars'] >= match_stars_lim:
 
                 y_data.append(Boyde_Table_grouped[image]['C'])
                 x_data.append(Boyde_Table_grouped[image]['Airmass'])
                 y_data_e.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
+                x_data_e.append(Boyde_Table_grouped[image]['Air Mass Std'])
         # Fit the Data
         fitted_line1, mask = or_fit(
             line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e)**2))
@@ -11062,7 +11076,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         if save_plots is True:
 
             plt.figure()
-            plt.errorbar(x_data, y_data, yerr=y_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
+            plt.errorbar(x_data, y_data, yerr=y_data_e, xerr=x_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
 
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=('k":'+str(k_prime_prime)+'T:'+str(colour_transform)))
@@ -11088,10 +11102,12 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         x_data = []
         y_data = []
         y_data_e2=[]
+        x_data_e2=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             x_data.append(Boyde_Table_grouped[image]['Airmass'])
             y_data.append(Boyde_Table_grouped[image]['Z-prime'])
             y_data_e2.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
+            x_data_e2.append(Boyde_Table_grouped[image]['Air Mass Std'])
 
         fitted_line2, mask = or_fit(
             line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e2)**2))
@@ -11116,7 +11132,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 #                      fillstyle='none', label='Clipped Data')
 #             
 # =============================================================================
-            plt.errorbar(x_data, y_data, yerr=y_data_e2, fmt='ko', fillstyle='none', label='Clipped Data')
+            plt.errorbar(x_data, y_data, yerr=y_data_e2,xerr=x_data_e2, fmt='ko', fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line2(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
 # label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
