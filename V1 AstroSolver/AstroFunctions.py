@@ -11104,11 +11104,14 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         y_data_e2=[]
         x_data_e2=[]
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
-            x_data.append(Boyde_Table_grouped[image]['Airmass'])
-            y_data.append(Boyde_Table_grouped[image]['Z-prime'])
-            y_data_e2.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
-            x_data_e2.append(Boyde_Table_grouped[image]['Air Mass Std'])
-
+            if Boyde_Table_grouped[image]['Number of Valid Matched Stars'] >= match_stars_lim:
+                if str(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])=='inf' or str(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])=='nan':
+                    continue
+                x_data.append(Boyde_Table_grouped[image]['Airmass'])
+                y_data.append(Boyde_Table_grouped[image]['Z-prime'])
+                y_data_e2.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
+                x_data_e2.append(Boyde_Table_grouped[image]['Air Mass Std'])
+        
         fitted_line2, mask = or_fit(
             line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e2)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)

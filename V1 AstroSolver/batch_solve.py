@@ -21,15 +21,15 @@ from pathlib import Path
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\Automated Pointing Runs 009-014'
+path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
 
 create_master_dark=False
 create_master_flat=False
 create_master_bias=False
-correct_outliers_params = {'Outlier Boolean': True,
+correct_outliers_params = {'Outlier Boolean': False,
 
-                           'Hot Pixel': True,
-                           'Dark Frame Threshold Bool': True,
+                           'Hot Pixel': False,
+                           'Dark Frame Threshold Bool': False,
                            'Dark Frame Threshold Min':  -50,
                            'Dark Frame Threshold Max': 100,
                            'ccdmask': True,
@@ -39,12 +39,13 @@ correct_outliers_params = {'Outlier Boolean': True,
                            'Multiple Flat Combination':False,
                            'Save Corrected Flats': False,
                            'Radius of local Averaging': 1,
+                           'Force Offset':True
                            }
 
 create_master_dir=False
 
 use_existing_masters=True
-exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\master_frame_data'
+exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\master_frame_data'
 
 scalable_dark_bool=False
 
@@ -74,9 +75,9 @@ for dirs in list_subfolders_with_paths:
 
         
 # %% Batch Solve
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
-catalog_dir=r'D:\School\StarCatalogues\USNO UCAC4'
-refstar_dir=r'C:/Users/stewe/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
+catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
+refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
 
 # Pinpoint Solve Parameters
@@ -163,7 +164,7 @@ for dirs in list_subfolders_with_paths:
     except Exception:
         continue
      
-## %% Create Combined Large Star Table
+# %% Create Combined Large Star Table
 import csv
 dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-30\Siderial Stare Mode Reduced No Dark Scale'
 first_switch=True
@@ -186,7 +187,7 @@ with open(file,"a+",newline='\n') as f:
     
 # %% Create Combined Boyd Tables
 import csv
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -233,7 +234,7 @@ from pathlib import Path
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy 2\2022-03-16 - Copy 2Boyde_Table1_Combined.csv"
+file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)\Siderial Stare Mode - Copy (2)Boyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
