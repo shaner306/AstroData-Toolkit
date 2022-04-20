@@ -131,74 +131,19 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 * We use pinpoint which is a paid software for astrometric plate solving, however we will explore other options such as astrometry.net and astropy libraries such as astroquery.
 * There are no good free solutions for astrometic plate solving, especially for a large imageset.
 
-## Upcoming in V2
-- Integrate errors, std dev
-- TRM mode - _TRMtester.py_
-  	1. Streak Detection Method
-        - Simple Method (Weighted Centroids/ Length filtering)
-        - Complex Method (Matched Filter/ Fast Fourier Transform)
-  	2. Background Extraction
-        - Sextractor
-        - Polynomial Form Fit
-        - Mean Background
-        - Filter and Box Size
-     3. Creating Stars file
-        - ImageStarsCache stars Creation
-        - Pinpoint Interpretation
-        - Pinpoint Solving
-- Light Curves
-        - Satellites
-        - Point Stars
-        - Streaked Stars (Possibly)
-        
-- Satellite Matching, Tracking, and Photometry
-- Complex Data Outputs
-    - Include success statistics (e.g. number of images that were quality data points)
-    - Errors and Margins
-    - Calculation Constants
-    - Astrometric Data
-    - Photometric Data
-    - Astrodynamic Data
+Modules - Function Order
+## A. Image Reduction
+## B. Pinpoint Solve
+## C. Ground-Based Photometric Processing (SSM)
+## D. Space-Based Photometric Processing (SSM)
+## E. Satellite Photometric Processing (TRM)
+## F. (Coming soon) Satellite Astrometric Processing (TRM)
+## G. Data Visualization
 
-### Recently added functions/Capabilities (Shane): Sorted most recent first
-- Gaussian and Moffat Fitting of PSF
-- Background Estimators (Mean, Mode, Median, SExtractor, Filtered, _Polyfit Coming soon_) - April 26th
-- Star Removal Background Generator + Star Eraser
-- Basic track rate mode algorithm (tested on neossat only)
-- Saturated star finder
-- Iterative Background Extraction
-- Edge clipping
-- Moment, Eccentricity, Centroid, and Compact Calculator for streaks
-- Point Source Flux Extraction (non pinpoint)
-- Dedicated Functions file
-- FAST Transforms Calculator of ref star image
-- Reference star Search and Detection
-- GitHub created
-- Complex Star image data collection algorithm and gaussian fit (Squid inspired)
-### Recently added functions/Capabilities (Jack): Sorted most recent first
-#### Star processor
-- Apply ground-based transforms to a set of test stars
-- Calculate ground-based transforms
-- Calculate space-based transforms
-- Match stars in a reference file with stars detected in an image
-- Convert star positions from x,y to RA/dec and Alt/Az
-- Calculate flux, instrumental magnitude, and instrumental magnitude standard deviations
-- Calculate FWHM of all sources in an image
-- Detect point sources in an image
-- Calculate median and standard deviation background values
-- Read a fits file
-#### Light curve/satellite processor
-- Interpolate to find the time-resolved colour indices of each satellite
-- Plot seeing (FWHM) as a function of time
-- Have a UI to input the locations of the desired satellites
-- Match detected sources to satellite positions
-- Calculate statistics (FWHM, magnitude, standard deviation of the magnitude) 
-  on the detected sources
-- Detect point sources and their x,y locations
+
 
 
 ### Recently added funcitons/Capabilities (Michael): Sorted most recent first
-
 #### Image Reduction
 - Allow Master Frame Creation without Image Reduction
 - Batch Solving Script: enables the automated solving of a dataset which 
