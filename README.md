@@ -131,7 +131,7 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 * We use pinpoint which is a paid software for astrometric plate solving, however we will explore other options such as astrometry.net and astropy libraries such as astroquery.
 * There are no good free solutions for astrometic plate solving, especially for a large imageset.
 
-Modules - Function Order
+# Modules - Function Order
 ## A. Image Reduction
 ## B. Pinpoint Solve
 ## C. Ground-Based Photometric Processing (SSM)
