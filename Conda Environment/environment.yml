@@ -138,7 +138,7 @@ dependencies:
   - partd=1.2.0=pyhd3eb1b0_0
   - pathspec=0.7.0=py_0
   - pexpect=4.8.0=pyhd3eb1b0_3
-  - photutils=1.2.0=py38h294d835_0
+  - photutils=1.4.0=py38h294d835_0
   - pickleshare=0.7.5=pyhd3eb1b0_1003
   - pillow=8.4.0=py38hd45dc43_0
   - pip=21.2.2=py38haa95532_0

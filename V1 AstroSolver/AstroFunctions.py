@@ -64,7 +64,7 @@ from random import shuffle, choice
 from astropy.nddata import CCDData
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
-from photutils.aperture import CircularAperture,aperture_photometry
+from photutils.aperture import CircularAperture,aperture_photometry,ApertureStats
 from photutils import CircularAperture
 
 # from scipy.optimize import curve_fit
@@ -767,7 +767,7 @@ def normalize_flux_by_time(fluxes_tab, exptime):
     return fluxes
 
 
-def calculate_magnitudes(photometry_result, exptime):
+def calculate_magnitudes(fluxes, exptime):
     """
     Convert the flux of all sources in the image to instrumental magnitudes.
 
@@ -787,14 +787,14 @@ def calculate_magnitudes(photometry_result, exptime):
         image.
 
     """
-    fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
-    instr_mags_units = u.Magnitude(fluxes)
-    instr_mags = instr_mags_units.value
-    instr_mag=-2.51* np.log(fluxes/exptime)
+    #fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
+    #instr_mags_units = u.Magnitude(fluxes)
+    #instr_mags = instr_mags_units.value
+    instr_mags=-2.51* np.log10(fluxes/exptime)
     return instr_mags
 
 
-def calculate_magnitudes_sigma(photometry_result, exptime):
+def calculate_magnitudes_sigma(fluxes,flux_unc, exptime):
     """
     Calculate the standard deviation of the instrumental magnitudes of the
     sources in the image.
@@ -818,8 +818,8 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
 # =============================================================================
 #     fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
 # =============================================================================
-    fluxes=photometry_result['flux_fit']
-    flux_unc=photometry_result['flux_unc']
+    #fluxes=photometry_result['flux_fit']
+    #flux_unc=photometry_result['flux_unc']
 # =============================================================================
 #     flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
 # =============================================================================
@@ -829,7 +829,7 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
 #     instr_mags_sigma = 1.0857 / np.sqrt(snr)
 # =============================================================================
     
-    instr_mag_sigma=1.0857/snr
+    instr_mags_sigma=1.0857/snr
     return instr_mags_sigma, snr
 
 
@@ -5825,9 +5825,11 @@ def change_sat_positions(filenames,
             airmass = get_image_airmass(hdr)
             photometry_result = perform_photometry_sat(
                 sat_x, sat_y, fwhm, imgdata, bkg_trm)
-            instr_mags = calculate_magnitudes(photometry_result, exptime)
+            fluxes=photometry_result['flux_fit']
+            fluxes_unc=photometry_result['flux_unc']
+            instr_mags = calculate_magnitudes(fluxes, exptime)
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                photometry_result, exptime)
+                fluxes,fluxes_unc, exptime)
             sat_information = check_if_sat(sat_information,
                                            filenum - reversing_index,
                                            sat_x,
@@ -6620,9 +6622,9 @@ def _main_gb_transform_calc(directory,
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         altazpositions = None
@@ -6823,9 +6825,9 @@ def verify_gb_transforms(directory,
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 fluxes_unc = np.array(photometry_result['flux_unc'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags = calculate_magnitudes(fluxes, exptime)
                 instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                    photometry_result, exptime)
+                    fluxes,fluxes_unc, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
                 try:
@@ -7005,9 +7007,9 @@ def _main_gb_transform_calc_TEST(directory,
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
@@ -8893,9 +8895,9 @@ def verify_gb_transforms_auto(directory,
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         try:
@@ -9132,9 +9134,9 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
         # Convert the flux and uncertainty to magnitude and its uncertainty.
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         # Read the World Coordinate System transformation added to the fits header
         # by a plate solving software (external to this program, e.g. PinPoint).
 
@@ -9404,9 +9406,9 @@ def _main_gb_transform_calc_Buchheim(directory,
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
         # Convert the flux and uncertainty to magnitude and its uncertainty.
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
@@ -10027,9 +10029,9 @@ def _main_sb_transform_calc(directory,
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 fluxes_unc = np.array(photometry_result['flux_unc'])
-                instr_mags = calculate_magnitudes(photometry_result, exptime)
+                instr_mags = calculate_magnitudes(fluxes, exptime)
                 instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                    photometry_result, exptime)
+                    fluxes,fluxes_unc, exptime)
                 wcs = WCS(hdr)
                 skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
                 matched_stars = find_ref_stars(reference_stars,
@@ -10180,9 +10182,12 @@ def _main_sc_lightcurve(directory,
         airmass = get_image_airmass(hdr)
         photometry_result = perform_photometry_sat(
             sat_x, sat_y, fwhm, imgdata, bkg_trm)
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
+        
+        fluxes=photometry_result['flux_fit']
+        fluxes_unc=photometry_result['flux_unc']
+        instr_mags = calculate_magnitudes(fluxes, exptime)
         instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+            fluxes,fluxes_unc, exptime)
         sat_information = check_if_sat(sat_information,
                                        filenum,
                                        sat_x,
@@ -10657,17 +10662,17 @@ def _main_gb_new_boyd_method(
             fluxes = np.array(photometry_result['flux_fit'])
             fluxes_unc = np.array(photometry_result['flux_unc'])
             # Convert the flux and uncertainty to magnitude and its uncertainty.
-            instr_mags = calculate_magnitudes(photometry_result, exptime)
+            instr_mags = calculate_magnitudes(fluxes, exptime)
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                photometry_result, exptime)
+                fluxes,fluxes_unc, exptime)
         elif photometry_method=='aperture':
-            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg,bkg_std=bkg_std)
+            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std)
             
-            fluxes_unc=np.array(photometry_result['aperture_sum_error0'])
-            fluxes=np.array(photometry_result['aperture_sum0'])
-            instr_mags=calculate_magnitudes(photometry_result,exptime)
+            fluxes_unc=np.array(photometry_result['aperture_sum_err'])
+            fluxes=np.array(photometry_result['aperture_sum'])
+            instr_mags=calculate_magnitudes(fluxes,exptime)
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                photometry_result, exptime)
+                fluxes,fluxes_unc, exptime)
         
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
@@ -10822,8 +10827,8 @@ def _main_gb_new_boyd_method(
         stars_table, different_filter_list = group_each_star_GB(large_stars_table)
         ascii.write(stars_table, os.path.join(
             save_loc, 'stars_table.csv'), format='csv')
-    except Exception:
-        print(Exception)
+    except Exception as e:
+        raise Exception(e)
         
     ### Start Boyd Transformation ###
         # Create Boyde Table
@@ -11193,7 +11198,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     return Boyde_Table_grouped
 
-def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, bkg_std fitshape=5):
+def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, bkg_std, fitshape=5):
     # =============================================================================
     #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
     #     psf_model.x_0.fixed = True
@@ -11210,14 +11215,18 @@ def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, bkg_std fitshap
     #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
     aperture=CircularAperture((positions[0][0],positions[1][0]),r=3)
     table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
+    flux_array=[ApertureStats(imgdata-bkg,aperture).std]
     for i in range(1,np.shape(positions)[1]):
         
         for r in radii:
             aperture=CircularAperture((positions[0][i],positions[1][i]),r=3)
             apertures.append(aperture)
+            # Calculate the stanrd deviaton of the flux
+            flux_array.append(ApertureStats(imgdata-bkg,aperture).std)
             table_array=numpy.vstack([table_array,np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std)))])
              
     photometry_result=Table(table_array)
+    photometry_result['flux_unc']=flux_array
     
         
     
