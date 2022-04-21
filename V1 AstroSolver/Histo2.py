@@ -51,21 +51,15 @@ for x in range(0,len(result2)-1):
      except:
         break
 
-for i in RA:
-    TAE = np.sqrt((dRA * np.cos(DEC[i])) ^ 2 + dDEC ^ 2)
-
 RA=np.array(residualsRA).astype(np.float64)
 DEC=np.array(residualsDec).astype(np.float64)
 
-for i in RA:
-    Datapoints = np.sqrt((dRA * np.cos(DEC[i])) ^ 2 + dDEC ^ 2)
 
 
 rms = np.sqrt(np.mean(RA**2))
 mean, std= scipy.stats.norm.fit(RA)
 mean2, std2 = scipy.stats.norm.fit(DEC)
-mean3, std3 = scipy.stats.norm.fit(Datapoints)
-rmss2 = np.sqrt(np.mean(Datapoints**2))
+
 #bins=[-12,-10,-8,-6,-4,-2,0,2,4,6,8,10,12]
 bins=[-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12]
 n1, bins1, patches1 = plt.hist(x=RA, bins=bins, range= (-10,10), color='#0504aa',
