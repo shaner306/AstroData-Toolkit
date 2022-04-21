@@ -75,8 +75,8 @@ for dirs in list_subfolders_with_paths:
 
         
 # %% Batch Solve
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
-catalog_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+catalog_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
 refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
 
@@ -187,7 +187,7 @@ with open(file,"a+",newline='\n') as f:
     
 # %% Create Combined Boyd Tables
 import csv
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -234,7 +234,7 @@ from pathlib import Path
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)\Siderial Stare Mode - Copy (2)Boyde_Table1_Combined.csv"
+file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode\Siderial Stare ModeBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 

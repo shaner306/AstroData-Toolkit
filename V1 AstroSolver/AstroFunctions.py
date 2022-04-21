@@ -62,6 +62,10 @@ from skimage import measure
 from tqdm import tqdm
 from random import shuffle, choice
 from astropy.nddata import CCDData
+from astropy.visualization import SqrtStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
+from photutils.aperture import CircularAperture,aperture_photometry
+from photutils import CircularAperture
 
 # from scipy.optimize import curve_fit
 
@@ -376,7 +380,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
     iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm, brightest=150)
+        threshold=sigma * bkg_std, fwhm=fwhm,brightest=150)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -786,6 +790,7 @@ def calculate_magnitudes(photometry_result, exptime):
     fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
     instr_mags_units = u.Magnitude(fluxes)
     instr_mags = instr_mags_units.value
+    instr_mag=-2.51* np.log(fluxes/exptime)
     return instr_mags
 
 
@@ -810,11 +815,21 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
         of the sources in the image.
 
     """
-    fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
-    flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
+# =============================================================================
+#     fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
+# =============================================================================
+    fluxes=photometry_result['flux_fit']
+    flux_unc=photometry_result['flux_unc']
+# =============================================================================
+#     flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
+# =============================================================================
     # snr = (fluxes / flux_uncs).value
     snr = np.sqrt(fluxes)
-    instr_mags_sigma = 1.0857 / np.sqrt(snr)
+# =============================================================================
+#     instr_mags_sigma = 1.0857 / np.sqrt(snr)
+# =============================================================================
+    
+    instr_mag_sigma=1.0857/snr
     return instr_mags_sigma, snr
 
 
@@ -10560,6 +10575,7 @@ def _main_gb_new_boyd_method(
         lon_key='SITELONG',
         elev_key='SITEELEV',
         name_key='Name',
+        photometry_method='psf',
         **kwargs):
     matched_stars_dict={}
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
@@ -10616,6 +10632,10 @@ def _main_gb_new_boyd_method(
         bkg, bkg_std = calculate_img_bkg(imgdata)
         # Detect point sources in the image.
         irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+    
+        
+        
+        
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
@@ -10630,15 +10650,25 @@ def _main_gb_new_boyd_method(
         # Calculate the FWHM in pixels.
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         # Do PSF photometry on the detected sources.
-        photometry_result = perform_photometry(
-            irafsources, fwhm, imgdata, bkg=bkg)
-        # Store the flux and uncertainty of the stars in a separate variable.
-        fluxes = np.array(photometry_result['flux_fit'])
-        fluxes_unc = np.array(photometry_result['flux_unc'])
-        # Convert the flux and uncertainty to magnitude and its uncertainty.
-        instr_mags = calculate_magnitudes(photometry_result, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            photometry_result, exptime)
+        if photometry_method=='psf':
+            photometry_result = perform_photometry(
+                irafsources, fwhm, imgdata, bkg=bkg)
+            # Store the flux and uncertainty of the stars in a separate variable.
+            fluxes = np.array(photometry_result['flux_fit'])
+            fluxes_unc = np.array(photometry_result['flux_unc'])
+            # Convert the flux and uncertainty to magnitude and its uncertainty.
+            instr_mags = calculate_magnitudes(photometry_result, exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                photometry_result, exptime)
+        elif photometry_method=='aperture':
+            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg)
+            
+            fluxes_unc=np.array(photometry_result['aperture_sum_error0'])
+            fluxes=np.array(photometry_result['aperture_sum0'])
+            instr_mags=calculate_magnitudes(photometry_result,exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                photometry_result, exptime)
+        
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
@@ -11162,3 +11192,42 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     Boyde_Table_grouped['zero_point'] = zero_point_array
 
     return Boyde_Table_grouped
+
+def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, fitshape=5):
+    # =============================================================================
+    #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
+    #     psf_model.x_0.fixed = True
+    #     psf_model.y_0.fixed = True
+    # =============================================================================
+    pos = Table(names=['x_0', 'y_0', 'flux_0'],
+                data=[irafsources['xcentroid'],
+                      irafsources['ycentroid'],
+                      irafsources['flux']])
+    positions=[irafsources['xcentroid'],irafsources['ycentroid']]
+    radii=[3]
+    #apertures=[CircularAperture[positions,r=r]for r in radii]
+    apertures=[]
+    #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
+    aperture=CircularAperture((positions[0][0],positions[1][0]),r=3)
+    table_array=(np.array(aperture_photometry(imgdata-bkg,aperture)))
+    for i in range(1,np.shape(positions)[1]):
+        
+        for r in radii:
+            aperture=CircularAperture((positions[0][i],positions[1][i]),r=3)
+            apertures.append(aperture)
+            table_array=numpy.vstack([table_array,np.array(aperture_photometry(imgdata-bkg,aperture))])
+             
+    photometry_result=Table(table_array)
+    
+        
+    
+    
+# =============================================================================
+#     photometry = BasicPSFPhotometry(group_maker=daogroup,
+#                                     bkg_estimator=None,
+#                                     psf_model=psf_model,
+#                                     fitter=fitter,
+#                                     fitshape=fitshape)
+#     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+# =============================================================================
+    return photometry_result

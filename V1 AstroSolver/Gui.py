@@ -114,7 +114,18 @@ def Gui():
                            sg.Radio('Space Based',
                                     "RADIO1",
                                     default=False,
-                                    key="-IN83-")]])], ]
+                                    key="-IN83-")]])],
+               [sg.Frame('Photometry Method',
+                         [[sg.T(""),
+                           sg.Radio('PSF',
+                                    "RADIO5",
+                                    default=True,
+                                    key="psf"),
+                           sg.T("                "),
+                           sg.Radio('Aperture',
+                                    "RADIO5",
+                                    default=False,
+                                    key="aperture")]])]]
     # column2.update(disabled=True)
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
@@ -437,6 +448,10 @@ def Gui():
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
             plot_data = values["-IN1014-"]
+            if values['psf'] is True:
+                photometry_method='psf'
+            elif values['aperture'] is True:
+                photometry_method='aperture'
             
             # Check to See if image has been corrected already
             for dirpath,dirnames,files in os.walk(image_dir):
@@ -573,7 +588,7 @@ def Gui():
                               exposure_key=exposure_key,
                               name_key=name_key, lat_key=lat_key,
                               lon_key=lon_key, elev_key=elev_key,
-                              save_loc=save_loc, unique_id=unique_id)
+                              save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
                         
                           
                             
