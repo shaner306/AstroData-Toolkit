@@ -10661,7 +10661,7 @@ def _main_gb_new_boyd_method(
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
                 photometry_result, exptime)
         elif photometry_method=='aperture':
-            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg)
+            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg,bkg_std=bkg_std)
             
             fluxes_unc=np.array(photometry_result['aperture_sum_error0'])
             fluxes=np.array(photometry_result['aperture_sum0'])
@@ -11193,7 +11193,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     return Boyde_Table_grouped
 
-def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, fitshape=5):
+def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, bkg_std fitshape=5):
     # =============================================================================
     #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
     #     psf_model.x_0.fixed = True
@@ -11209,13 +11209,13 @@ def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, fitshape=5):
     apertures=[]
     #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
     aperture=CircularAperture((positions[0][0],positions[1][0]),r=3)
-    table_array=(np.array(aperture_photometry(imgdata-bkg,aperture)))
+    table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
     for i in range(1,np.shape(positions)[1]):
         
         for r in radii:
             aperture=CircularAperture((positions[0][i],positions[1][i]),r=3)
             apertures.append(aperture)
-            table_array=numpy.vstack([table_array,np.array(aperture_photometry(imgdata-bkg,aperture))])
+            table_array=numpy.vstack([table_array,np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std)))])
              
     photometry_result=Table(table_array)
     
