@@ -10666,10 +10666,10 @@ def _main_gb_new_boyd_method(
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
                 fluxes,fluxes_unc, exptime)
         elif photometry_method=='aperture':
-            photometry_result=perform_aperture_photometry(irafsources,fwhm,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std)
+            photometry_result=perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std)
             
-            fluxes_unc=np.array(photometry_result['aperture_sum_err'])
-            fluxes=np.array(photometry_result['aperture_sum'])
+            fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
+            fluxes=np.array(photometry_result['flux_fit'])
             instr_mags=calculate_magnitudes(fluxes,exptime)
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
                 fluxes,fluxes_unc, exptime)
@@ -11198,35 +11198,55 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     return Boyde_Table_grouped
 
-def perform_aperture_photometry(irafsources, fwhm, imgdata, bkg, bkg_std, fitshape=5):
+def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std, fitshape=5):
     # =============================================================================
     #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
     #     psf_model.x_0.fixed = True
     #     psf_model.y_0.fixed = True
     # =============================================================================
-    pos = Table(names=['x_0', 'y_0', 'flux_0'],
-                data=[irafsources['xcentroid'],
-                      irafsources['ycentroid'],
-                      irafsources['flux']])
+    
     positions=[irafsources['xcentroid'],irafsources['ycentroid']]
-    radii=[3]
+    
     #apertures=[CircularAperture[positions,r=r]for r in radii]
     apertures=[]
     #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
     aperture=CircularAperture((positions[0][0],positions[1][0]),r=3)
-    table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
-    flux_array=[ApertureStats(imgdata-bkg,aperture).std]
-    for i in range(1,np.shape(positions)[1]):
+    #table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
+    #flux_array=[ApertureStats(imgdata-bkg,aperture).std]
+    
+    flux_unc_array=[]
+    flux_array=[]
+    id_array=[]
+    xcenter_array=[]
+    ycenter_array=[]
+    
+    
+    
+    for i in range(0,np.shape(positions)[1]):
+        radii=3*fwhms[i]
         
-        for r in radii:
-            aperture=CircularAperture((positions[0][i],positions[1][i]),r=3)
-            apertures.append(aperture)
-            # Calculate the stanrd deviaton of the flux
-            flux_array.append(ApertureStats(imgdata-bkg,aperture).std)
-            table_array=numpy.vstack([table_array,np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std)))])
-             
-    photometry_result=Table(table_array)
-    photometry_result['flux_unc']=flux_array
+        aperture=CircularAperture((positions[0][i],positions[1][i]),r=radii)
+        apertures.append(aperture)
+        # Calculate the stanrd deviaton of the flux
+        flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
+        photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=(np.ones(np.shape(imgdata))*bkg_std))
+        
+        flux_array.append(photometry_result_draft['aperture_sum'].value[0])
+        id_array.append(photometry_result_draft['id'].value[0])
+        xcenter_array.append(photometry_result_draft['xcenter'].value[0])
+        ycenter_array.append(photometry_result_draft['ycenter'].value[0])
+    photometry_result=(Table())
+    photometry_result['flux_unc']=flux_unc_array
+    
+    photometry_result['flux_0']=flux_array
+    photometry_result['flux_fit']=flux_array
+    
+    photometry_result['id']=id_array
+    photometry_result['x_0']=xcenter_array
+    photometry_result['y_0']=ycenter_array
+    
+    photometry_result['x_fit']=xcenter_array
+    photometry_result['y_fit']=ycenter_array
     
         
     
