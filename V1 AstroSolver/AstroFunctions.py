@@ -591,7 +591,7 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
     return fwhm_arcsec
 
 
-def perform_photometry(irafsources, fwhm, imgdata, bkg,
+def perform_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
                        fitter=LevMarLSQFitter(), fitshape=5):
     """
     Perform PSF photometry on all sources in a selected image.
@@ -664,7 +664,15 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg,
                                     psf_model=psf_model,
                                     fitter=fitter,
                                     fitshape=fitshape)
+    
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+    
+    
+    #Get Residual Image
+    residual_image=photometry.get_residual_image()
+    
+    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
     return photometry_result
 
 
@@ -10657,7 +10665,7 @@ def _main_gb_new_boyd_method(
         # Do PSF photometry on the detected sources.
         if photometry_method=='psf':
             photometry_result = perform_photometry(
-                irafsources, fwhm, imgdata, bkg=bkg)
+                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
             # Store the flux and uncertainty of the stars in a separate variable.
             fluxes = np.array(photometry_result['flux_fit'])
             fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -10665,6 +10673,8 @@ def _main_gb_new_boyd_method(
             instr_mags = calculate_magnitudes(fluxes, exptime)
             instr_mags_sigma, snr = calculate_magnitudes_sigma(
                 fluxes,fluxes_unc, exptime)
+            
+            
         elif photometry_method=='aperture':
             photometry_result=perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std)
             
