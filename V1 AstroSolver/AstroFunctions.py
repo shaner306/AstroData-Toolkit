@@ -11317,6 +11317,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     xcenter_array=[]
     ycenter_array=[]
     masks=np.zeros(np.shape(imgdata),dtype=bool)
+    residual_image=imgdata
     
     # TODO: come up with better method for this
     
@@ -11336,6 +11337,9 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
         mask=aperture.to_mask(method='exact')
         
         masks=masks+mask.to_image(np.shape(imgdata))
+        residual_image=residual_image-(np.max(flux_array)*mask.to_image(np.shape(imgdata)))
+        
+        
         
     photometry_result=(Table())
     photometry_result['flux_unc']=flux_unc_array
@@ -11353,7 +11357,8 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     mask_image=fits.PrimaryHDU(data=masks,header=hdr)
     mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'))
     
-    
+    residual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'))
 # =============================================================================
 #     photometry = BasicPSFPhotometry(group_maker=daogroup,
 #                                     bkg_estimator=None,
