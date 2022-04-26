@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 AstroFunctions.py.
@@ -64,8 +65,9 @@ from random import shuffle, choice
 from astropy.nddata import CCDData
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
-from photutils.aperture import CircularAperture,aperture_photometry,ApertureStats
-from photutils import CircularAperture
+from astropy.stats import SigmaClip
+from photutils.aperture import CircularAperture,aperture_photometry,ApertureStats,CircularAnnulus
+from photutils.utils import calc_total_error
 
 # from scipy.optimize import curve_fit
 
@@ -380,7 +382,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
     iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm,brightest=150)
+        threshold=sigma * bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -10727,7 +10729,7 @@ def _main_gb_new_boyd_method(
         # Calculate the image background and standard deviation.
         bkg, bkg_std = calculate_img_bkg(imgdata)
         # Detect point sources in the image.
-        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        irafsources = detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
     
         
         
@@ -11015,8 +11017,34 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
     Returns
     -------
-    Boyde_Table : TYPE
-        DESCRIPTION.
+    Boyde_Table : Astropy.Table
+        Includes:
+            Image Name:
+                    the basename of the inputted image file. Describes the Image Name
+            C:
+                    The  slope produced from linear regression of the Standard 
+                    Magntiude-intrumental Magnitude vs Colour Index of the Landolt stars.
+                    This slope is used determine the colour transform term T in Steps 2 and 3
+            Z-prime: 
+                    the y- intercept of the linear regressed data. 
+                    Used to determine k prime and zero point in Step 2 and 3
+            Index: 
+                    The colour index used in linear regression to calculate C and z Prime
+            Airmass:
+                    The predicted center airmass of the image
+            Colour Filter:
+                    Colour filter used in the capture of the image
+            Step 1 Standard Deviation:
+                    The standard Deviation produced by the residuals
+                    of the plotted points against the fitted line   
+            Number of Valid Matched Stars:
+                    The number of stars matched in the image
+    Outputs
+    ------
+    If save_plot==True:
+        Save the Linear Regression Plots created with each image
+            
+            
 
     '''
     hdr, imgdata = read_fits_file(filepath)
@@ -11163,6 +11191,16 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
 
 def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
+    '''
+    See calculate_boyde_slope_1
+    
+    Calculates Step 2 and 3 in the Boyde Method and adds them to the previously built Boyde Table in Step 1
+    
+    Parameters
+    ---------
+    Inputs:
+        Boyde_Table
+    '''
 
     Boyde_Table_grouped = Boyde_Table.group_by(
         ['Colour Filter', 'Index (i.e. B-V)'])
@@ -11296,6 +11334,41 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     return Boyde_Table_grouped
 
 def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepath,hdr, fitshape=5):
+    
+    '''
+    Performs Aperture Photometry
+    
+    Parameters
+    ---------
+    
+    Inputs:
+        irafsources: Astropy.Table
+                    Contains:
+                        - id: 
+                            unique object identification number
+                        - xcentorid,ycentroid: 
+                            estimate of the x and y centroid of the extracted source (star)
+                        - fwhm:
+                            estimate of the fwhm of the extracted source
+                        - sharpness: 
+                            sharpness of the source
+                        - roudness: 
+                            object roundness
+                        - flux: 
+                            the object instrumental flux
+                        - mag: 
+                            objects insutrmental magntiude (-2.5*log10(flux))
+                    
+        imgdata:
+            np.array. The img data obtained from opening the filepath
+            
+        hdr:
+            Astropy Header. Header data of the image
+        
+        bkg: global background 
+    '''
+    
+    
     # =============================================================================
     #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
     #     psf_model.x_0.fixed = True
@@ -11307,7 +11380,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     #apertures=[CircularAperture[positions,r=r]for r in radii]
     apertures=[]
     #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
-    aperture=CircularAperture((positions[0][0],positions[1][0]),r=3)
+    
     #table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
     #flux_array=[ApertureStats(imgdata-bkg,aperture).std]
     
@@ -11321,22 +11394,44 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     
     # TODO: come up with better method for this
     
+    # sigma values recommended by Howell
+    sigclip= SigmaClip(sigma=3,maxiters=10)
+    
+    
     for i in range(0,np.shape(positions)[1]):
         radii=3*fwhms[i]
         
         aperture=CircularAperture((positions[0][i],positions[1][i]),r=radii)
         apertures.append(aperture)
-        # Calculate the stanrd deviaton of the flux
-        flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
-        photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=(np.ones(np.shape(imgdata))*bkg_std))
         
+        mask=aperture.to_mask(method='exact')
+        
+        # Test Annulus inner and Outer dimensions  See Shaw pg. 55
+        "Calculate Local Error"
+        annulus_aperture=CircularAnnulus((positions[0][i],positions[1][i]),r_in=3*radii,r_out=4*radii)
+        bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
+        bkg=bkg_stats.median
+        
+        
+        mask=aperture.to_mask(method='exact')+annulus_aperture.to_mask(method='exact')
+        
+        
+        # Calculate the stanard deviaton of the flux
+        # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
+        
+        bkg_error=np.ones(np.shape(imgdata))*bkg.std
+        error=calc_total_error(imgdata,bkg_error,hdr['EGAIN'])
+        
+        photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
+        flux_unc_array.append(photometry_result_draft['aperture_sum_err'].value[0])
         flux_array.append(photometry_result_draft['aperture_sum'].value[0])
         id_array.append(photometry_result_draft['id'].value[0])
         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
-        mask=aperture.to_mask(method='exact')
+        
         
         masks=masks+mask.to_image(np.shape(imgdata))
+        # Creates a rough reisudal imae to show where the aperture masks are
         residual_image=residual_image-(np.max(flux_array)*mask.to_image(np.shape(imgdata)))
         
         
@@ -11354,11 +11449,11 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     photometry_result['x_fit']=xcenter_array
     photometry_result['y_fit']=ycenter_array
     
-    mask_image=fits.PrimaryHDU(data=masks,header=hdr)
-    mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'))
+    mask_image=fits.PrimaryHDU(data=masks.astype(dtype=int),header=hdr)
+    mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'),overwrite=True)
     
-    residual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'))
+    residual_image=fits.PrimaryHDU(data=residual_image.astype(dtype=int),header=hdr)
+    residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'),overwrite=True)
 # =============================================================================
 #     photometry = BasicPSFPhotometry(group_maker=daogroup,
 #                                     bkg_estimator=None,
