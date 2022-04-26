@@ -675,6 +675,89 @@ def perform_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
     fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
     return photometry_result
 
+def perform_photometry_2(irafsources, fwhm, imgdata, bkg,filepath,hdr,
+                       fitter=LevMarLSQFitter(), fitshape=5):
+    
+    #TODO: Find Dynamic way to adjust the PSF fitting
+
+    '''
+    An updated version of the current perform photometry funciton which uses
+    3*fwhm of the chosen source to create a fit shape of the object.
+    The primary reason for doing this is to explore the consequences
+    of changing the fit shape of the basic psf fucntion
+    
+    '''
+    pos = Table(names=['x_0', 'y_0', 'flux_0'],
+                data=[irafsources['xcentroid'],
+                      irafsources['ycentroid'],
+                      irafsources['flux']])
+    
+# =============================================================================
+#     flux_array=[]
+#     id_array=[]
+#     xcenter_array=[]
+#     ycenter_array=[]
+#     flux_unc_array=[]
+# =============================================================================
+    
+    residual_image=imgdata
+    
+    
+
+    daogroup = DAOGroup(3 * fwhm)
+    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
+    psf_model.x_0.fixed = True
+    psf_model.y_0.fixed = True
+    
+    #
+    photometry = BasicPSFPhotometry(group_maker=daogroup,
+                                    bkg_estimator=None,
+                                    psf_model=psf_model,
+                                    fitter=fitter,
+                                    fitshape=int(3*fwhm),
+                                    aperture_radius=(3*fwhm))
+    star_groups=Table(names=['id','group_id','x_0', 'y_0', 'flux_0'],
+                data=[irafsources['id'],
+                        irafsources['id'],
+                            irafsources['xcentroid'],
+                              irafsources['ycentroid'],
+                              irafsources['flux']])
+    
+    photometry_result = photometry(image=imgdata-bkg, init_guesses=pos)
+# =============================================================================
+#     
+#     
+#     
+#     flux_array.append(photometry_result_draft['flux_fit'].value[0])
+#     flux_unc_array.append(photometry_result_draft['flux_unc'].value[0])
+#     id_array.append(photometry_result_draft['id'].value[0])
+#     xcenter_array.append(photometry_result_draft['xcenter'].value[0])
+#     ycenter_array.append(photometry_result_draft['ycenter'].value[0])
+#     
+#     photometry_result=(Table())
+#     photometry_result['flux_unc']=flux_unc_array
+#     
+#     photometry_result['flux_0']=flux_array
+#     photometry_result['flux_fit']=flux_array
+#     
+#     photometry_result['id']=id_array
+#     photometry_result['x_0']=xcenter_array
+#     photometry_result['y_0']=ycenter_array
+#     
+#     photometry_result['x_fit']=xcenter_array
+#     photometry_result['y_fit']=ycenter_array
+#     
+#     
+#     #Get Residual Image
+# =============================================================================
+    
+    residual_image=photometry.get_residual_image()
+    
+    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_2_residual.fits'))
+    
+    return photometry_result
+
 
 def perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg,
                            fitter=LevMarLSQFitter(), fitshape=5):
@@ -10664,8 +10747,12 @@ def _main_gb_new_boyd_method(
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         # Do PSF photometry on the detected sources.
         if photometry_method=='psf':
-            photometry_result = perform_photometry(
-                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# =============================================================================
+#             photometry_result = perform_photometry(
+#                 irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# =============================================================================
+            photometry_result = perform_photometry_2(
+                             irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
             # Store the flux and uncertainty of the stars in a separate variable.
             fluxes = np.array(photometry_result['flux_fit'])
             fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -10676,7 +10763,7 @@ def _main_gb_new_boyd_method(
             
             
         elif photometry_method=='aperture':
-            photometry_result=perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std)
+            photometry_result=perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
             
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
             fluxes=np.array(photometry_result['flux_fit'])
@@ -11208,7 +11295,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     return Boyde_Table_grouped
 
-def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std, fitshape=5):
+def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepath,hdr, fitshape=5):
     # =============================================================================
     #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
     #     psf_model.x_0.fixed = True
@@ -11229,8 +11316,9 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std, fitsh
     id_array=[]
     xcenter_array=[]
     ycenter_array=[]
+    masks=np.zeros(np.shape(imgdata),dtype=bool)
     
-    
+    # TODO: come up with better method for this
     
     for i in range(0,np.shape(positions)[1]):
         radii=3*fwhms[i]
@@ -11245,6 +11333,10 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std, fitsh
         id_array.append(photometry_result_draft['id'].value[0])
         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
+        mask=aperture.to_mask(method='exact')
+        
+        masks=masks+mask.to_image(np.shape(imgdata))
+        
     photometry_result=(Table())
     photometry_result['flux_unc']=flux_unc_array
     
@@ -11258,7 +11350,8 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std, fitsh
     photometry_result['x_fit']=xcenter_array
     photometry_result['y_fit']=ycenter_array
     
-        
+    mask_image=fits.PrimaryHDU(data=masks,header=hdr)
+    mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'))
     
     
 # =============================================================================
