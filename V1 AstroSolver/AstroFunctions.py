@@ -11413,13 +11413,14 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
         bkg=bkg_stats.median
         
         
-        mask=aperture.to_mask(method='exact')+annulus_aperture.to_mask(method='exact')
+        mask1=aperture.to_mask(method='exact')
+        mask2=annulus_aperture.to_mask(method='exact')
         
         
         # Calculate the stanard deviaton of the flux
         # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
         
-        bkg_error=np.ones(np.shape(imgdata))*bkg.std
+        bkg_error=(np.ones(np.shape(imgdata)))*bkg_stats.std
         error=calc_total_error(imgdata,bkg_error,hdr['EGAIN'])
         
         photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
@@ -11429,10 +11430,12 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
         
+        combined_aperture_mask=mask1.to_image(np.shape(imgdata))+mask2.to_image(np.shape(imgdata))
+        masks=masks+combined_aperture_mask
         
-        masks=masks+mask.to_image(np.shape(imgdata))
         # Creates a rough reisudal imae to show where the aperture masks are
-        residual_image=residual_image-(np.max(flux_array)*mask.to_image(np.shape(imgdata)))
+        residual_image=residual_image-((np.max(flux_array)*combined_aperture_mask))
+        
         
         
         
