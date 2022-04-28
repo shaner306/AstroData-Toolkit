@@ -92,6 +92,24 @@ def Gui():
                         background_color='#F7F3EC',
                         justification='center',
                         size=(30, 1))],
+               [sg.Frame('Transform Method',
+                [[sg.T(""),
+                  sg.Radio('Boyde Method',
+                           default=True,
+                           group_id='Method',
+                           key="NewBoydMethod"),
+                  sg.T(""),
+                  sg.Radio('Warner Method',
+                           group_id='Method',
+                           default=False,
+                           key="WarnerMethod"),
+                  sg.T(""),
+                  sg.Radio('Buckhiem Method',
+                           group_id='Method',
+                           default=False,
+                           key="BuchiemMethod")
+                  ]])
+                ],
                [sg.Frame('Source Capture Mode',
                          [[sg.T(""),
                            sg.Radio('Star Stare Mode',
@@ -110,7 +128,7 @@ def Gui():
                                     "RADIO1",
                                     default=True,
                                     key="-IN82-"),
-                           sg.T("                "),
+                           sg.T(""),
                            sg.Radio('Space Based',
                                     "RADIO1",
                                     default=False,
@@ -121,7 +139,7 @@ def Gui():
                                     "RADIO5",
                                     default=True,
                                     key="psf"),
-                           sg.T("                "),
+                           sg.T(""),
                            sg.Radio('Aperture',
                                     "RADIO5",
                                     default=False,
@@ -130,7 +148,7 @@ def Gui():
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
                    [sg.Text("Image Folder:      "),
-                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Suffield Data/2022-01-17 - Amazonas 2 and SA/SA26/LIGHT",
+                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/2022-03-16/Siderial Stare Mode - Copy/SA23/LIGHT",
                              key="-IN2-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
@@ -150,9 +168,9 @@ def Gui():
                    [sg.T(""), sg.Checkbox('Pinpoint Solve',
                                           default=False,
                                           key="-IN100-")],
-                   [sg.T(""),sg.Checkbox('New Boyd Method',
-                                         default=False,
-                                         key='NewBoydMethod')],
+                   
+                   
+                   
                    # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
@@ -565,8 +583,7 @@ def Gui():
                             save_loc = os.path.join(image_dir, 'Outputs')
                         
                         ## New Boyd Method ##
-                        if values['NewBoydMethod'] is False:
-                            
+                        if values['WarnerMethod']:
                             Warner_final_transform_table =\
                                 astro._main_gb_transform_calc_Warner(
                                     image_dir,
@@ -578,7 +595,7 @@ def Gui():
                                     name_key=name_key, lat_key=lat_key,
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id)
-                        else:    
+                        if values['NewBoydMethod']:
                             NewBoydMethod=astro._main_gb_new_boyd_method(
                               image_dir,
                               refstar_dir,
@@ -588,7 +605,23 @@ def Gui():
                               exposure_key=exposure_key,
                               name_key=name_key, lat_key=lat_key,
                               lon_key=lon_key, elev_key=elev_key,
-                              save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
+                              save_loc=save_loc, unique_id=unique_id,
+                              photometry_method=photometry_method)
+                        if values['BuchiemMethod']:
+                            BuchiemMethod=\
+                                astro._main_gb_transform_calc_Buchheim(
+                                    image_dir,
+                                    refstar_dir,
+                                    plot_results=plot_results,
+                                    save_plots=save_plots,
+                                    file_suffix=file_suffix,
+                                    exposure_key=exposure_key,
+                                    name_key=name_key, lat_key=lat_key,
+                                    lon_key=lon_key, elev_key=elev_key,
+                                    save_loc=save_loc, unique_id=unique_id,
+                                    photometry_method=photometry_method
+                                    
+                                    )
                         
                           
                             

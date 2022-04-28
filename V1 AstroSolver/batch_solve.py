@@ -75,7 +75,7 @@ for dirs in list_subfolders_with_paths:
 
         
 # %% Batch Solve
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy'
 catalog_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
 refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
@@ -90,6 +90,7 @@ catalog_exp=0.8
 use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
+photometry_method='aperture'
 
 
 
@@ -97,6 +98,7 @@ space_based_bool=False
 path=dataset_folder
 
 list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
+
 
 for dirs in list_subfolders_with_paths:
     
@@ -121,7 +123,7 @@ for dirs in list_subfolders_with_paths:
 #                         use_sextractor,
 #                         all_sky_solve)
 # =============================================================================
-    
+
     try:
         plot_results = True
         save_plots = True
@@ -160,7 +162,7 @@ for dirs in list_subfolders_with_paths:
           exposure_key=exposure_key,
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
-          save_loc=save_loc, unique_id=unique_id)
+          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
     except Exception:
         continue
      
@@ -187,7 +189,7 @@ with open(file,"a+",newline='\n') as f:
     
 # %% Create Combined Boyd Tables
 import csv
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode'
+dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -234,7 +236,7 @@ from pathlib import Path
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode\Siderial Stare ModeBoyde_Table1_Combined.csv"
+file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy\Siderial Stare Mode - CopyBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 

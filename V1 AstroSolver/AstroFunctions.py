@@ -10,6 +10,7 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
+import perform_photometry
 import ctypes
 import math
 import os
@@ -52,7 +53,7 @@ from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FormatStrFormatter
-from photutils.aperture import RectangularAperture
+from photutils.aperture import RectangularAperture,CircularAperture,CircularAnnulus
 from photutils.background import Background2D
 from photutils.background import MeanBackground
 from photutils.background import MedianBackground
@@ -66,7 +67,7 @@ from astropy.nddata import CCDData
 from astropy.visualization import SqrtStretch
 from astropy.visualization.mpl_normalize import ImageNormalize
 from astropy.stats import SigmaClip
-from photutils.aperture import CircularAperture,aperture_photometry,ApertureStats,CircularAnnulus
+from photutils.aperture import aperture_photometry,ApertureStats
 from photutils.utils import calc_total_error
 
 # from scipy.optimize import curve_fit
@@ -381,8 +382,11 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
 
     """
     # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
+    
+    # TODO: Optimize by searching only around reference star RA/DEC See. detecting_stars
+    
     iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm)
+        threshold=sigma * bkg_std, fwhm=fwhm,brightest=150)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -425,7 +429,6 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
 
 def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT',
                              lon_key='SITELONG', elev_key='SITEELEV'):
-    # FIXME Redundant. Headers have ALTAZ
     """
     Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
@@ -593,247 +596,7 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
     return fwhm_arcsec
 
 
-def perform_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
-                       fitter=LevMarLSQFitter(), fitshape=5):
-    """
-    Perform PSF photometry on all sources in a selected image.
 
-    Parameters
-    ----------
-    irafsources : astropy.table.Table
-        Table containing information of all stars detected in the image.
-        Has columns:
-            id,
-            xcentroid,
-            ycentroid,
-            fwhm,
-            sharpness,
-            roundness,
-            pa,
-            npix,
-            sky,
-            peak,
-            flux,
-            mag
-    fwhm : float
-        Mean FWHM of all sources in the image.
-    imgdata : numpy.ndarray
-        Data from the fits file.
-    bkg : float, optional
-        Background value of the image in ADU. The default is None.
-    bkg_estimator : callable, instance of any
-    photutils.background.BackgroundBase subclass, optional
-        bkg_estimator should be able to compute either a scalar background or
-        a 2D background of a given 2D image.
-        If None, no background subtraction is performed. The default is None.
-    fitter : astropy.modeling.fitting.Fitter instance, optional
-        Fitter object used to compute the optimized centroid positions and/or
-        flux of the identified sources.
-        The default is LevMarLSQFitter().
-    fitshape : int or length-2 array-like, optional
-        Rectangular shape around the center of a star which will be used to
-        collect the data to do the fitting.
-        Can be an integer to be the same along both axes. For example, 5 is
-        the same as (5, 5),
-        which means to fit only at the following relative pixel positions:
-            [-2, -1, 0, 1, 2].
-        Each element of fitshape must be an odd number. The default is 25.
-
-    Returns
-    -------
-    photometry_result : astropy.table.Table or None
-        Table with the photometry results, i.e., centroids and fluxes
-        estimations and the initial estimates used to
-        start the fitting process. Uncertainties on the fitted parameters
-        are reported as columns called
-        <paramname>_unc provided that the fitter object contains a dictionary
-        called fit_info with the key param_cov,
-        which contains the covariance matrix. If param_cov is not present,
-        uncertanties are not reported.
-
-    """
-    daogroup = DAOGroup(2 * fwhm)
-    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-    psf_model.x_0.fixed = True
-    psf_model.y_0.fixed = True
-    pos = Table(names=['x_0', 'y_0', 'flux_0'],
-                data=[irafsources['xcentroid'],
-                      irafsources['ycentroid'],
-                      irafsources['flux']])
-
-    photometry = BasicPSFPhotometry(group_maker=daogroup,
-                                    bkg_estimator=None,
-                                    psf_model=psf_model,
-                                    fitter=fitter,
-                                    fitshape=fitshape)
-    
-    photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
-    
-    
-    #Get Residual Image
-    residual_image=photometry.get_residual_image()
-    
-    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
-    return photometry_result
-
-def perform_photometry_2(irafsources, fwhm, imgdata, bkg,filepath,hdr,
-                       fitter=LevMarLSQFitter(), fitshape=5):
-    
-    #TODO: Find Dynamic way to adjust the PSF fitting
-
-    '''
-    An updated version of the current perform photometry funciton which uses
-    3*fwhm of the chosen source to create a fit shape of the object.
-    The primary reason for doing this is to explore the consequences
-    of changing the fit shape of the basic psf fucntion
-    
-    '''
-    pos = Table(names=['x_0', 'y_0', 'flux_0'],
-                data=[irafsources['xcentroid'],
-                      irafsources['ycentroid'],
-                      irafsources['flux']])
-    
-# =============================================================================
-#     flux_array=[]
-#     id_array=[]
-#     xcenter_array=[]
-#     ycenter_array=[]
-#     flux_unc_array=[]
-# =============================================================================
-    
-    residual_image=imgdata
-    
-    
-
-    daogroup = DAOGroup(3 * fwhm)
-    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-    psf_model.x_0.fixed = True
-    psf_model.y_0.fixed = True
-    
-    #
-    photometry = BasicPSFPhotometry(group_maker=daogroup,
-                                    bkg_estimator=None,
-                                    psf_model=psf_model,
-                                    fitter=fitter,
-                                    fitshape=int(3*fwhm),
-                                    aperture_radius=(3*fwhm))
-    star_groups=Table(names=['id','group_id','x_0', 'y_0', 'flux_0'],
-                data=[irafsources['id'],
-                        irafsources['id'],
-                            irafsources['xcentroid'],
-                              irafsources['ycentroid'],
-                              irafsources['flux']])
-    
-    photometry_result = photometry(image=imgdata-bkg, init_guesses=pos)
-# =============================================================================
-#     
-#     
-#     
-#     flux_array.append(photometry_result_draft['flux_fit'].value[0])
-#     flux_unc_array.append(photometry_result_draft['flux_unc'].value[0])
-#     id_array.append(photometry_result_draft['id'].value[0])
-#     xcenter_array.append(photometry_result_draft['xcenter'].value[0])
-#     ycenter_array.append(photometry_result_draft['ycenter'].value[0])
-#     
-#     photometry_result=(Table())
-#     photometry_result['flux_unc']=flux_unc_array
-#     
-#     photometry_result['flux_0']=flux_array
-#     photometry_result['flux_fit']=flux_array
-#     
-#     photometry_result['id']=id_array
-#     photometry_result['x_0']=xcenter_array
-#     photometry_result['y_0']=ycenter_array
-#     
-#     photometry_result['x_fit']=xcenter_array
-#     photometry_result['y_fit']=ycenter_array
-#     
-#     
-#     #Get Residual Image
-# =============================================================================
-    
-    residual_image=photometry.get_residual_image()
-    
-    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_2_residual.fits'))
-    
-    return photometry_result
-
-
-def perform_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg,
-                           fitter=LevMarLSQFitter(), fitshape=5):
-    """
-    Perform PSF photometry on all sources in a selected image.
-
-    Parameters
-    ----------
-    irafsources : astropy.table.Table
-        Table containing information of all stars detected in the image.
-        Has columns:
-            id,
-            xcentroid,
-            ycentroid,
-            fwhm,
-            sharpness,
-            roundness,
-            pa,
-            npix,
-            sky,
-            peak,
-            flux,
-            mag
-    fwhm : float
-        Mean FWHM of all sources in the image.
-    imgdata : numpy.ndarray
-        Data from the fits file.
-    bkg : float, optional
-        Background value of the image in ADU. The default is None.
-    bkg_estimator : callable, instance of any
-    photutils.background.BackgroundBase subclass, optional
-        bkg_estimator should be able to compute either a scalar background or a
-        2D background of a given 2D image.
-        If None, no background subtraction is performed. The default is None.
-    fitter : astropy.modeling.fitting.Fitter instance, optional
-        Fitter object used to compute the optimized centroid positions and/or
-        flux of the identified sources.
-        The default is LevMarLSQFitter().
-    fitshape : int or length-2 array-like, optional
-        Rectangular shape around the center of a star which will be used to
-        collect the data to do the fitting.
-        Can be an integer to be the same along both axes. For example, 5 is
-        the same as (5, 5),
-        which means to fit only at the following relative pixel positions:
-            [-2, -1, 0, 1, 2].
-        Each element of fitshape must be an odd number. The default is 25.
-
-    Returns
-    -------
-    photometry_result : astropy.table.Table or None
-        Table with the photometry results, i.e., centroids and fluxes
-        estimations and the initial estimates used to
-        start the fitting process. Uncertainties on the fitted parameters are
-        reported as columns called
-        <paramname>_unc provided that the fitter object contains a dictionary
-        called fit_info with the key param_cov,
-        which contains the covariance matrix. If param_cov is not present,
-        uncertanties are not reported.
-
-    """
-    daogroup = DAOGroup(2 * fwhm)  # The 2 is critical seperation
-    psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-    psf_model.x_0.fixed = True
-    psf_model.y_0.fixed = True
-    pos = Table(names=['x_0', 'y_0'],
-                data=[sat_x, sat_y])
-
-    photometry = BasicPSFPhotometry(group_maker=daogroup,
-                                    bkg_estimator=None,
-                                    psf_model=psf_model,
-                                    fitter=fitter,
-                                    fitshape=fitshape)
-    photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
-    return photometry_result
 
 
 def normalize_flux_by_time(fluxes_tab, exptime):
@@ -6627,6 +6390,7 @@ def _main_gb_transform_calc(directory,
                             lon_key='SITELONG',
                             elev_key='SITEELEV',
                             name_key='Name',
+                            photometry_method='psf',
                             **kwargs):
     """
     Taking 
@@ -6710,14 +6474,39 @@ def _main_gb_transform_calc(directory,
                 f.write('\n')
             excluded_files += 1
             continue
-        _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        photometry_result = perform_photometry(
-            irafsources, fwhm, imgdata, bkg=bkg)
-        fluxes = np.array(photometry_result['flux_fit'])
-        fluxes_unc = np.array(photometry_result['flux_unc'])
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            fluxes,fluxes_unc, exptime)
+        fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
+        if photometry_method=='psf':
+
+            photometry_result = perform_photometry.perform_PSF_photometry(
+                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+
+# =============================================================================
+# Experimental perform_photometry
+#             photometry_result = perform_photometry.perform_PSF_photometry_2(
+#                              irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# =============================================================================
+            # Store the flux and uncertainty of the stars in a separate variable.
+            fluxes = np.array(photometry_result['flux_fit'])
+            fluxes_unc = np.array(photometry_result['flux_unc'])
+            # Convert the flux and uncertainty to magnitude and its uncertainty.
+            instr_mags = calculate_magnitudes(fluxes, exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+            
+            
+        elif photometry_method=='aperture':
+            
+            # Perform Aperture Photometry
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            
+            #Re-arrange values to align with PSF Fitting standard
+            fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
+            fluxes=np.array(photometry_result['flux_fit'])
+            
+            instr_mags=calculate_magnitudes(fluxes,exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+        
         wcs = WCS(hdr)
         skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
         altazpositions = None
@@ -6914,7 +6703,7 @@ def verify_gb_transforms(directory,
                 if not irafsources:
                     continue
                 _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(
+                photometry_result = perform_photometry.perform_PSF_photometry(
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -7096,7 +6885,7 @@ def _main_gb_transform_calc_TEST(directory,
             excluded_files += 1
             continue
         _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        photometry_result = perform_photometry(
+        photometry_result = perform_photometry.perform_PSF_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -8984,7 +8773,8 @@ def verify_gb_transforms_auto(directory,
         if not irafsources:
             continue
         _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        photometry_result = perform_photometry(
+        
+        photometry_result = perform_photometry.perform_PSF_photometry(
             irafsources, fwhm, imgdata, bkg=bkg)
         fluxes = np.array(photometry_result['flux_fit'])
         fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -9144,6 +8934,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                                    lat_key='SITELAT',
                                    lon_key='SITELONG',
                                    elev_key='SITEELEV',
+                                   photometry_method='psf',
                                    **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
@@ -9221,15 +9012,40 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         # Calculate the FWHM in pixels.
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         # Do PSF photometry on the detected sources.
-        photometry_result = perform_photometry(
-            irafsources, fwhm, imgdata, bkg=bkg)
-        # Store the flux and uncertainty of the stars in a separate variable.
-        fluxes = np.array(photometry_result['flux_fit'])
-        fluxes_unc = np.array(photometry_result['flux_unc'])
-        # Convert the flux and uncertainty to magnitude and its uncertainty.
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            fluxes,fluxes_unc, exptime)
+        if photometry_method=='psf':
+
+            photometry_result = perform_photometry.perform_PSF_photometry(
+                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+
+# =============================================================================
+# Experimental perform_photometry
+#             photometry_result = perform_photometry.perform_PSF_photometry_2(
+#                              irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# =============================================================================
+            # Store the flux and uncertainty of the stars in a separate variable.
+            fluxes = np.array(photometry_result['flux_fit'])
+            fluxes_unc = np.array(photometry_result['flux_unc'])
+            # Convert the flux and uncertainty to magnitude and its uncertainty.
+            instr_mags = calculate_magnitudes(fluxes, exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+            
+            
+        elif photometry_method=='aperture':
+            
+            # Perform Aperture Photometry
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            
+            #Re-arrange values to align with PSF Fitting standard
+            fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
+            fluxes=np.array(photometry_result['flux_fit'])
+            instr_mags=calculate_magnitudes(fluxes,exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+        
+        
+        
+        
         # Read the World Coordinate System transformation added to the fits header
         # by a plate solving software (external to this program, e.g. PinPoint).
 
@@ -9418,6 +9234,7 @@ def _main_gb_transform_calc_Buchheim(directory,
                                      lat_key='SITELAT',
                                      lon_key='SITELONG',
                                      elev_key='SITEELEV',
+                                     photometry_method='psf',
                                      **kwargs):
 
     # TODO: Docstring.
@@ -9493,15 +9310,41 @@ def _main_gb_transform_calc_Buchheim(directory,
         # Calculate the FWHM in pixels.
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         # Do PSF photometry on the detected sources.
-        photometry_result = perform_photometry(
-            irafsources, fwhm, imgdata, bkg=bkg)
-        # Store the flux and uncertainty of the stars in a separate variable.
-        fluxes = np.array(photometry_result['flux_fit'])
-        fluxes_unc = np.array(photometry_result['flux_unc'])
-        # Convert the flux and uncertainty to magnitude and its uncertainty.
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            fluxes,fluxes_unc, exptime)
+        
+        if photometry_method=='psf':
+
+            photometry_result = perform_photometry.perform_PSF_photometry(
+                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+
+# =============================================================================
+# Experimental perform_photometry
+#             photometry_result = perform_photometry.perform_PSF_photometry_2(
+#                              irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# =============================================================================
+            # Store the flux and uncertainty of the stars in a separate variable.
+            fluxes = np.array(photometry_result['flux_fit'])
+            fluxes_unc = np.array(photometry_result['flux_unc'])
+            # Convert the flux and uncertainty to magnitude and its uncertainty.
+            instr_mags = calculate_magnitudes(fluxes, exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+            
+            
+        elif photometry_method=='aperture':
+            
+            # Perform Aperture Photometry
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            
+            #Re-arrange values to align with PSF Fitting standard
+            fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
+            fluxes=np.array(photometry_result['flux_fit'])
+            instr_mags=calculate_magnitudes(fluxes,exptime)
+            instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                fluxes,fluxes_unc, exptime)
+        
+        
+        
+        
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
@@ -9773,7 +9616,7 @@ def _sky_survey_calc(directory,
             continue
         num_sources = len(irafsources)
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        # photometry_result = perform_photometry(irafsources, fwhm, imgdata, bkg=bkg)
+        # photometry_result = perform_photometry.perform_PSF_photometry(irafsources, fwhm, imgdata, bkg=bkg)
         # fluxes = np.array(photometry_result['flux_fit'])
         # instr_mags = calculate_magnitudes(photometry_result, exptime)
         # instr_mags_sigma, snr = calculate_magnitudes_sigma(photometry_result, exptime)
@@ -10118,7 +9961,10 @@ def _main_sb_transform_calc(directory,
                 if not irafsources:
                     continue
                 _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry(
+                
+                
+                
+                photometry_result = perform_photometry.perform_PSF_photometry(
                     irafsources, fwhm, imgdata, bkg=bkg)
                 fluxes = np.array(photometry_result['flux_fit'])
                 fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -10273,7 +10119,7 @@ def _main_sc_lightcurve(directory,
                                                   ypixsz_key='YPIXSZ')
         fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
         airmass = get_image_airmass(hdr)
-        photometry_result = perform_photometry_sat(
+        photometry_result = perform_photometry.perform_PSF_photometry_sat(
             sat_x, sat_y, fwhm, imgdata, bkg_trm)
         
         fluxes=photometry_result['flux_fit']
@@ -10675,6 +10521,47 @@ def _main_gb_new_boyd_method(
         name_key='Name',
         photometry_method='psf',
         **kwargs):
+    '''
+    A derivative of the _main_gb_transform_calc which uses the Boyde Method for
+    calculating the colour transforms to convert instrumental magntiude to standard magntiude
+
+    Parameters
+    ----------
+    directory : TYPE
+        describes the parent directory which holds 
+    ref_stars_file : TYPE
+        DESCRIPTION.
+    plot_results : TYPE, optional
+        DESCRIPTION. The default is False.
+    save_plots : TYPE, optional
+        DESCRIPTION. The default is False.
+    remove_large_airmass_bool : TYPE, optional
+        DESCRIPTION. The default is False.
+    file_suffix : TYPE, optional
+        DESCRIPTION. The default is (".fits", ".fit", ".fts").
+    exposure_key : TYPE, optional
+        DESCRIPTION. The default is 'EXPTIME'.
+    lat_key : TYPE, optional
+        DESCRIPTION. The default is 'SITELAT'.
+    lon_key : TYPE, optional
+        DESCRIPTION. The default is 'SITELONG'.
+    elev_key : TYPE, optional
+        DESCRIPTION. The default is 'SITEELEV'.
+    name_key : TYPE, optional
+        DESCRIPTION. The default is 'Name'.
+    photometry_method : TYPE, optional
+        DESCRIPTION. The default is 'psf'.
+    **kwargs : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+'''
+
+    
+    
     matched_stars_dict={}
     reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     large_table_columns = init_large_table_columns()
@@ -10749,12 +10636,15 @@ def _main_gb_new_boyd_method(
         fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         # Do PSF photometry on the detected sources.
         if photometry_method=='psf':
+
+            photometry_result = perform_photometry.perform_PSF_photometry(
+                irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+
 # =============================================================================
-#             photometry_result = perform_photometry(
-#                 irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
+# Experimental perform_photometry
+#             photometry_result = perform_photometry.perform_PSF_photometry_2(
+#                              irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
 # =============================================================================
-            photometry_result = perform_photometry_2(
-                             irafsources, fwhm, imgdata, bkg=bkg,filepath=filepath,hdr=hdr)
             # Store the flux and uncertainty of the stars in a separate variable.
             fluxes = np.array(photometry_result['flux_fit'])
             fluxes_unc = np.array(photometry_result['flux_unc'])
@@ -10765,13 +10655,18 @@ def _main_gb_new_boyd_method(
             
             
         elif photometry_method=='aperture':
-            photometry_result=perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
-            
-            fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
-            fluxes=np.array(photometry_result['flux_fit'])
-            instr_mags=calculate_magnitudes(fluxes,exptime)
-            instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                fluxes,fluxes_unc, exptime)
+            try:
+                # Perform Aperture Photometry
+                photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+                
+                #Re-arrange values to align with PSF Fitting standard
+                fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
+                fluxes=np.array(photometry_result['aperture_sum'])
+                instr_mags=calculate_magnitudes(fluxes,exptime)
+                instr_mags_sigma, snr = calculate_magnitudes_sigma(
+                    fluxes,fluxes_unc, exptime)
+            except Exception as exception:
+                raise RuntimeError(exception)
         
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
@@ -10831,7 +10726,7 @@ def _main_gb_new_boyd_method(
         predicted_airmass=float(hdr['AIRMASS'])
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
-        if predicted_airmass>3:
+        if hdr['CENTALT']<30:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
             
             # for now we will ignore all values above 2, but further calcualtions will need to be prodcued 
@@ -11333,136 +11228,3 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 
     return Boyde_Table_grouped
 
-def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepath,hdr, fitshape=5):
-    
-    '''
-    Performs Aperture Photometry
-    
-    Parameters
-    ---------
-    
-    Inputs:
-        irafsources: Astropy.Table
-                    Contains:
-                        - id: 
-                            unique object identification number
-                        - xcentorid,ycentroid: 
-                            estimate of the x and y centroid of the extracted source (star)
-                        - fwhm:
-                            estimate of the fwhm of the extracted source
-                        - sharpness: 
-                            sharpness of the source
-                        - roudness: 
-                            object roundness
-                        - flux: 
-                            the object instrumental flux
-                        - mag: 
-                            objects insutrmental magntiude (-2.5*log10(flux))
-                    
-        imgdata:
-            np.array. The img data obtained from opening the filepath
-            
-        hdr:
-            Astropy Header. Header data of the image
-        
-        bkg: global background 
-    '''
-    
-    
-    # =============================================================================
-    #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-    #     psf_model.x_0.fixed = True
-    #     psf_model.y_0.fixed = True
-    # =============================================================================
-    
-    positions=[irafsources['xcentroid'],irafsources['ycentroid']]
-    
-    #apertures=[CircularAperture[positions,r=r]for r in radii]
-    apertures=[]
-    #table_result=Table(names=['id','xcenter','ycenter','aperture_sum'],dtype=['int32','float64','float64','float64'])
-    
-    #table_array=(np.array(aperture_photometry(imgdata-bkg,aperture,error=(bkg_std))))
-    #flux_array=[ApertureStats(imgdata-bkg,aperture).std]
-    
-    flux_unc_array=[]
-    flux_array=[]
-    id_array=[]
-    xcenter_array=[]
-    ycenter_array=[]
-    masks=np.zeros(np.shape(imgdata),dtype=bool)
-    residual_image=imgdata
-    
-    # TODO: come up with better method for this
-    
-    # sigma values recommended by Howell
-    sigclip= SigmaClip(sigma=3,maxiters=10)
-    
-    
-    for i in range(0,np.shape(positions)[1]):
-        radii=3*fwhms[i]
-        
-        aperture=CircularAperture((positions[0][i],positions[1][i]),r=radii)
-        apertures.append(aperture)
-        
-        mask=aperture.to_mask(method='exact')
-        
-        # Test Annulus inner and Outer dimensions  See Shaw pg. 55
-        "Calculate Local Error"
-        annulus_aperture=CircularAnnulus((positions[0][i],positions[1][i]),r_in=3*radii,r_out=4*radii)
-        bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
-        bkg=bkg_stats.median
-        
-        
-        mask1=aperture.to_mask(method='exact')
-        mask2=annulus_aperture.to_mask(method='exact')
-        
-        
-        # Calculate the stanard deviaton of the flux
-        # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
-        
-        bkg_error=(np.ones(np.shape(imgdata)))*bkg_stats.std
-        error=calc_total_error(imgdata,bkg_error,hdr['EGAIN'])
-        
-        photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
-        flux_unc_array.append(photometry_result_draft['aperture_sum_err'].value[0])
-        flux_array.append(photometry_result_draft['aperture_sum'].value[0])
-        id_array.append(photometry_result_draft['id'].value[0])
-        xcenter_array.append(photometry_result_draft['xcenter'].value[0])
-        ycenter_array.append(photometry_result_draft['ycenter'].value[0])
-        
-        combined_aperture_mask=mask1.to_image(np.shape(imgdata))+mask2.to_image(np.shape(imgdata))
-        masks=masks+combined_aperture_mask
-        
-        # Creates a rough reisudal imae to show where the aperture masks are
-        residual_image=residual_image-((np.max(flux_array)*combined_aperture_mask))
-        
-        
-        
-        
-    photometry_result=(Table())
-    photometry_result['flux_unc']=flux_unc_array
-    
-    photometry_result['flux_0']=flux_array
-    photometry_result['flux_fit']=flux_array
-    
-    photometry_result['id']=id_array
-    photometry_result['x_0']=xcenter_array
-    photometry_result['y_0']=ycenter_array
-    
-    photometry_result['x_fit']=xcenter_array
-    photometry_result['y_fit']=ycenter_array
-    
-    mask_image=fits.PrimaryHDU(data=masks.astype(dtype=int),header=hdr)
-    mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'),overwrite=True)
-    
-    residual_image=fits.PrimaryHDU(data=residual_image.astype(dtype=int),header=hdr)
-    residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'),overwrite=True)
-# =============================================================================
-#     photometry = BasicPSFPhotometry(group_maker=daogroup,
-#                                     bkg_estimator=None,
-#                                     psf_model=psf_model,
-#                                     fitter=fitter,
-#                                     fitshape=fitshape)
-#     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
-# =============================================================================
-    return photometry_result
