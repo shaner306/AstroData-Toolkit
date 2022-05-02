@@ -5,6 +5,8 @@
 Created on Thu Apr  7 12:14:23 2022
 
 @author: stewe
+
+A program used to test the various components of the Boyde Tables Prodcued
 """
 from ccdproc import ImageFileCollection
 import csv
