@@ -27,7 +27,7 @@ from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
 import re
 import AstroFunctions as astro
-import ImageReduction as IR
+from ImageReduction import ImageReduction as IR
 #from .AstroFunctions import *
 #import TRMtester.py as trm
 import numpy
@@ -581,7 +581,7 @@ if image_reduce:
 #
 #-------------------------------------------------------------------------------
 
-#  The following variables are used as switches to run the main functions.
+#  The following variables are used as switches to run the main general_tools.
 #
 #  0 = Don't run function
 #  1 = Run function

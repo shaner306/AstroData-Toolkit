@@ -4,7 +4,7 @@ Created on Thu Apr 28 15:05:05 2022
 
 @author: mstew
 
-This file stores code used for photometry functions
+This file stores code used for photometry general_tools
 
 """
 from astropy.modeling.fitting import LevMarLSQFitter

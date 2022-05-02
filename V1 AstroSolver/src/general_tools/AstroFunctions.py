@@ -3,7 +3,7 @@
 """
 AstroFunctions.py.
 
-This file holds all of the functions that will likely be implemented in a 
+This file holds all of the general_tools that will likely be implemented in a
 final version of the image processor.
 
 Created on Thu Apr 15 10:14:43 2021
@@ -2954,7 +2954,7 @@ def write_table_to_latex(table, output_file, formats=None):
     output_file : string
         File location to write the table to.
     formats : dict, optional
-        Dictionary of format specifiers or formatting functions.
+        Dictionary of format specifiers or formatting general_tools.
         The default is None.
 
     Returns
@@ -4754,7 +4754,7 @@ def change_sat_positions(filenames,
                 bkg, hdr, exptime, gb_final_transforms)
             fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
             airmass = get_image_airmass(hdr)
-            photometry_result = perform_photometry_sat(
+            photometry_result = perform_photometry.perform_PSF_photometry_sat(
                 sat_x, sat_y, fwhm, imgdata, bkg_trm)
             fluxes=photometry_result['flux_fit']
             fluxes_unc=photometry_result['flux_unc']
@@ -6019,12 +6019,12 @@ def verify_gb_transforms_auto(directory,
     if not hidden_transform_table:
         pass
     else:
-        exoatmospheric_table_verify = exoatmospheric_mags_verify_Warner(
+        exoatmospheric_table_verify = warn_aux.exoatmospheric_mags_verify_Warner(
             stars_table,
             gb_final_transforms,
             hidden_transform_table,
             different_filter_list)
-        warner_verfication = apply_transforms_Warner(
+        warner_verfication = warn_aux.apply_transforms_Warner(
             stars_table,
             exoatmospheric_table_verify,
             gb_final_transforms,
@@ -6542,7 +6542,7 @@ def _main_sc_lightcurve(directory,
         filepath = f"{temp_dir}/{file}"
         hdr, imgdata = read_fits_file(filepath)
         if set_sat_positions_bool:
-            set_sat_positions_bool, sat_information = set_sat_positions(
+            set_sat_positions_bool, sat_information = trm_aux.set_sat_positions(
                 imgdata, filecount, set_sat_positions_bool)
         sat_information = add_new_time_and_filter(
             hdr, sat_information, filenum)
@@ -6564,7 +6564,7 @@ def _main_sc_lightcurve(directory,
         # bkg, bkg_std = calculate_img_bkg(imgdata)
 
         try:
-            sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
+            sat_x, sat_y, bkg_trm, fwhm = trm_aux.TRM_sat_detection(
                 filepath, ecct_cut=ecct_cut)
         except TypeError:
             print("No satellites detected.")
@@ -6732,7 +6732,7 @@ def _main_sc_lightcurve(directory,
 
 def __debugging__(gb_final_transforms, save_loc):
     """
-    Debug the main functions. This should simplify git commits by only needing to edit this file.
+    Debug the main general_tools. This should simplify git commits by only needing to edit this file.
 
     Returns
     -------

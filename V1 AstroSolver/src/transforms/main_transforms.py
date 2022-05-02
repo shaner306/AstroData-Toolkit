@@ -4,7 +4,7 @@ Created on Fri Apr 29 11:49:14 2022
 
 @author: mstew
 
-Stored in this file are all the hgiher levels functions needed for transformation
+Stored in this file are all the hgiher levels general_tools needed for transformation
 calculations
 """
 import math
@@ -38,6 +38,7 @@ from random import shuffle, choice
 from matplotlib import pyplot as plt
 from astropy.table import Table, QTable, hstack
 from math import sqrt, atan, pi
+from astropy.time import Time
 
 import perform_photometry
 import auxilary_phot_boyde_functions as boyde_aux
@@ -348,7 +349,7 @@ def _main_gb_transform_calc_TEST(directory,
                                  **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
-    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
+    reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
     large_table_columns = astro.init_large_table_columns()
 
     if save_plots:
@@ -1354,9 +1355,9 @@ def _main_gb_transform_calc_Buchheim(directory,
         # Store the filter used to take the image as a variable.
         img_filter = hdr['FILTER']
         # Calculate the background sky brightness and standard deviation.
-        background_sky_brightness = calculate_background_sky_brightness(
+        background_sky_brightness = astro.calculate_background_sky_brightness(
             bkg, hdr, exptime)
-        background_sky_brightness_sigma = calculate_BSB_sigma(
+        background_sky_brightness_sigma = astro.calculate_BSB_sigma(
             bkg, bkg_std, exptime)
         # Take the average of all stars' Az/El/airmass and store as a variable.
         azimuth = np.mean(altazpositions.az)

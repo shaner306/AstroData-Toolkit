@@ -24,7 +24,7 @@ import time
 # #
 # #-------------------------------------------------------------------------------
 
-# #  The following variables are used as switches to run the main functions.
+# #  The following variables are used as switches to run the main general_tools.
 # #
 # #  0 = Don't run function
 # #  1 = Run function

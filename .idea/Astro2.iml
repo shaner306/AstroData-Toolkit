@@ -11,6 +11,19 @@
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/photometry/buchheim_aux" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/photometry/warner_aux" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/tests" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/data_visualization" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/general_tools" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/image_reduction" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/pinpointsolving" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/ssm_astrometry" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/tests_and_verifications" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/GroundBasedTransforms" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/GroundBasedTransforms/boyde_aux" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/GroundBasedTransforms/buchheim_aux" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/GroundBasedTransforms/warner_aux" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/SpaceBasedTransforms" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/TrackRateModeTransforms" isTestSource="false" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.8 (Astro2-updated)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

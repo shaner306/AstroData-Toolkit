@@ -25,6 +25,7 @@ import Main
 import AstroFunctions as astro
 from astropy.nddata import CCDData
 from pathlib import Path
+import pinpoint
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -530,7 +531,7 @@ def Gui():
                     all_sky_solve = False
                 try:
                     print("Pinpoint Solve Images ---- Started")
-                    Main.pinpoint_solve(image_dir,
+                    pinpoint.pinpoint_solve(image_dir,
                                         catalog_dir,
                                         max_mag,
                                         sigma,
@@ -582,10 +583,10 @@ def Gui():
                         except KeyError:
                             save_loc = os.path.join(image_dir, 'Outputs')
                         
-                        ## New Boyd Method ##
+
                         if values['WarnerMethod']:
                             Warner_final_transform_table =\
-                                astro._main_gb_transform_calc_Warner(
+                                transforms._main_gb_transform_calc_Warner(
                                     image_dir,
                                     refstar_dir,
                                     plot_results=plot_results,
@@ -596,7 +597,7 @@ def Gui():
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id)
                         if values['NewBoydMethod']:
-                            NewBoydMethod=astro._main_gb_new_boyd_method(
+                            NewBoydMethod=transforms._main_gb_new_boyd_method(
                               image_dir,
                               refstar_dir,
                               plot_results=plot_results,
@@ -609,7 +610,7 @@ def Gui():
                               photometry_method=photometry_method)
                         if values['BuchiemMethod']:
                             BuchiemMethod=\
-                                astro._main_gb_transform_calc_Buchheim(
+                                transforms._main_gb_transform_calc_Buchheim(
                                     image_dir,
                                     refstar_dir,
                                     plot_results=plot_results,

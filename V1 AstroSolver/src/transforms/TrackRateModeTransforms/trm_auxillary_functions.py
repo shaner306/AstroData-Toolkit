@@ -6,9 +6,7 @@ Created on Fri Apr 29 16:03:42 2022
 """
 import perform_photometry
 import ctypes
-import math
-import os
-import re
+
 import tkinter as tk
 from collections import namedtuple, Counter
 from itertools import permutations, groupby, combinations
@@ -64,6 +62,8 @@ from astropy.stats import SigmaClip
 from photutils.aperture import aperture_photometry,ApertureStats
 from photutils.utils import calc_total_error
 import AstroFunctions as astro
+
+
 
 def TRM_sat_detection(filepath,
                       ecct_cut=0.5,
