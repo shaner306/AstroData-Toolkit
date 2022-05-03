@@ -26,6 +26,7 @@ import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
+from astropy.io import ascii
 
 
 def _main_gb_transform_calc(directory,
@@ -1110,7 +1111,7 @@ def _main_gb_new_boyd_method(
     try:
         star_aux_table = astro.create_star_aux_table(star_aux_table_columns)
         ascii.write(star_aux_table, os.path.join(
-            save_loc, 'auxiliary_table.csv'), format='csv')
+            save_loc, 'auxiliary_table.csv'), format='csv',overwrite=True)
         # Create an AstroPy table of each reference star detection and write it to a .csv file.
         large_stars_table = astro.create_large_stars_table(
             large_table_columns, ground_based=True)
@@ -1164,13 +1165,20 @@ def _main_gb_new_boyd_method(
     
     # Calculate Step 2
     match_stars_lim=4
+
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
             Boyde_Table, save_plots, save_loc,match_stars_lim)
+
+        date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
+
         ascii.write(Boyde_Table_grouped, os.path.join(
             save_loc, 'Boyde_Table2.csv'), format='csv')
+
+        ascii.write(date_data,os.path.join(
+            save_loc, 'Date_data.csv'), format='csv')
     except Exception:
-        
+
         raise Exception
 
 def _main_gb_transform_calc_Buchheim(directory,

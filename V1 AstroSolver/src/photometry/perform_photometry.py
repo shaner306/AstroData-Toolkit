@@ -97,10 +97,10 @@ def perform_PSF_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
     
     
     #Get Residual Image
-    residual_image=photometry.get_residual_image()
-    
-    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
+    # residual_image=photometry.get_residual_image()
+    #
+    # fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    # fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
     return photometry_result
 
 
@@ -344,7 +344,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     # sigma values recommended by Howell
     sigclip= SigmaClip(sigma=3,maxiters=10)
     gain=hdr['EGAIN']
-    
+
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],
                             dtype=['int','float64','float64','float64','float64'])
     
