@@ -373,7 +373,7 @@ def _main_gb_transform_calc_TEST(directory,
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # filepath = os.path.join(dirpath, filename)
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
@@ -441,7 +441,7 @@ def _main_gb_transform_calc_TEST(directory,
             f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
     large_stars_table = astro.create_large_stars_table(
         large_table_columns, ground_based=True)
-    # large_stars_table = astro.remove_large_airmass(large_stars_table, max_airmass=3.0)
+    # large_stars_table = astro.read_fits_file(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = astro.group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
     if save_plots:
@@ -573,7 +573,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
@@ -762,7 +762,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     extinction_table_Warner = warn_aux.second_order_extinciton_calc_Warner(slopes_table,
                                                                   different_filter_list,
                                                                   save_plots,
-                                                                  save_loc=save_loc)
+                                                                  save_loc=save_loc,**kwargs)
     # Calculate the exoatmospheric magnitudes (m_0).
     exoatmospheric_table = warn_aux.exoatmospheric_mags_Warner(
         stars_table, extinction_table_Warner, different_filter_list)
