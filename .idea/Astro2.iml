@@ -15,6 +15,7 @@
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/general_tools" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/image_reduction" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/pinpointsolving" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/sky_survey" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/ssm_astrometry" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/tests_and_verifications" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms" isTestSource="false" />

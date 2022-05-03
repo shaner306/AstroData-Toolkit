@@ -18,14 +18,18 @@ Find:
     Astro Reducer Method
 """
 
-import PySimpleGUI as sg
 import os
 import os.path
-import Main
-import AstroFunctions as astro
-from astropy.nddata import CCDData
 from pathlib import Path
+
+import PySimpleGUI as sg
+from astropy.nddata import CCDData
+
+import AstroFunctions as astro
+import Main
+import main_transforms
 import pinpoint
+
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -433,6 +437,7 @@ def Gui():
                     window.close()
                 except:
                     print("Input Error")
+
                     break
                     window.update()
             else:
@@ -586,7 +591,7 @@ def Gui():
 
                         if values['WarnerMethod']:
                             Warner_final_transform_table =\
-                                transforms._main_gb_transform_calc_Warner(
+                                main_transforms._main_gb_transform_calc_Warner(
                                     image_dir,
                                     refstar_dir,
                                     plot_results=plot_results,
@@ -597,7 +602,7 @@ def Gui():
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id)
                         if values['NewBoydMethod']:
-                            NewBoydMethod=transforms._main_gb_new_boyd_method(
+                            NewBoydMethod=main_transforms._main_gb_new_boyd_method(
                               image_dir,
                               refstar_dir,
                               plot_results=plot_results,
@@ -610,7 +615,7 @@ def Gui():
                               photometry_method=photometry_method)
                         if values['BuchiemMethod']:
                             BuchiemMethod=\
-                                transforms._main_gb_transform_calc_Buchheim(
+                                main_transforms._main_gb_transform_calc_Buchheim(
                                     image_dir,
                                     refstar_dir,
                                     plot_results=plot_results,
@@ -632,8 +637,9 @@ def Gui():
                         window.close()
                     except Exception as e:
                         print(e)
+
                         print("Input Error. Please See Instructions1")
-                        # window.update()
+                        window.update()
                 else:
                     try:
                         Main.space_based_transform(image_dir, refstar_dir)

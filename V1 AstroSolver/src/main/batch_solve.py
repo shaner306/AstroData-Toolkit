@@ -5,14 +5,20 @@ Batch AstroSolves Images
 Created on Mon Mar 21 11:48:29 2022
 
 @author: mstew
+
+
+Batch Reduced Image
+
+
 """
 ##
 import os
-import Main
-import AstroFunctions as astro
-from astropy.nddata import CCDData
 from pathlib import Path
 
+from astropy.nddata import CCDData
+
+import AstroFunctions as astro
+import Main
 
 # %% Batch Reduce Images
 
@@ -225,14 +231,12 @@ with open(file,"a+",newline='\n') as f:
                 for row in csvreader:
                     writer.writerow(row)
 # %% Perform steps 2 and 3 of Boyd Method
-from astropy.table import Table, QTable, hstack
-from astropy.io import fits, ascii
+from astropy.table import Table
+from astropy.io import ascii
 import csv
 import os
-import Main
 import AstroFunctions as astro
-from astropy.nddata import CCDData
-from pathlib import Path
+
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"

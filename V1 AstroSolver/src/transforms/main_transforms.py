@@ -8,43 +8,24 @@ Stored in this file are all the hgiher levels general_tools needed for transform
 calculations
 """
 import math
-import multiprocessing as mp
 import os
-import time
-from pathlib import Path
+from math import sqrt
+from random import shuffle
+
 # from .AstroFunctions import *
 # import TRMtester.py as trm
-import PySimpleGUI as sg
 import numpy as np
-import pandas as pd
-import tqdm
-import win32com
-import win32com.client
-from astropy.io import fits
-from astropy.stats import SigmaClip
-from astropy.wcs import WCS
-from ccdproc import ImageFileCollection
-from numpy import mean
-from photutils.background import Background2D
-from photutils.background import MeanBackground
-from photutils.background import MedianBackground
-from photutils.background import ModeEstimatorBackground
-from photutils.background import SExtractorBackground
-import AstroFunctions as astro
-import ImageReduction as IR
-import SBDarkSub
-import utils
-from random import shuffle, choice
-from matplotlib import pyplot as plt
-from astropy.table import Table, QTable, hstack
-from math import sqrt, atan, pi
+from astropy.table import Table
 from astropy.time import Time
+from astropy.wcs import WCS
+from matplotlib import pyplot as plt
+from tqdm import tqdm
 
-import perform_photometry
+import AstroFunctions as astro
 import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
-
 import auxilary_phot_warner_functions as warn_aux
+import perform_photometry
 
 
 def _main_gb_transform_calc(directory,
@@ -927,7 +908,7 @@ def _main_gb_new_boyd_method(
 
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
@@ -1258,7 +1239,7 @@ def _main_gb_transform_calc_Buchheim(directory,
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
@@ -1524,7 +1505,7 @@ def _main_sb_transform_calc(directory,
         for filename in filenames:
             if filename.endswith(file_suffix):
                 filepath = os.path.join(dirpath, filename)
-                hdr, imgdata = astro.remove_large_airmass(filepath)
+                hdr, imgdata = astro.read_fits_file(filepath)
                 exptime = hdr[exposure_key]
                 bkg, bkg_std = astro.calculate_img_bkg(imgdata)
                 irafsources = astro.detecting_stars(
