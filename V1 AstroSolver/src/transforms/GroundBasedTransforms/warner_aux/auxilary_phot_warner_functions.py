@@ -91,9 +91,8 @@ def apply_transforms_Warner(stars_table,
         plt.close()
 
 
-
-def exoatmospheric_mags_Warner(stars_table,
-                               extinction_table_Warner,
+def exoatmospheric_mags_warner(stars_table,
+                               extinction_table_warner,
                                different_filter_list):
     # m_0 = m - k'_f * X - k''_fCI * X * CI
     nan_array = np.empty(len(stars_table))
@@ -175,9 +174,9 @@ def exoatmospheric_mags_Warner(stars_table,
             colour_indices = astro.get_all_colour_indices(different_filter)
             x_column_name = f"X_{different_filter}"
             for colour_index in colour_indices:
-                mask = ((extinction_table_Warner['filter'] == different_filter) & (
-                    extinction_table_Warner['CI'] == colour_index))
-                row_of_extinctions = extinction_table_Warner[mask]
+                mask = ((extinction_table_warner['filter'] == different_filter) & (
+                        extinction_table_warner['CI'] == colour_index))
+                row_of_extinctions = extinction_table_warner[mask]
                 # if len(row_of_transforms) == 0 and instr_filter == 'v':
                 #     instr_filter = 'g'
                 #     mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
@@ -669,7 +668,7 @@ def exoatmospheric_mags_verify_Warner(stars_table,
 
 
 
-def second_order_extinction_calc_Warner(slopes_table,
+def second_order_extinction_calc_warner(slopes_table,
                                         different_filter_list,
                                         save_plots, **kwargs):
     '''
@@ -1035,164 +1034,5 @@ def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kw
     return slopes_table
 
 
-def second_order_extinction_calc_Warner(slopes_table,
-                                        different_filter_list,
-                                        save_plots, **kwargs):
-    '''
-    Calculate First and Second order Extinction Coeffieicients using Warners method
-    Parameters
-    ----------
-    slopes_table : astropy.table.table.Table
-        Table containing the mean of the important information for each star.
-        Has columns:
-            Field : string
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
-            Name : string
-                Name/unique identifier of the reference star.
-            V : numpy.float64
-                Apparent V magnitude from the reference file.
-            (B-V) : numpy.float64
-                Apparent B-V colour index from the reference file.
-            (U-B) : numpy.float64
-                Apparent U-B colour index from the reference file.
-            (V-R) : numpy.float64
-                Apparent V-R colour index from the reference file.
-            (V-I) : numpy.float64
-                Apparent V-I colour index from the reference file.
-            V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from
-                the reference file.
-            <filter> : numpy.float64
-                Mean instrumental magnitude of all detections of the star in
-                <filter>. There is a different column for
-                each different filter used across the images.
-            <filter>_sigma : numpy.float64
-                Standard deviation of the instrumental magnitudes of all
-                detections of the star in <filter>.
-                There is a different column for each different filter
-                used across the images.
-            X_<filter> : numpy.float64
-                Mean airmass of all detections of the star in <filter>.
-                There is a different column for each different
-                filter used across the images. Only output if ground_based
-                is True.
-            X_<filter>_sigma : numpy.float64
-                Standard deviation of the airmasses of all detections of
-                the star in <filter>. There is a different
-                column for each different filter used across the images.
-                Only output if ground_based is True.
-    different_filter_list : list
-        different filter list
-    save_plots : boolean
-        Boolean to save plots
-    **kwargs : TYPE
-        DESCRIPTION.
-    Returns
-    -------
-    extinction_table_Warner : astropy.table.table.Table
-        DESCRIPTION.
-    '''
-    filter_column = []
-    CI_column = []
-    k_primeprime_column = []
-    k_prime_column = []
-    k_primeprime_sigma_column = []
-    k_prime_sigma_column = []
-    for different_filter in different_filter_list:
-        colour_indices = astro.get_all_colour_indices(different_filter)
-        for colour_index in colour_indices:
-            # print(different_filter)
-            # print(colour_index)
-            # print(slopes_table.pprint_all())
-            filter_column.append(different_filter)
-            CI_column.append(colour_index)
-            # print(slopes_table[colour_index])
-
-            #  FIXME: lenght of ci_plot might not be numerically stable. See Numpy Docs on arange
-            ci_plot = np.arange(min(slopes_table[colour_index][~np.isnan(slopes_table[colour_index])]) - 0.1,
-                                max(slopes_table[colour_index][~np.isnan(
-                                    slopes_table[colour_index])]) + 0.1,
-                                step=0.01)
-            # fit, or_fit, line_init = init_linear_fitting(sigma=1.5)
-            fit, or_fit, line_init = astro.init_linear_fitting(
-                niter=100, sigma=2.0, slope=0.0, intercept=0.5)
-            # try:
-            x_nan_indices = np.isnan(slopes_table[colour_index])
-            y_nan_indices = np.isnan(slopes_table[f"slope_{different_filter}"])
-            nan_indices = (x_nan_indices | y_nan_indices)
-            fitted_line, mask =\
-                or_fit(line_init,
-                       slopes_table[colour_index][~nan_indices],
-                       slopes_table[f"slope_{different_filter}"][~nan_indices])
-            # except TypeError as e:
-            #     # print(current_star[x_current_filter])
-            #     # print(current_star[unique_filter])
-            #     # slopes_table[f"slope_{unique_filter}"][i] = np.nan
-            #     # slopes_table[f"intercept_{unique_filter}"][i] = np.nan
-            #     # slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
-            #     # slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
-            #     k_primeprime_column.append(np.nan)
-            #     k_prime_column.append(np.nan)
-            #     k_primeprime_sigma_column.append(np.nan)
-            #     k_prime_sigma_column.append(np.nan)
-            #     print(e)
-            #     continue
-            filtered_data = np.ma.masked_array(
-                slopes_table[f"slope_{different_filter}"][~nan_indices], mask=mask)
-            m = fitted_line.slope.value
-            b = fitted_line.intercept.value
-            cov = fit.fit_info['param_cov']
-            try:
-                m_sigma = sqrt(cov[0][0])
-                b_sigma = sqrt(cov[1][1])
-            except TypeError:
-                m_sigma = np.nan
-                b_sigma = np.nan
-            k_primeprime_column.append(m)
-            k_prime_column.append(b)
-            k_primeprime_sigma_column.append(m_sigma)
-            k_prime_sigma_column.append(b_sigma)
-            # plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o')
-            plt.plot(slopes_table[colour_index], slopes_table[f"slope_{different_filter}"], 'o',
-                     fillstyle='none', label="Clipped Data")
-            plt.plot(slopes_table[colour_index][~nan_indices],
-                     filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-            plt.plot(ci_plot, m * ci_plot + b, '-',
-                     label=f"k''={m:0.3f}, k'={b:0.3f}")
-            plt.ylabel(f'slope$_{{{different_filter}}}$')
-            plt.xlabel(colour_index)
-            plt.title(
-                f"Second Order extinction (slope$_{{{different_filter}}}$ v. {colour_index})")
-            plt.legend()
-            if save_plots:
-                save_loc = f"{os.path.join(kwargs.get('save_loc'), f'SecondOrderExtinction{different_filter}{colour_index}')}.png"
-                plt.savefig(save_loc)
-            plt.show()
-            plt.close()
-    # print(filter_column)
-    # print(CI_column)
-    # print(k_primeprime_column)
-    # print(k_prime_column)
-    # print(k_primeprime_sigma_column)
-    # print(k_prime_sigma_column)
-    extinction_table_Warner = Table(
-        names=[
-            'filter',
-            'CI',
-            'k\'\'_fCI',
-            'k\'\'_fCI_sigma',
-            'k\'_f',
-            'k\'_f_sigma'
-        ],
-        data=[
-            filter_column,
-            CI_column,
-            k_primeprime_column,
-            k_primeprime_sigma_column,
-            k_prime_column,
-            k_prime_sigma_column
-        ])
-    return extinction_table_Warner
 
 

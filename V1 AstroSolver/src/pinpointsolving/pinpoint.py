@@ -4,6 +4,7 @@ import os
 
 import win32com
 import win32com.client
+
 import AstroFunctions as astro
 
 
@@ -98,3 +99,8 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                     except:
                         print("Could Not Solve")
                         continue
+
+
+def pinpoint_init():
+    f = win32com.client.Dispatch("Pinpoint.plate")
+    return f

@@ -96,10 +96,10 @@ def perform_PSF_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
     
     
     #Get Residual Image
-    residual_image=photometry.get_residual_image()
-    
-    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'),overwrite=True)
+    # residual_image=photometry.get_residual_image()
+    #
+    # fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    # fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'),overwrite=True)
     return photometry_result
 
 
