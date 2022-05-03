@@ -15,6 +15,7 @@ from random import shuffle
 # from .AstroFunctions import *
 # import TRMtester.py as trm
 import numpy as np
+from astropy.io import ascii
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
