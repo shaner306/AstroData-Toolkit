@@ -31,12 +31,12 @@ from skimage import measure
 
 import AstroFunctions as astro
 import perform_photometry
-from AstroFunctions import copy_and_rename, read_fits_file, add_new_time_and_filter, change_sat_positions, \
-    calculate_background_sky_brightness, convert_fwhm_to_arcsec_trm, get_image_airmass, calculate_magnitudes, \
-    calculate_magnitudes_sigma, check_if_sat, determine_if_change_sat_positions, remove_temp_dir, determine_num_filters, \
-    interpolate_sats, save_interpolated_light_curve, get_all_indicies_combinations, calculate_timeseries_colour_indices, \
-    choose_indices_to_plot, axis_limits_multiband_gui, apply_gb_timeseries_transforms, choose_aux_data_to_plot, \
-    axis_limits_singleband_gui
+# from AstroFunctions import copy_and_rename, read_fits_file, add_new_time_and_filter, change_sat_positions, \
+#     calculate_background_sky_brightness, convert_fwhm_to_arcsec_trm, get_image_airmass, calculate_magnitudes, \
+#     calculate_magnitudes_sigma, check_if_sat, determine_if_change_sat_positions, remove_temp_dir, determine_num_filters, \
+#     interpolate_sats, save_interpolated_light_curve, get_all_indicies_combinations, calculate_timeseries_colour_indices, \
+#     choose_indices_to_plot, axis_limits_multiband_gui, apply_gb_timeseries_transforms, choose_aux_data_to_plot, \
+#     axis_limits_singleband_gui
 
 
 def TRM_sat_detection(filepath,
@@ -844,7 +844,7 @@ def _main_sc_lightcurve(directory,
                         size=25,
                         max_num_nan=5,
                         plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory,
+    filecount, filenames = astro.copy_and_rename(directory=directory,
                                            file_suffix=file_suffix,
                                            temp_dir=temp_dir,
                                            debugging=True)
@@ -855,16 +855,16 @@ def _main_sc_lightcurve(directory,
     num_nan = 0
     for filenum, file in enumerate(filenames):
         filepath = f"{temp_dir}/{file}"
-        hdr, imgdata = read_fits_file(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         if set_sat_positions_bool:
-            set_sat_positions_bool, sat_information = trm_aux.set_sat_positions(
+            set_sat_positions_bool, sat_information = set_sat_positions(
                 imgdata, filecount, set_sat_positions_bool)
-        sat_information = add_new_time_and_filter(
+        sat_information = astro.add_new_time_and_filter(
             hdr, sat_information, filenum)
         if change_sat_positions_bool:
             change_sat_positions_bool,\
                 sat_information\
-                = change_sat_positions(filenames,
+                = astro.change_sat_positions(filenames,
                                        filenum,
                                        num_nan,
                                        sat_information,
@@ -879,7 +879,7 @@ def _main_sc_lightcurve(directory,
         # bkg, bkg_std = calculate_img_bkg(imgdata)
 
         try:
-            sat_x, sat_y, bkg_trm, fwhm = trm_aux.TRM_sat_detection(
+            sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
                 filepath, ecct_cut=ecct_cut)
         except TypeError:
             print("No satellites detected.")
@@ -900,24 +900,24 @@ def _main_sc_lightcurve(directory,
         #                    norm=LogNorm())
         # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
         bkg = np.median(bkg_trm)
-        bsb = calculate_background_sky_brightness(bkg,
+        bsb = astro.calculate_background_sky_brightness(bkg,
                                                   hdr,
                                                   exptime,
                                                   gb_final_transforms,
                                                   focal_length_key='FOCALLEN',
                                                   xpixsz_key='XPIXSZ',
                                                   ypixsz_key='YPIXSZ')
-        fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
-        airmass = get_image_airmass(hdr)
+        fwhm_arcsec = astro.convert_fwhm_to_arcsec_trm(hdr, fwhm)
+        airmass = astro.get_image_airmass(hdr)
         photometry_result = perform_photometry.perform_PSF_photometry_sat(
             sat_x, sat_y, fwhm, imgdata, bkg_trm)
 
         fluxes=photometry_result['flux_fit']
         fluxes_unc=photometry_result['flux_unc']
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
+        instr_mags = astro.calculate_magnitudes(fluxes, exptime)
+        instr_mags_sigma, snr = astro.calculate_magnitudes_sigma(
             fluxes,fluxes_unc, exptime)
-        sat_information = check_if_sat(sat_information,
+        sat_information = astro.check_if_sat(sat_information,
                                        filenum,
                                        sat_x,
                                        sat_y,
@@ -927,14 +927,15 @@ def _main_sc_lightcurve(directory,
                                        airmass,
                                        bsb,
                                        max_distance_from_sat=max_distance_from_sat)
-        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information,
+        change_sat_positions_bool, num_nan = \
+            astro.determine_if_change_sat_positions(sat_information,
                                                                                filenum,
                                                                                change_sat_positions_bool,
                                                                                max_num_nan=max_num_nan)
         # del hdr
         # del imgdata
     # try:
-    remove_temp_dir(temp_dir=temp_dir)
+    astro.remove_temp_dir(temp_dir=temp_dir)
     # except PermissionError as e:
     #     print(e)
     if not os.path.exists(save_loc):
@@ -980,27 +981,29 @@ def _main_sc_lightcurve(directory,
     uncertainty_table = uncertainty_table2
     sat_auxiliary_table = sat_auxiliary_table2
 
-    unique_filters, num_filters, multiple_filters = determine_num_filters(
+    unique_filters, num_filters, multiple_filters = \
+        astro.determine_num_filters(
         sats_table)
     if multiple_filters:
-        sat_dict = interpolate_sats(
+        sat_dict = astro.interpolate_sats(
             sats_table, uncertainty_table, unique_filters)
         if not gb_final_transforms:
             app_sat_dict = None
-            save_interpolated_light_curve(sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
+            astro.save_interpolated_light_curve(sat_dict, save_loc)
+            all_indices, all_indices_formatted = \
+                astro.get_all_indicies_combinations(unique_filters,
                                                                                num_filters,
                                                                                multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
+            colour_indices_dict = astro.calculate_timeseries_colour_indices(
                 sat_dict, all_indices)
-            save_interpolated_light_curve(
+            astro.save_interpolated_light_curve(
                 colour_indices_dict, save_loc, suffix="Colour Indices")
             filters_to_plot, indices_to_plot, aux_data_to_plot\
-                = choose_indices_to_plot(unique_filters,
+                = astro.choose_indices_to_plot(unique_filters,
                                          num_filters,
                                          all_indices_formatted,
                                          sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(sat_dict,
+            fig = astro.axis_limits_multiband_gui(sat_dict,
                                             colour_indices_dict,
                                             sat_auxiliary_table,
                                             filters_to_plot,
@@ -1008,23 +1011,26 @@ def _main_sc_lightcurve(directory,
                                             aux_data_to_plot,
                                             save_loc)
         else:
-            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms,
+            app_sat_dict = astro.apply_gb_timeseries_transforms(
+                gb_final_transforms,
                                                           sat_dict,
                                                           sat_auxiliary_table,
                                                           unique_filters)
-            save_interpolated_light_curve(app_sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
+            astro.save_interpolated_light_curve(app_sat_dict, save_loc)
+            all_indices, all_indices_formatted = \
+                astro.get_all_indicies_combinations(unique_filters,
                                                                                num_filters,
                                                                                multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
+            colour_indices_dict = astro.calculate_timeseries_colour_indices(
                 app_sat_dict, all_indices)
-            save_interpolated_light_curve(
+            astro.save_interpolated_light_curve(
                 colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters,
+            filters_to_plot, indices_to_plot, aux_data_to_plot = \
+                astro.choose_indices_to_plot(unique_filters,
                                                                                         num_filters,
                                                                                         all_indices_formatted,
                                                                                         sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(app_sat_dict,
+            fig = astro.axis_limits_multiband_gui(app_sat_dict,
                                             colour_indices_dict,
                                             sat_auxiliary_table,
                                             filters_to_plot,
@@ -1034,8 +1040,8 @@ def _main_sc_lightcurve(directory,
     else:
         sat_dict = None
         app_sat_dict = None
-        aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        axis_limits_singleband_gui(sats_table,
+        aux_data_to_plot = astro.choose_aux_data_to_plot(sat_auxiliary_table)
+        astro.axis_limits_singleband_gui(sats_table,
                                    uncertainty_table,
                                    sat_auxiliary_table,
                                    aux_data_to_plot,

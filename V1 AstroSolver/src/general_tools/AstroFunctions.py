@@ -57,7 +57,8 @@ from tqdm import tqdm
 
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
-import trm_auxillary_functions as trm_aux
+#import trm_auxillary_functions as trm_aux
+from trm_auxillary_functions import TRM_sat_detection
 
 # from scipy.optimize import curve_fit
 
@@ -4361,7 +4362,7 @@ def change_sat_positions(filenames,
             filename = filenames[filenum - reversing_index]
             exptime = hdr['EXPTIME'] * u.s
             try:
-                sat_x, sat_y, bkg_trm, fwhm = trm_aux.TRM_sat_detection(
+                sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
                     filepath)
             except TypeError:
                 print("No satellites detected.")
