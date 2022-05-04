@@ -7,17 +7,16 @@ Created on Thu Apr 28 15:05:05 2022
 This file stores code used for photometry general_tools
 
 """
-import numpy as np
-from astropy.io import fits
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.stats import SigmaClip
-from astropy.stats import gaussian_fwhm_to_sigma
 from astropy.table import Table
 from astropy.io import fits
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 import numpy as np
 from photutils.aperture import CircularAperture,aperture_photometry,ApertureStats,CircularAnnulus
 from photutils.utils import calc_total_error
+from astropy.stats import gaussian_fwhm_to_sigma
+    
 
 
 def perform_PSF_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
@@ -98,15 +97,15 @@ def perform_PSF_photometry(irafsources, fwhm, imgdata, bkg,filepath,hdr,
     
     
     #Get Residual Image
-    # residual_image=photometry.get_residual_image()
-    #
-    # fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-    # fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'),overwrite=True)
+    residual_image=photometry.get_residual_image()
+    
+    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_residual.fits'))
     return photometry_result
 
 
 def perform_PSF_photometry_2(irafsources, fwhm, imgdata, bkg,filepath,hdr,
-                       fitter=LevMarLSQFitter(), fitshape=5,produce_residual_data=False):
+                       fitter=LevMarLSQFitter(), fitshape=5):
     
     #TODO: Find Dynamic way to adjust the PSF fitting
 
@@ -180,11 +179,11 @@ def perform_PSF_photometry_2(irafsources, fwhm, imgdata, bkg,filepath,hdr,
 #     
 #     #Get Residual Image
 # =============================================================================
-    if produce_residual_data:
-        residual_image=photometry.get_residual_image()
     
-        fits_reisdual_image=fits.PrimaryHDU(data=residual_image.astype(type=imgdata.dtype),header=hdr)
-        fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_2_residual.fits'),overwrite=True)
+    residual_image=photometry.get_residual_image()
+    
+    fits_reisdual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+    fits_reisdual_image.writeto((filepath.split('.fits')[0]+'_2_residual.fits'))
     
     return photometry_result
 
@@ -345,7 +344,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
     # sigma values recommended by Howell
     sigclip= SigmaClip(sigma=3,maxiters=10)
     gain=hdr['EGAIN']
-
+    
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],
                             dtype=['int','float64','float64','float64','float64'])
     

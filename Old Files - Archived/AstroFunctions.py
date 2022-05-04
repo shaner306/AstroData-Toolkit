@@ -8,17 +8,6 @@ Created on Thu Apr 15 10:14:43 2021
 
 @author: Jack Wawrow
 """
-import ctypes
-import os
-import re
-import tkinter as tk
-from collections import namedtuple
-from math import sqrt, atan
-from shutil import copy2, rmtree
-
-import astropy.units as u
-import cv2 as cv
-import numpy as np
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
@@ -27,16 +16,27 @@ from astropy.modeling.models import Linear1D
 from astropy.stats import sigma_clip, sigma_clipped_stats, gaussian_fwhm_to_sigma
 from astropy.table import Table, QTable, hstack
 from astropy.time import Time
+import astropy.units as u
 from astropy.wcs import WCS
+from collections import namedtuple
+import ctypes
+import cv2 as cv
+from math import sqrt, atan
 from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from photutils.aperture import RectangularAperture
+from matplotlib.colors import LogNorm
+from matplotlib.lines import Line2D
 from photutils.detection import IRAFStarFinder
 from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
+import numpy as np
+import tkinter as tk
+import re
+import os
+from shutil import copy2, rmtree
+from scipy.optimize import curve_fit
 
 
 def linear_func(x, m, b):
@@ -1786,7 +1786,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
         app_mag_sigma = None
     return app_mag, app_mag_sigma, app_filter, colour_index
 
-# TODO: Find out where ground_based_first_order_transforms belongs
+
 def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, field=None, 
                                         plot_results=False, save_plots=False, **kwargs):
     """
@@ -1906,7 +1906,6 @@ def remove_large_airmass(gb_transform_table, max_airmass=2.0):
     return gb_transform_table
 
 
-# TODO : Figure out where ground_based_second_order_transforms belongs
 def ground_based_second_order_transforms(gb_transform_table, plot_results=False, save_plots=False, **kwargs):
     """
     Perform the final step in calculating the transforms for a ground-based observatory.

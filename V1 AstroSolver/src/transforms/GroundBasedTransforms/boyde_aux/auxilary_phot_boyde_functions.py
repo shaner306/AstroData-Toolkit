@@ -21,11 +21,9 @@ from astropy.stats import sigma_clip
 from matplotlib import pyplot as plt
 
 import os
-from astropy.table import Table
 
 
 import AstroFunctions as astro
-from astropy.io import ascii
 
 def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav_loc,stars_table):
     '''
@@ -374,89 +372,4 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     Boyde_Table_grouped['zero_point'] = zero_point_array
 
     return Boyde_Table_grouped
-
-def create_coefficeint_output(Boyde_table_grouped):
-    '''
-    Calculates the coefficients for the particular data
-    Useful for comparing different dataset
-
-    Parameters
-    ----------
-    Boyde_table_grouped:
-       Image_Name:
-        Image Name
-       C:
-        Slope value produced from Boyde Step 1
-       Z-prime:
-        The y-intercept of the slope produced from Boyde Step 1
-
-       Index:
-        The Colour index used in the calculations
-       Airmass:
-        The Predicted Airmass of the image stemmin
-       Air Mass Standard Deviation
-       Colour Filter
-       Slope 1 Standard Deviaiton
-       Number of Matched Stars
-       k_prime_prime
-       colour_transform
-       k_prime
-       zero_point
-
-
-    Returns
-    -------
-    Daily_data:
-        k_prime_bbv
-        k-prime_vbv
-        k_prime_rvr
-        k_prime_prime_bbv
-        k_prime_prime_vbv
-        k_prime_prime_rvr
-        T_bbv
-        T_vbv
-        T_rvr
-        Z_bbv
-        Z_vbv
-        Z_rvr
-    '''
-    Daily_data=Table(
-        names=['Coefficient','Value','Error'],
-        dtype=['str','float64','float64'])
-
-    # TODO: Add Dydnamic Version
-
-    # Work around since Table.loc can only handle one index
-    rows=[row for row in np.array(Boyde_table_grouped) if
-                    ('B' in row and 'B-V' in row)]
-    #Add bbv data
-    index_bbv=Table(np.array(rows))[0]
-    Daily_data.add_row(['k_prime_bbv',index_bbv['k_prime'],0])
-    Daily_data.add_row(['T_bbv', index_bbv['colour_transform'],0])
-    Daily_data.add_row(['k_prime_prime_bbv', index_bbv['k_prime_prime'],0])
-    Daily_data.add_row(['Z_bbv', index_bbv['zero_point'],0])
-
-    rows = [row for row in np.array(Boyde_table_grouped) if
-            ('G' in row and 'B-V' in row)]
-    index_vbv = Table(np.array(rows))[0]
-    # Add k_prime_vbv
-    Daily_data.add_row(['k_prime_vbv',index_vbv['k_prime'],0])
-    Daily_data.add_row(['T_vbv', index_vbv['colour_transform'], 0])
-    Daily_data.add_row(['k_prime_prime_vbv', index_vbv['k_prime_prime'], 0])
-    Daily_data.add_row(['Z_vbv', index_vbv['zero_point'], 0])
-
-    rows = [row for row in np.array(Boyde_table_grouped) if
-            ('R' in row and 'V-R' in row)]
-    index_rvr = Table(np.array(rows))[0]
-    # Add k_prime_rvr
-    Daily_data.add_row(['k_prime_rvr',index_rvr['k_prime'],0])
-    Daily_data.add_row(['T_rvr', index_rvr['colour_transform'], 0])
-    Daily_data.add_row(['k_prime_prime_rvr', index_rvr['k_prime_prime'], 0])
-    Daily_data.add_row(['Z_rvr', index_rvr['zero_point'], 0])
-
-    return Daily_data
-
-
-
-
 

@@ -25,10 +25,10 @@ from pathlib import Path
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
+import AstroFunctions as astro
 import Main
 import main_transforms
 import pinpoint
-import trm_auxillary_functions
 
 imagefolder = 0
 catalogfolder = 0
@@ -659,12 +659,12 @@ def Gui():
                     sats_table,\
                         uncertainty_table,\
                         sat_fwhm_table = \
-                        trm_auxillary_functions._main_sc_lightcurve(image_dir,
-                                                                    temp_dir=temp_dir,
-                                                                    max_distance_from_sat=max_distance_from_sat,
-                                                                    size=size,
-                                                                    max_num_nan=max_num_nan,
-                                                                    plot_results=plot_results)
+                        astro._main_sc_lightcurve(image_dir,
+                                                  temp_dir=temp_dir,
+                                                  max_distance_from_sat=max_distance_from_sat,
+                                                  size=size,
+                                                  max_num_nan=max_num_nan,
+                                                  plot_results=plot_results)
                     sat_fwhm_table.pprint_all()
                     uncertainty_table.pprint_all()
                     sats_table.pprint_all()

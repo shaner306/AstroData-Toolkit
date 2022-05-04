@@ -4,39 +4,65 @@ Created on Fri Apr 29 16:03:42 2022
 
 @author: mstew
 """
+import perform_photometry
 import ctypes
-import os
-import tkinter as tk
-from collections import namedtuple
 
+import tkinter as tk
+from collections import namedtuple, Counter
+from itertools import permutations, groupby, combinations
+from math import sqrt, atan, pi
+from shutil import copy2, rmtree
+from warnings import warn
+
+import astropy.units as u
 import cv2 as cv
+import matplotlib.cm as cm
+import matplotlib.dates as mdates
 import numpy
 import numpy as np
+import pandas as pd
 import scipy
-from astropy import units as u
-from astropy.io import ascii
+import win32com
+from astropy import table
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord,\
+    match_coordinates_sky
+from astropy.io import fits, ascii
+from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval, LinearLSQFitter
+from astropy.modeling.models import Linear1D
 from astropy.stats import SigmaClip
-from astropy.table import Table, hstack
+from astropy.stats import sigma_clip,\
+    sigma_clipped_stats, gaussian_fwhm_to_sigma
+from astropy.table import Table, QTable, hstack
+from astropy.time import Time
+from astropy.utils import iers
+from astropy.wcs import WCS
+import matplotlib
 from matplotlib import patches
 from matplotlib import pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg,\
     NavigationToolbar2Tk
 from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from photutils.aperture import RectangularAperture
+from matplotlib.ticker import FormatStrFormatter
+from photutils.aperture import RectangularAperture,CircularAperture,CircularAnnulus
 from photutils.background import Background2D
+from photutils.background import MeanBackground
+from photutils.background import MedianBackground
 from photutils.background import SExtractorBackground
+from photutils.detection import IRAFStarFinder
+from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from skimage import measure
-
+from tqdm import tqdm
+from random import shuffle, choice
+from astropy.nddata import CCDData
+from astropy.visualization import SqrtStretch
+from astropy.visualization.mpl_normalize import ImageNormalize
+from astropy.stats import SigmaClip
+from photutils.aperture import aperture_photometry,ApertureStats
+from photutils.utils import calc_total_error
 import AstroFunctions as astro
-import perform_photometry
-from AstroFunctions import copy_and_rename, read_fits_file, add_new_time_and_filter, change_sat_positions, \
-    calculate_background_sky_brightness, convert_fwhm_to_arcsec_trm, get_image_airmass, calculate_magnitudes, \
-    calculate_magnitudes_sigma, check_if_sat, determine_if_change_sat_positions, remove_temp_dir, determine_num_filters, \
-    interpolate_sats, save_interpolated_light_curve, get_all_indicies_combinations, calculate_timeseries_colour_indices, \
-    choose_indices_to_plot, axis_limits_multiband_gui, apply_gb_timeseries_transforms, choose_aux_data_to_plot, \
-    axis_limits_singleband_gui
+
 
 
 def TRM_sat_detection(filepath,
@@ -833,213 +859,3 @@ def plot_detected_sats(filename,
             plt.show()
         plt.close()
 
-
-def _main_sc_lightcurve(directory,
-                        gb_final_transforms=None,
-                        temp_dir='tmp',
-                        save_loc='Outputs',
-                        file_suffix=(".fits", ".fit", ".fts"),
-                        ecct_cut=0.5,
-                        max_distance_from_sat=20,
-                        size=25,
-                        max_num_nan=5,
-                        plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory,
-                                           file_suffix=file_suffix,
-                                           temp_dir=temp_dir,
-                                           debugging=True)
-    # remove_temp_dir(temp_dir=temp_dir)
-    # return
-    set_sat_positions_bool = True
-    change_sat_positions_bool = False
-    num_nan = 0
-    for filenum, file in enumerate(filenames):
-        filepath = f"{temp_dir}/{file}"
-        hdr, imgdata = read_fits_file(filepath)
-        if set_sat_positions_bool:
-            set_sat_positions_bool, sat_information = trm_aux.set_sat_positions(
-                imgdata, filecount, set_sat_positions_bool)
-        sat_information = add_new_time_and_filter(
-            hdr, sat_information, filenum)
-        if change_sat_positions_bool:
-            change_sat_positions_bool,\
-                sat_information\
-                = change_sat_positions(filenames,
-                                       filenum,
-                                       num_nan,
-                                       sat_information,
-                                       change_sat_positions_bool,
-                                       gb_final_transforms=gb_final_transforms,
-                                       max_distance_from_sat=max_distance_from_sat,
-                                       size=size,
-                                       temp_dir=temp_dir,
-                                       cmap_set='Set1',
-                                       plot_results=plot_results)
-        exptime = hdr['EXPTIME'] * u.s
-        # bkg, bkg_std = calculate_img_bkg(imgdata)
-
-        try:
-            sat_x, sat_y, bkg_trm, fwhm = trm_aux.TRM_sat_detection(
-                filepath, ecct_cut=ecct_cut)
-        except TypeError:
-            print("No satellites detected.")
-            continue
-        if fwhm < 0:
-            continue
-        # bkg, bkg_std = calculate_img_bkg(imgdata)
-        # irafsources = detecting_stars(imgdata, bkg, bkg_std)
-        # if not irafsources:
-        #     sat_information.num_nans[:] = 0
-        #     continue
-        # plot_detected_sats(filenames[filenum],
-        #                    plot_results,
-        #                    imgdata,
-        #                    irafsources,
-        #                    sat_information,
-        #                    max_distance_from_sat=max_distance_from_sat,
-        #                    norm=LogNorm())
-        # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        bkg = np.median(bkg_trm)
-        bsb = calculate_background_sky_brightness(bkg,
-                                                  hdr,
-                                                  exptime,
-                                                  gb_final_transforms,
-                                                  focal_length_key='FOCALLEN',
-                                                  xpixsz_key='XPIXSZ',
-                                                  ypixsz_key='YPIXSZ')
-        fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
-        airmass = get_image_airmass(hdr)
-        photometry_result = perform_photometry.perform_PSF_photometry_sat(
-            sat_x, sat_y, fwhm, imgdata, bkg_trm)
-
-        fluxes=photometry_result['flux_fit']
-        fluxes_unc=photometry_result['flux_unc']
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            fluxes,fluxes_unc, exptime)
-        sat_information = check_if_sat(sat_information,
-                                       filenum,
-                                       sat_x,
-                                       sat_y,
-                                       instr_mags,
-                                       instr_mags_sigma,
-                                       fwhm_arcsec,
-                                       airmass,
-                                       bsb,
-                                       max_distance_from_sat=max_distance_from_sat)
-        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information,
-                                                                               filenum,
-                                                                               change_sat_positions_bool,
-                                                                               max_num_nan=max_num_nan)
-        # del hdr
-        # del imgdata
-    # try:
-    remove_temp_dir(temp_dir=temp_dir)
-    # except PermissionError as e:
-    #     print(e)
-    if not os.path.exists(save_loc):
-        os.mkdir(save_loc)
-    sats_table = sat_information.sats_table
-    ascii.write(
-        sats_table, output=f"{save_loc}/Measured_Magnitudes.csv", format='csv')
-    uncertainty_table = sat_information.uncertainty_table
-    ascii.write(uncertainty_table,
-                output=f"{save_loc}/Measured_Magnitude_Uncertainties.csv", format='csv')
-    sat_auxiliary_table = sat_information.sat_auxiliary_table
-    for aux_data in sat_auxiliary_table.columns[2:]:
-        if all(np.isnan(sat_auxiliary_table[aux_data])):
-            sat_auxiliary_table.remove_column(aux_data)
-    ascii.write(sat_auxiliary_table,
-                output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
-
-    # Place rows without nan or masked values into a new table which can be processed easier later
-    # TODO: Make this code more elegant
-    sats_table2 = Table(sats_table[0])
-    uncertainty_table2 = Table(uncertainty_table[0])
-    sat_auxiliary_table2 = Table(sat_auxiliary_table[0])
-    for row in range(1, len(sats_table)):
-        switch = True
-        for element in range(0, len(sats_table.columns)):
-            if ((str(sats_table[row][element]) == 'nan') or
-                    (bool(sats_table[row][element]) is False)):
-                switch = False
-        for element in range(0, len(uncertainty_table.columns)):
-            if ((str(uncertainty_table[row][element]) == 'nan') or
-                    (bool(uncertainty_table[row][element]) is False)):
-                switch = False
-        for element in range(0, len(sat_auxiliary_table.columns)):
-            if ((str(sat_auxiliary_table[row][element]) == 'nan') or
-                    (bool(sat_auxiliary_table[row][element]) is False)):
-                switch = False
-        if switch is True:
-            sats_table2.add_row(sats_table[row])
-            uncertainty_table2.add_row(uncertainty_table[row])
-            sat_auxiliary_table2.add_row(sat_auxiliary_table[row])
-        switch = True
-    sats_table = sats_table2
-    uncertainty_table = uncertainty_table2
-    sat_auxiliary_table = sat_auxiliary_table2
-
-    unique_filters, num_filters, multiple_filters = determine_num_filters(
-        sats_table)
-    if multiple_filters:
-        sat_dict = interpolate_sats(
-            sats_table, uncertainty_table, unique_filters)
-        if not gb_final_transforms:
-            app_sat_dict = None
-            save_interpolated_light_curve(sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
-                                                                               num_filters,
-                                                                               multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
-                sat_dict, all_indices)
-            save_interpolated_light_curve(
-                colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot\
-                = choose_indices_to_plot(unique_filters,
-                                         num_filters,
-                                         all_indices_formatted,
-                                         sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(sat_dict,
-                                            colour_indices_dict,
-                                            sat_auxiliary_table,
-                                            filters_to_plot,
-                                            indices_to_plot,
-                                            aux_data_to_plot,
-                                            save_loc)
-        else:
-            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms,
-                                                          sat_dict,
-                                                          sat_auxiliary_table,
-                                                          unique_filters)
-            save_interpolated_light_curve(app_sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
-                                                                               num_filters,
-                                                                               multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
-                app_sat_dict, all_indices)
-            save_interpolated_light_curve(
-                colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters,
-                                                                                        num_filters,
-                                                                                        all_indices_formatted,
-                                                                                        sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(app_sat_dict,
-                                            colour_indices_dict,
-                                            sat_auxiliary_table,
-                                            filters_to_plot,
-                                            indices_to_plot,
-                                            aux_data_to_plot,
-                                            save_loc)
-    else:
-        sat_dict = None
-        app_sat_dict = None
-        aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        axis_limits_singleband_gui(sats_table,
-                                   uncertainty_table,
-                                   sat_auxiliary_table,
-                                   aux_data_to_plot,
-                                   save_loc)
-        # plot_light_curve_singleband(sats_table, uncertainty_table,
-        # sat_auxiliary_table, aux_data_to_plot, save_loc)
-    return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
