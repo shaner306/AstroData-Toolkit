@@ -263,7 +263,10 @@ def perform_PSF_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg,
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
     return photometry_result
 
-def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepath,hdr, fitshape=5,produce_residual_data=False,calculate_local_error=True):
+def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
+                                filepath,hdr,produce_residual_data=False,
+                                calculate_local_error=True,
+                                aperture_estimation_mode='mean'):
     
     '''
     Performs Aperture Photometry with an option to use either local background 
@@ -314,14 +317,14 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
         Aperture Photometry Typically uses the local background to subtract from
         imgdata to get the aperture_sum (flux) amount. Setting boolean to False
         utilizes the global background value calculated in previous steps.
+
+        aperture_estimation_mode: string
+        Options are either 'mean' or 'dynamic'
+            dynamic mode adjusts the aparture according to the individual fwhm
+            mean mode takes the average fwhm and creates an aperture from that
     '''
     
-    
-    # =============================================================================
-    #     psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-    #     psf_model.x_0.fixed = True
-    #     psf_model.y_0.fixed = True
-    # =============================================================================
+
     
     positions=[irafsources['xcentroid'],irafsources['ycentroid']]
     
@@ -348,63 +351,131 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,filepa
 
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],
                             dtype=['int','float64','float64','float64','float64'])
-    
-    for i in range(0,np.shape(positions)[1]):
-        radii=3*fwhms[i]
-        
-        aperture=CircularAperture((positions[0][i],positions[1][i]),r=radii)
-        apertures.append(aperture)
-        
-        
-        mask1=aperture.to_mask(method='exact')
-        
-        combined_aperture_mask=mask1.to_image(np.shape(imgdata))
-        
+    if aperture_estimation_mode == 'mean':
+        # daogroup = DAOGroup(2 * fwhm)
+        # psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
+        # psf_model.x_0.fixed = True
+        # psf_model.y_0.fixed = True
+        # pos = Table(names=['x_0', 'y_0', 'flux_0'],
+        #             data=[irafsources['xcentroid'],
+        #                   irafsources['ycentroid'],
+        #                   irafsources['flux']])
+        #
+        # photometry = BasicPSFPhotometry(group_maker=daogroup,
+        #                                 bkg_estimator=None,
+        #                                 psf_model=psf_model,
+        #                                 fitter=fitter,
+        #                                 fitshape=fitshape)
+        #
+        # photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+        fwhm=np.mean(fwhms)
+        positions_list=[(irafsource['xcentroid'],irafsource[
+            'ycentroid']) for irafsource in irafsources]
+        apertures=CircularAperture(positions_list,
+                                   r=3*fwhm)
+        mask1=apertures.to_mask(method='exact')
+
         if calculate_local_error:
-            # Test Annulus inner and Outer dimensions  See Shaw pg. 55
-            "Calculate Local Error"
-            annulus_aperture=CircularAnnulus((positions[0][i],positions[1][i]),r_in=3*radii,r_out=4*radii)
-            bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
-            bkg=bkg_stats.median
-            mask2=annulus_aperture.to_mask(method='exact')
-            
-            combined_aperture_mask=combined_aperture_mask+mask2.to_image(np.shape(imgdata))
-            
-            bkg_error=(np.ones(np.shape(imgdata)))*bkg_stats.std
-            
-            # Calculate the stanard deviaton of the flux
-            # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
-            
-            
-            error=calc_total_error(imgdata,bkg_error,gain)
-            
+            annulus_apertures=CircularAnnulus(positions_list,r_in=3*3*fwhm,
+                                             r_out=4*3*fwhm)
+            mask2=annulus_apertures.to_mask(method='exact')
+            sigclip=SigmaClip(sigma=3.0,maxiters=10)
+
+            bkg_stats=ApertureStats(imgdata,annulus_apertures,sigma_clip=sigclip)
+            aper_stats=ApertureStats(imgdata,apertures,sigma_clip=None)
+            bkg_mean=bkg_stats.median
+            aperture_area=apertures.area_overlap(imgdata)
+            total_bkg=bkg_mean*aperture_area
+
+            phot_table = aperture_photometry(imgdata, apertures)
+            photometry_result = phot_table
+            photometry_result['aperture_sum'] = phot_table[
+                                                    'aperture_sum'] - total_bkg
+            photometry_result['aperture_sum_err'] = aper_stats.std
         elif calculate_local_error is False:
-            # Calculate Global Background Error
-            error=calc_total_error(imgdata, bkg_std, gain)
-        
-        
-        
-        
-        photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
-        photometry_result_draft[0]['id']=i+1
-        photometry_result.add_row(photometry_result_draft[0])
-# =============================================================================
-#         flux_unc_array.append(photometry_result_draft['aperture_sum_err'].value[0])
-#         flux_array.append(photometry_result_draft['aperture_sum'].value[0])
-#         id_array.append(photometry_result_draft['id'].value[0])
-#         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
-#         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
-# =============================================================================
-        
+            error = calc_total_error(imgdata, bkg_std, gain)
+
+            photometry_result = aperture_photometry(imgdata - bkg,
+                                                          apertures,
+                                                          error=error)
+
+
+
+
+
+
         if produce_residual_data:
-            
-            "Masks Used for Debugging"
-        
-            masks=(masks+combined_aperture_mask)
-        
-        # Creates a rough reisudal imae to show where the aperture masks are
-            residual_image=(residual_image-((np.max(flux_array)*combined_aperture_mask))).astype(imgdata.dtype)
-        
+            masks1= [mask.to_image(np.shape(imgdata)) for mask in mask1]
+            masks2 =[mask.to_image(np.shape(imgdata)) for mask in mask2]
+            masks = (np.sum(masks1,axis=0) + np.sum(masks2,axis=0))
+
+            # Creates a rough reisudal imae to show where the aperture masks are
+            residual_image = (imgdata - (
+            (10*np.max(imgdata) * masks))).astype(
+                imgdata.dtype)
+
+
+
+    if aperture_estimation_mode == 'dynamic':
+        for i in range(0,np.shape(positions)[1]):
+            radii=3*fwhms[i]
+
+            aperture=CircularAperture((positions[0][i],positions[1][i]),r=radii)
+            apertures.append(aperture)
+
+
+            mask1=aperture.to_mask(method='exact')
+
+            combined_aperture_mask=mask1.to_image(np.shape(imgdata))
+
+            if calculate_local_error:
+                # Test Annulus inner and Outer dimensions  See Shaw pg. 55
+                "Calculate Local Error"
+                annulus_aperture=CircularAnnulus((positions[0][i],positions[1][i]),r_in=3*radii,r_out=4*radii)
+                bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
+                bkg=bkg_stats.median
+                mask2=annulus_aperture.to_mask(method='exact')
+
+                combined_aperture_mask=combined_aperture_mask+mask2.to_image(np.shape(imgdata))
+
+                bkg_error=(np.ones(np.shape(imgdata)))*bkg_stats.std
+
+                # Calculate the standard deviaton of the flux
+                # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
+
+
+                error=calc_total_error(imgdata,bkg_error,gain)
+
+            elif calculate_local_error is False:
+                # Calculate Global Background Error
+
+
+                error=calc_total_error(imgdata, bkg_std, gain)
+
+
+
+
+            photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
+            photometry_result_draft[0]['id']=i+1
+            photometry_result.add_row(photometry_result_draft[0])
+    # =============================================================================
+    #         flux_unc_array.append(photometry_result_draft['aperture_sum_err'].value[0])
+    #         flux_array.append(photometry_result_draft['aperture_sum'].value[0])
+    #         id_array.append(photometry_result_draft['id'].value[0])
+    #         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
+    #         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
+    # =============================================================================
+
+            if produce_residual_data:
+
+                "Masks Used for Debugging"
+
+                masks=(masks+combined_aperture_mask)
+
+            # Creates a rough reisudal imae to show where the aperture masks are
+                residual_image=(imgdata-((np.max(imgdata)*
+                        10*combined_aperture_mask))).astype(imgdata.dtype)
+
         
         
         

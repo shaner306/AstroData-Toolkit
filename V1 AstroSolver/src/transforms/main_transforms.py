@@ -26,6 +26,7 @@ import AstroFunctions as astro
 import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
 import auxilary_phot_warner_functions as warn_aux
+import auxillary_sb_functions as auxillary_phot_sb_functions
 import general_gb_functions
 import perform_photometry
 from astropy.io import ascii
@@ -1118,10 +1119,10 @@ def _main_gb_new_boyd_method(
         large_stars_table = astro.create_large_stars_table(
             large_table_columns, ground_based=True)
         ascii.write(large_stars_table, os.path.join(
-            save_loc, 'large_stars_table.csv'), format='csv')
+            save_loc, 'large_stars_table.csv'), format='csv',overwrite=True)
         stars_table, different_filter_list = astro.group_each_star_GB(large_stars_table)
         ascii.write(stars_table, os.path.join(
-            save_loc, 'stars_table.csv'), format='csv')
+            save_loc, 'stars_table.csv'), format='csv',overwrite=True)
     except Exception as e:
         raise Exception(e)
         
@@ -1175,10 +1176,10 @@ def _main_gb_new_boyd_method(
         date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
 
         ascii.write(Boyde_Table_grouped, os.path.join(
-            save_loc, 'Boyde_Table2.csv'), format='csv')
+            save_loc, 'Boyde_Table2.csv'), format='csv',overwrite=True)
 
         ascii.write(date_data,os.path.join(
-            save_loc, 'Date_data.csv'), format='csv')
+            save_loc, 'Date_data.csv'), format='csv',overwrite=True)
     except Exception:
 
         raise Exception

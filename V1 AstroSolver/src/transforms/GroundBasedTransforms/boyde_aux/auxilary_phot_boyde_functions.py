@@ -372,6 +372,8 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     Boyde_Table_grouped['colour_transform'] = colour_transform_array
     Boyde_Table_grouped['k_prime'] = k_prime_array
     Boyde_Table_grouped['zero_point'] = zero_point_array
+    Boyde_Table_grouped['step_2_error']=step2_uncertainty_array
+    Boyde_Table_grouped['step_3_error']=step3_uncertainty_array
 
     return Boyde_Table_grouped
 
@@ -430,29 +432,42 @@ def create_coefficeint_output(Boyde_table_grouped):
     rows=[row for row in np.array(Boyde_table_grouped) if
                     ('B' in row and 'B-V' in row)]
     #Add bbv data
+
+    # TODO: Check to see if this error is right.
     index_bbv=Table(np.array(rows))[0]
-    Daily_data.add_row(['k_prime_bbv',index_bbv['k_prime'],0])
-    Daily_data.add_row(['T_bbv', index_bbv['colour_transform'],0])
-    Daily_data.add_row(['k_prime_prime_bbv', index_bbv['k_prime_prime'],0])
-    Daily_data.add_row(['Z_bbv', index_bbv['zero_point'],0])
+    Daily_data.add_row(['k_prime_bbv',index_bbv['k_prime'],index_bbv[
+        'step_3_error']])
+    Daily_data.add_row(['T_bbv', index_bbv['colour_transform'],index_bbv[
+        'step_2_error']])
+    Daily_data.add_row(['k_prime_prime_bbv', index_bbv['k_prime_prime'],
+                        index_bbv['step_2_error']])
+    Daily_data.add_row(['Z_bbv', index_bbv['zero_point'],index_bbv['step_3_error']])
 
     rows = [row for row in np.array(Boyde_table_grouped) if
             ('G' in row and 'B-V' in row)]
     index_vbv = Table(np.array(rows))[0]
     # Add k_prime_vbv
-    Daily_data.add_row(['k_prime_vbv',index_vbv['k_prime'],0])
-    Daily_data.add_row(['T_vbv', index_vbv['colour_transform'], 0])
-    Daily_data.add_row(['k_prime_prime_vbv', index_vbv['k_prime_prime'], 0])
-    Daily_data.add_row(['Z_vbv', index_vbv['zero_point'], 0])
+    Daily_data.add_row(['k_prime_vbv',index_vbv['k_prime'],index_vbv[
+        'step_3_error']])
+    Daily_data.add_row(['T_vbv', index_vbv['colour_transform'], index_vbv[
+        'step_2_error']])
+    Daily_data.add_row(['k_prime_prime_vbv', index_vbv['k_prime_prime'], index_vbv[
+        'step_2_error']])
+    Daily_data.add_row(['Z_vbv', index_vbv['zero_point'], index_vbv[
+        'step_3_error']])
 
     rows = [row for row in np.array(Boyde_table_grouped) if
             ('R' in row and 'V-R' in row)]
     index_rvr = Table(np.array(rows))[0]
     # Add k_prime_rvr
-    Daily_data.add_row(['k_prime_rvr',index_rvr['k_prime'],0])
-    Daily_data.add_row(['T_rvr', index_rvr['colour_transform'], 0])
-    Daily_data.add_row(['k_prime_prime_rvr', index_rvr['k_prime_prime'], 0])
-    Daily_data.add_row(['Z_rvr', index_rvr['zero_point'], 0])
+    Daily_data.add_row(['k_prime_rvr',index_rvr['k_prime'],index_rvr[
+        'step_3_error']])
+    Daily_data.add_row(['T_rvr', index_rvr['colour_transform'], index_rvr[
+        'step_2_error']])
+    Daily_data.add_row(['k_prime_prime_rvr', index_rvr['k_prime_prime'], index_rvr[
+        'step_2_error']])
+    Daily_data.add_row(['Z_rvr', index_rvr['zero_point'], index_rvr[
+        'step_3_error']])
 
     return Daily_data
 
