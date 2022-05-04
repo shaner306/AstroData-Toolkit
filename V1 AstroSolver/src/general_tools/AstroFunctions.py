@@ -23,12 +23,10 @@ from warnings import warn
 
 import astropy.units as u
 import cv2 as cv
-import matplotlib.cm as cm
 import matplotlib.dates as mdates
 import numpy
 import numpy as np
 import pandas as pd
-import win32com
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord, \
     match_coordinates_sky
@@ -2415,86 +2413,6 @@ def create_reformatted_large_table(large_stars_table, keys='Name'):
     return reformatted_large_stars_table
 
 
-def calc_gb_first_transforms_AVG(stars_table, different_filter_list, save_loc,
-                                 plot_results=False, save_plots=False):
-    gb_transform_table_columns = init_gb_transform_table_columns_AVG()
-    for different_filter in different_filter_list:
-        # sigma_column = f'{different_filter}_sigma'
-        X_column = f'X_{different_filter}'
-        X_std_column = f'X_{different_filter}_sigma'
-        stars_table.sort(X_column)
-        for k, g in groupby(np.array(stars_table[X_column]
-                                     [~np.isnan(stars_table[X_column])]),
-                            key=Delta(0.05)):
-            list_of_airmasses = list(g)
-            mask = np.in1d(stars_table[X_column], list_of_airmasses)
-            current_airmass_table = stars_table[mask]
-            try:
-                avg_airmass = np.average(
-                    current_airmass_table[X_column],
-                    weights=current_airmass_table[X_std_column])
-            except ZeroDivisionError:
-                avg_airmass = np.mean(current_airmass_table[X_column])
-            unique_id = f"airmsass_{avg_airmass:0.3f}"
-            # current_airmass_table.pprint(max_width=-1)
-            # app_mag, app_mag_sigma, app_filter, colour_index =
-            # get_app_mag_and_index_AVG(current_airmass_table,
-            # different_filter)
-            colour_indices = get_all_colour_indices(different_filter)
-            for colour_index in colour_indices:
-                try:
-                    c_fci, c_fci_sigma, zprime_f, zprime_f_sigma =\
-                        ground_based_first_order_transforms_AVG(
-                            current_airmass_table,
-                            different_filter,
-                            colour_index,
-                            plot_results=plot_results,
-                            save_plots=save_plots,
-                            unique_id=unique_id,
-                            save_loc=save_loc)
-                except TypeError:
-                    print(f"Only 1 star at airmass: {avg_airmass:0.3f}.")
-                    continue
-                gb_transform_table_columns =\
-                    update_gb_transform_table_columns_AVG(
-                        gb_transform_table_columns,
-                        c_fci,
-                        c_fci_sigma,
-                        zprime_f,
-                        zprime_f_sigma,
-                        different_filter,
-                        colour_index,
-                        avg_airmass)
-    gb_transform_table = create_gb_transform_table_AVG(
-        gb_transform_table_columns)
-    return gb_transform_table
-
-
-def init_gb_transform_table_columns_AVG():
-    c_fci = []
-    c_fci_simga = []
-    zprime_f = []
-    zprime_f_sigma = []
-    instr_filter = []
-    colour_index = []
-    airmass = []
-    gb_transform_table_columns = namedtuple('gb_transform_table_columns',
-                                            ['c_fci',
-                                             'c_fci_sigma',
-                                             'zprime_f',
-                                             'zprime_f_sigma',
-                                             'instr_filter',
-                                             'colour_index',
-                                             'airmass'])
-    return gb_transform_table_columns(c_fci,
-                                      c_fci_simga,
-                                      zprime_f,
-                                      zprime_f_sigma,
-                                      instr_filter,
-                                      colour_index,
-                                      airmass)
-
-
 def get_app_mag_and_index_AVG(stars_table, instr_filter):
     if instr_filter == 'b' or instr_filter == 'u':
         colour_index = 'B-V'
@@ -2538,129 +2456,6 @@ def get_app_mag_and_index_AVG(stars_table, instr_filter):
         app_mag = None
         app_mag_sigma = None
     return app_mag, app_mag_sigma, app_filter, colour_index
-
-
-def update_gb_transform_table_columns_AVG(gb_transform_table_columns,
-                                          c_fci,
-                                          c_fci_sigma,
-                                          zprime_f,
-                                          zprime_f_sigma,
-                                          instr_filter,
-                                          colour_index,
-                                          avg_airmass):
-    updated_gb_transform_table_columns = gb_transform_table_columns
-    updated_gb_transform_table_columns.c_fci.append(c_fci)
-    updated_gb_transform_table_columns.c_fci_sigma.append(c_fci_sigma)
-    updated_gb_transform_table_columns.zprime_f.append(zprime_f)
-    updated_gb_transform_table_columns.zprime_f_sigma.append(zprime_f_sigma)
-    updated_gb_transform_table_columns.instr_filter.append(instr_filter)
-    updated_gb_transform_table_columns.colour_index.append(colour_index)
-    # avg_airmass = get_avg_airmass(altazpositions)
-    updated_gb_transform_table_columns.airmass.append(avg_airmass)
-    return updated_gb_transform_table_columns
-
-
-def create_gb_transform_table_AVG(gb_transform_table_columns):
-    gb_transform_table = Table(
-        names=[
-            'C_fCI',
-            'C_fCI_sigma',
-            'Zprime_f',
-            'Zprime_f_sigma',
-            'filter',
-            'CI',
-            'X'
-        ],
-        data=[
-            gb_transform_table_columns.c_fci,
-            gb_transform_table_columns.c_fci_sigma,
-            gb_transform_table_columns.zprime_f,
-            gb_transform_table_columns.zprime_f_sigma,
-            gb_transform_table_columns.instr_filter,
-            gb_transform_table_columns.colour_index,
-            gb_transform_table_columns.airmass
-        ]
-    )
-    return gb_transform_table
-
-
-def ground_based_first_order_transforms_AVG(stars_table,
-                                            instr_filter,
-                                            colour_index,
-                                            plot_results=False,
-                                            save_plots=False, **kwargs):
-    try:
-        len(stars_table)
-    except TypeError:
-        return
-    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index_AVG(
-        stars_table, instr_filter)
-    sigma_column = f'{instr_filter}_sigma'
-    max_instr_filter_sigma = max(stars_table[sigma_column])
-    err_sum = app_mag_sigma + \
-        np.nan_to_num(stars_table[sigma_column], nan=max_instr_filter_sigma)
-    err_sum = np.array(err_sum)
-    err_sum[err_sum == 0] = max(err_sum)
-    x = stars_table[colour_index][~np.isnan(stars_table[colour_index])]
-    y = app_mag[~np.isnan(stars_table[colour_index])] - \
-        stars_table[instr_filter][~np.isnan(stars_table[colour_index])]
-    fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-    # print(len(x))
-    # print(len(y))
-    # print(stars_table[colour_index])
-    if len(x) > 1 and len(y) > 1:
-        # , weights=1.0 / (err_sum[~np.isnan(stars_table[colour_index])]))
-        fitted_line, mask = or_fit(line_init, x, y)
-    else:
-        return
-    filtered_data = np.ma.masked_array(y, mask=mask)
-    c_fci = fitted_line.slope.value
-    zprime_f = fitted_line.intercept.value
-    if c_fci == 1 and zprime_f == 0:
-        return
-    cov = fit.fit_info['param_cov']
-    if cov is None:
-        c_fci_sigma = 0.0
-        zprime_f_sigma = 0.0
-    else:
-        c_fci_sigma = sqrt(cov[0][0])
-        zprime_f_sigma = sqrt(cov[1][1])
-    if plot_results:
-        # print(min(stars_table[colour_index]))
-        # print(max(stars_table[colour_index]))
-        index_plot\
-            = np.arange(start=min(stars_table[colour_index]
-                                  [~np.isnan(stars_table[colour_index])]),
-                        stop=max(stars_table[colour_index][~np.isnan(
-                            stars_table[colour_index])]) + 0.01,
-                        step=0.01)
-        plt.errorbar(x, y, yerr=err_sum[~np.isnan(stars_table[colour_index])],
-                     color='#1f77b4', fmt='o',
-                     fillstyle='none', capsize=2, label="Clipped Data")
-        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e',
-                 label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
-        # plt.plot(index_plot, c_fci * index_plot + zprime_f,
-        #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * \
-        # {colour_index} + {zprime_f:.3f}")
-        plt.ylabel(f"{app_filter}-{instr_filter}")
-        plt.xlabel(f"{colour_index}")
-        plt.legend()
-        plt.title(f"C and Z' Coefficient Calculations for {colour_index}")
-        # if not field:
-        #     plt.title(f"({app_filter}-{instr_filter}) = {c_fci:.3f} * \
-        # {colour_index} + {zprime_f:.3f}")
-        # else:
-        #     plt.title(f"{field}: ({app_filter}-{instr_filter})\
-        # = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
-        if save_plots:
-            unique_id = kwargs.get('unique_id')
-            save_loc\
-                = f"{os.path.join(kwargs.get('save_loc'),f'CZprime{app_filter}-{colour_index}_{unique_id}')}.png"
-            plt.savefig(save_loc)
-        plt.show()
-        plt.close()
-    return c_fci, c_fci_sigma, zprime_f, zprime_f_sigma
 
 
 def group_each_star(large_stars_table, ground_based=False, keys='Name'):
@@ -2951,169 +2746,6 @@ def write_table_to_latex(table, output_file, formats=None):
         ascii.write(table, output=output_file, format='latex')
     else:
         ascii.write(table, output=output_file, format='latex', formats=formats)
-
-
-def init_sb_final_transform_columns():
-    """
-    Initialize the columns that will create the table used for the space-based
-    transforms.
-
-    Returns
-    -------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : empty list
-                Name of the colour index used to calculate filter_fci and
-                zprime_fci.
-            filter_fci : empty list
-                T coefficient for index.
-            filter_fci_sigma : empty list
-                Standard deviation of the T coefficient for index.
-            zprime_fci : empty list
-                Zero point for index.
-            zprime_fci_sigma : empty list
-                Standard deviation of the zero point for index.
-    """
-    index = []
-    filter_fci = []
-    filter_fci_sigma = []
-    zprime_fci = []
-    zprime_fci_sigma = []
-    sb_final_transform_columns = namedtuple('sb_final_transform_columns',
-                                            ['index',
-                                             'filter_fci',
-                                             'filter_fci_sigma',
-                                             'zprime_fci',
-                                             'zprime_fci_sigma'])
-    return sb_final_transform_columns(index,
-                                      filter_fci,
-                                      filter_fci_sigma,
-                                      zprime_fci,
-                                      zprime_fci_sigma)
-
-
-def update_sb_final_transform_columns(sb_final_transform_columns,
-                                      index,
-                                      filter_fci,
-                                      filter_fci_sigma,
-                                      zprime_fci,
-                                      zprime_fci_sigma):
-    """
-    Update columns to be used for the transform table based on information
-    from the current image.
-
-    Parameters
-    ----------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and
-                zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-    index : string
-        Name of the colour index used to calculate filter_fci and zprime_fci.
-    filter_fci : float
-        T coefficient for index.
-    filter_fci_sigma : float
-        Standard deviation of the T coefficient for index.
-    zprime_fci : float
-        Zero point for index.
-    zprime_fci_sigma : float
-        Standard deviation of the zero point for index.
-
-    Returns
-    -------
-    updated_sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and
-                zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-
-    """
-    updated_sb_final_transform_columns = sb_final_transform_columns
-    updated_sb_final_transform_columns.index.append(index)
-    updated_sb_final_transform_columns.filter_fci.append(filter_fci)
-    updated_sb_final_transform_columns.filter_fci_sigma.append(
-        filter_fci_sigma)
-    updated_sb_final_transform_columns.zprime_fci.append(zprime_fci)
-    updated_sb_final_transform_columns.zprime_fci_sigma.append(
-        zprime_fci_sigma)
-    return updated_sb_final_transform_columns
-
-
-def create_sb_final_transform_table(sb_final_transform_columns):
-    """
-    Convert the columns of the space-based transform table into an AstroPy
-    table.
-
-    Parameters
-    ----------
-    sb_final_transform_columns : namedtuple
-        Attributes:
-            index : array-like
-                Name of the colour index used to calculate filter_fci and
-                zprime_fci.
-            filter_fci : np.float64
-                T coefficient for index.
-            filter_fci_sigma : np.float64
-                Standard deviation of the T coefficient for index.
-            zprime_fci : np.float64
-                Zero point for index.
-            zprime_fci_sigma : np.float64
-                Standard deviation of the zero point for index.
-
-    Returns
-    -------
-    sb_final_transform_table : astropy.table.Table
-        Table containing results of the final space-based transforms.
-        Has columns:
-            CI : string
-                Name of the colour index used to calculate the corresponding
-                T_fCI and Z_fCI.
-            T_fCI : float
-                T coefficient for the corresponding CI.
-            T_fCI_sigma : float
-                Standard deviation of the T coefficient for the corresponding
-                CI.
-            Z_fCI : float
-                Zero point for the corresponding CI.
-            Z_fCI_sigma : float
-                Standard deviation of the Zero point for the corresponding
-                CI.
-
-    """
-    sb_final_transform_table = Table(
-        names=[
-            'CI',
-            'T_fCI',
-            'T_fCI_sigma',
-            'Z_fCI',
-            'Z_fCI_sigma'
-        ],
-        data=[
-            sb_final_transform_columns.index,
-            sb_final_transform_columns.filter_fci,
-            sb_final_transform_columns.filter_fci_sigma,
-            sb_final_transform_columns.zprime_fci,
-            sb_final_transform_columns.zprime_fci_sigma
-        ]
-    )
-    return sb_final_transform_table
 
 
 def get_avg_airmass(altazpositions):
@@ -5703,210 +5335,6 @@ def create_star_aux_table(star_aux_table_columns):
     return star_aux_table
 
 
-def calculate_slopes_Warner(stars_table, different_filter_list, save_plots, **kwargs):
-    '''
-    Calculates the slope of Each Stars Magntitude with Time and plots it
-
-    Parameters
-    ----------
-    stars_table :  astropy.table.table.Table
-        Table containing the mean of the important information for each star.
-        Has columns:
-            Field : string
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
-            Name : string
-                Name/unique identifier of the reference star.
-            V : numpy.float64
-                Apparent V magnitude from the reference file.
-            (B-V) : numpy.float64
-                Apparent B-V colour index from the reference file.
-            (U-B) : numpy.float64
-                Apparent U-B colour index from the reference file.
-            (V-R) : numpy.float64
-                Apparent V-R colour index from the reference file.
-            (V-I) : numpy.float64
-                Apparent V-I colour index from the reference file.
-            V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from
-                the reference file.
-            <filter> : numpy.float64
-                Mean instrumental magnitude of all detections of the star in
-                <filter>. There is a different column for
-                each different filter used across the images.
-            <filter>_sigma : numpy.float64
-                Standard deviation of the instrumental magnitudes of all
-                detections of the star in <filter>.
-                There is a different column for each different filter
-                used across the images.
-            X_<filter> : numpy.float64
-                Mean airmass of all detections of the star in <filter>.
-                There is a different column for each different
-                filter used across the images. Only output if ground_based
-                is True.
-            X_<filter>_sigma : numpy.float64
-                Standard deviation of the airmasses of all detections of
-                the star in <filter>. There is a different
-                column for each different filter used across the images.
-                Only output if ground_based is True.
-
-    different_filter_list : List
-        Different Filter List
-    save_plots : Boolean
-        True= Save Plots
-    **kwargs : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    slopes_table : Table
-        DESCRIPTION.
-
-    '''
-
-    stars_for_second_order_extinction, multiple_stars = get_stars_with_multiple_observations(
-        stars_table)
-    slope_filters = [
-        f"slope_{different_filter}" for different_filter in different_filter_list]
-    intercept_filters = [
-        f"intercept_{different_filter}" for different_filter in different_filter_list]
-    slope_filters_sigma = [
-        f"slope_{different_filter}_sigma" for different_filter in different_filter_list]
-    intercept_filters_sigma = [
-        f"intercept_{different_filter}_sigma" for different_filter in different_filter_list]
-    nan_array = np.empty(len(multiple_stars))
-    nan_array.fill(np.nan)
-    data_filter_table = [
-        nan_array for different_filter in different_filter_list]
-    star_index_columns = [
-        'Field',
-        'Name',
-        'V_ref',
-        'B-V',
-        'U-B',
-        'V-R',
-        'V-I',
-        'V_sigma',
-        'e_B-V',
-        'e_U-B',
-        'e_V-R',
-        'e_V-I'
-    ]
-    star_index_table = Table(
-        names=star_index_columns,
-        data=[
-            np.empty(len(multiple_stars), dtype=object),
-            np.empty(len(multiple_stars), dtype=object),
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array
-        ]
-    )
-    slope_table = Table(names=slope_filters, data=data_filter_table)
-    intercept_table = Table(names=intercept_filters, data=data_filter_table)
-    slope_sigma_table = Table(
-        names=slope_filters_sigma, data=data_filter_table)
-    intercept_sigma_table = Table(
-        names=intercept_filters_sigma, data=data_filter_table)
-    slopes_table = hstack([star_index_table, slope_table,
-                          intercept_table, slope_sigma_table,
-                          intercept_sigma_table])
-    colors = cm.rainbow(np.linspace(0, 1, len(multiple_stars)))
-    for unique_filter in different_filter_list:
-        # current_filter = stars_table[unique_filter]
-        x_current_filter = f"X_{unique_filter}"
-        # unique_stars = table.unique(current_filter, keys='Name')
-        # colors = cm.rainbow(np.linspace(0, 1, len(multiple_stars)))
-        for i, unique_star in enumerate(multiple_stars):
-            # print(current_filter)
-            star_mask = stars_table['Name'] == unique_star
-            current_star = stars_table[star_mask]
-            # print(current_star[star_index_columns][0])
-            # print(current_star[star_index_columns])
-            for field in star_index_columns:
-                slopes_table[field][i] = current_star[field][0]
-            # slopes_table[star_index_columns][i] = list(current_star[star_index_columns][0])
-            # print(unique_filter)
-            # print(current_star)
-            x_nan_indices = np.isnan(current_star[x_current_filter])
-            y_nan_indices = np.isnan(current_star[unique_filter])
-            nan_indices = (x_nan_indices | y_nan_indices)
-            try:
-                X_plot = np.arange(
-                    start=min(current_star[x_current_filter][~np.isnan(
-                        current_star[x_current_filter])]) - 0.02,
-                    stop=max(current_star[x_current_filter][~np.isnan(
-                        current_star[x_current_filter])]) + 0.02,
-                    step=0.01)
-            except ValueError:
-                slopes_table[f"slope_{unique_filter}"][i] = np.nan
-                slopes_table[f"intercept_{unique_filter}"][i] = np.nan
-                slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
-                slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
-                continue
-            # m, b = np.polyfit(current_star[x_current_filter], current_star[unique_filter], 1)
-            fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-            try:
-                fitted_line, mask = or_fit(line_init, current_star[x_current_filter][~nan_indices],
-                                           current_star[unique_filter][~nan_indices])
-            except TypeError:
-                # print(current_star[x_current_filter])
-                # print(current_star[unique_filter])
-                slopes_table[f"slope_{unique_filter}"][i] = np.nan
-                slopes_table[f"intercept_{unique_filter}"][i] = np.nan
-                slopes_table[f"slope_{unique_filter}_sigma"][i] = np.nan
-                slopes_table[f"intercept_{unique_filter}_sigma"][i] = np.nan
-                continue
-            filtered_data = np.ma.masked_array(
-                current_star[unique_filter][~nan_indices], mask=mask)
-            m = fitted_line.slope.value
-            b = fitted_line.intercept.value
-            cov = fit.fit_info['param_cov']
-            try:
-                m_sigma = sqrt(cov[0][0])
-                b_sigma = sqrt(cov[1][1])
-            except TypeError:
-                m_sigma = np.nan
-                b_sigma = np.nan
-            plt.plot(current_star[x_current_filter],
-                     current_star[unique_filter], 'o', fillstyle='none',
-                     color=colors[i], label="Clipped Data")
-            plt.plot(current_star[x_current_filter][~nan_indices], filtered_data, 'o', color=colors[i],
-                     label="Fitted Data")
-            # plt.scatter(current_star[x_current_filter], current_star[unique_filter], color=colors[i], label=unique_star)
-            plt.plot(X_plot, m * X_plot + b, color=colors[i])
-            slopes_table[f"slope_{unique_filter}"][i] = m
-            slopes_table[f"intercept_{unique_filter}"][i] = b
-            slopes_table[f"slope_{unique_filter}_sigma"][i] = m_sigma
-            slopes_table[f"intercept_{unique_filter}_sigma"][i] = b_sigma
-        # plt.plot(current_filter['X'], current_filter['mag_instrumental'], 'o')
-        plt.xlabel('X')
-        plt.ylabel(unique_filter.lower())
-        plt.title("Slope of a Star's magnitude vs. airmass")
-        plt.ylim([min(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])]) * 1.05,
-                  max(stars_table[unique_filter][~np.isnan(stars_table[unique_filter])]) * 0.95])
-        plt.gca().invert_yaxis()
-        # plt.title(unique_field)
-        # plt.legend()
-        if save_plots:
-            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'Slopes{unique_filter}')}.png"
-            plt.savefig(save_loc)
-        plt.show()
-        plt.close()
-    # Column names to keep.
-    # 'Field','Name','V_ref','B-V','U-B','V-R','V-I','V_sigma','e_B-V','e_U-B','e_V-R','e_V-I'
-    # print(stars_for_second_order_extinction.columns)
-    # slopes_table.pprint(max_lines=-1, max_width=250)
-    return slopes_table
-
-
 def get_stars_with_multiple_observations(stars_table):
     list_of_stars = stars_table['Name']
     count_of_stars = Counter(list_of_stars)
@@ -6104,221 +5532,6 @@ def verify_gb_transforms_auto(directory,
     return app_mag_table
 
 
-
-
-
-
-def _main_sc_lightcurve(directory,
-                        gb_final_transforms=None,
-                        temp_dir='tmp',
-                        save_loc='Outputs',
-                        file_suffix=(".fits", ".fit", ".fts"),
-                        ecct_cut=0.5,
-                        max_distance_from_sat=20,
-                        size=25,
-                        max_num_nan=5,
-                        plot_results=0):
-    filecount, filenames = copy_and_rename(directory=directory,
-                                           file_suffix=file_suffix,
-                                           temp_dir=temp_dir,
-                                           debugging=True)
-    # remove_temp_dir(temp_dir=temp_dir)
-    # return
-    set_sat_positions_bool = True
-    change_sat_positions_bool = False
-    num_nan = 0
-    for filenum, file in enumerate(filenames):
-        filepath = f"{temp_dir}/{file}"
-        hdr, imgdata = read_fits_file(filepath)
-        if set_sat_positions_bool:
-            set_sat_positions_bool, sat_information = trm_aux.set_sat_positions(
-                imgdata, filecount, set_sat_positions_bool)
-        sat_information = add_new_time_and_filter(
-            hdr, sat_information, filenum)
-        if change_sat_positions_bool:
-            change_sat_positions_bool,\
-                sat_information\
-                = change_sat_positions(filenames,
-                                       filenum,
-                                       num_nan,
-                                       sat_information,
-                                       change_sat_positions_bool,
-                                       gb_final_transforms=gb_final_transforms,
-                                       max_distance_from_sat=max_distance_from_sat,
-                                       size=size,
-                                       temp_dir=temp_dir,
-                                       cmap_set='Set1',
-                                       plot_results=plot_results)
-        exptime = hdr['EXPTIME'] * u.s
-        # bkg, bkg_std = calculate_img_bkg(imgdata)
-
-        try:
-            sat_x, sat_y, bkg_trm, fwhm = trm_aux.TRM_sat_detection(
-                filepath, ecct_cut=ecct_cut)
-        except TypeError:
-            print("No satellites detected.")
-            continue
-        if fwhm < 0:
-            continue
-        # bkg, bkg_std = calculate_img_bkg(imgdata)
-        # irafsources = detecting_stars(imgdata, bkg, bkg_std)
-        # if not irafsources:
-        #     sat_information.num_nans[:] = 0
-        #     continue
-        # plot_detected_sats(filenames[filenum],
-        #                    plot_results,
-        #                    imgdata,
-        #                    irafsources,
-        #                    sat_information,
-        #                    max_distance_from_sat=max_distance_from_sat,
-        #                    norm=LogNorm())
-        # fwhms, fwhm, fwhm_std = calculate_fwhm(irafsources)
-        bkg = np.median(bkg_trm)
-        bsb = calculate_background_sky_brightness(bkg,
-                                                  hdr,
-                                                  exptime,
-                                                  gb_final_transforms,
-                                                  focal_length_key='FOCALLEN',
-                                                  xpixsz_key='XPIXSZ',
-                                                  ypixsz_key='YPIXSZ')
-        fwhm_arcsec = convert_fwhm_to_arcsec_trm(hdr, fwhm)
-        airmass = get_image_airmass(hdr)
-        photometry_result = perform_photometry.perform_PSF_photometry_sat(
-            sat_x, sat_y, fwhm, imgdata, bkg_trm)
-        
-        fluxes=photometry_result['flux_fit']
-        fluxes_unc=photometry_result['flux_unc']
-        instr_mags = calculate_magnitudes(fluxes, exptime)
-        instr_mags_sigma, snr = calculate_magnitudes_sigma(
-            fluxes,fluxes_unc, exptime)
-        sat_information = check_if_sat(sat_information,
-                                       filenum,
-                                       sat_x,
-                                       sat_y,
-                                       instr_mags,
-                                       instr_mags_sigma,
-                                       fwhm_arcsec,
-                                       airmass,
-                                       bsb,
-                                       max_distance_from_sat=max_distance_from_sat)
-        change_sat_positions_bool, num_nan = determine_if_change_sat_positions(sat_information,
-                                                                               filenum,
-                                                                               change_sat_positions_bool,
-                                                                               max_num_nan=max_num_nan)
-        # del hdr
-        # del imgdata
-    # try:
-    remove_temp_dir(temp_dir=temp_dir)
-    # except PermissionError as e:
-    #     print(e)
-    if not os.path.exists(save_loc):
-        os.mkdir(save_loc)
-    sats_table = sat_information.sats_table
-    ascii.write(
-        sats_table, output=f"{save_loc}/Measured_Magnitudes.csv", format='csv')
-    uncertainty_table = sat_information.uncertainty_table
-    ascii.write(uncertainty_table,
-                output=f"{save_loc}/Measured_Magnitude_Uncertainties.csv", format='csv')
-    sat_auxiliary_table = sat_information.sat_auxiliary_table
-    for aux_data in sat_auxiliary_table.columns[2:]:
-        if all(np.isnan(sat_auxiliary_table[aux_data])):
-            sat_auxiliary_table.remove_column(aux_data)
-    ascii.write(sat_auxiliary_table,
-                output=f"{save_loc}/Auxiliary_Information.csv", format='csv')
-
-    # Place rows without nan or masked values into a new table which can be processed easier later
-    # TODO: Make this code more elegant
-    sats_table2 = Table(sats_table[0])
-    uncertainty_table2 = Table(uncertainty_table[0])
-    sat_auxiliary_table2 = Table(sat_auxiliary_table[0])
-    for row in range(1, len(sats_table)):
-        switch = True
-        for element in range(0, len(sats_table.columns)):
-            if ((str(sats_table[row][element]) == 'nan') or
-                    (bool(sats_table[row][element]) is False)):
-                switch = False
-        for element in range(0, len(uncertainty_table.columns)):
-            if ((str(uncertainty_table[row][element]) == 'nan') or
-                    (bool(uncertainty_table[row][element]) is False)):
-                switch = False
-        for element in range(0, len(sat_auxiliary_table.columns)):
-            if ((str(sat_auxiliary_table[row][element]) == 'nan') or
-                    (bool(sat_auxiliary_table[row][element]) is False)):
-                switch = False
-        if switch is True:
-            sats_table2.add_row(sats_table[row])
-            uncertainty_table2.add_row(uncertainty_table[row])
-            sat_auxiliary_table2.add_row(sat_auxiliary_table[row])
-        switch = True
-    sats_table = sats_table2
-    uncertainty_table = uncertainty_table2
-    sat_auxiliary_table = sat_auxiliary_table2
-
-    unique_filters, num_filters, multiple_filters = determine_num_filters(
-        sats_table)
-    if multiple_filters:
-        sat_dict = interpolate_sats(
-            sats_table, uncertainty_table, unique_filters)
-        if not gb_final_transforms:
-            app_sat_dict = None
-            save_interpolated_light_curve(sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
-                                                                               num_filters,
-                                                                               multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
-                sat_dict, all_indices)
-            save_interpolated_light_curve(
-                colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot\
-                = choose_indices_to_plot(unique_filters,
-                                         num_filters,
-                                         all_indices_formatted,
-                                         sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(sat_dict,
-                                            colour_indices_dict,
-                                            sat_auxiliary_table,
-                                            filters_to_plot,
-                                            indices_to_plot,
-                                            aux_data_to_plot,
-                                            save_loc)
-        else:
-            app_sat_dict = apply_gb_timeseries_transforms(gb_final_transforms,
-                                                          sat_dict,
-                                                          sat_auxiliary_table,
-                                                          unique_filters)
-            save_interpolated_light_curve(app_sat_dict, save_loc)
-            all_indices, all_indices_formatted = get_all_indicies_combinations(unique_filters,
-                                                                               num_filters,
-                                                                               multiple_filters)
-            colour_indices_dict = calculate_timeseries_colour_indices(
-                app_sat_dict, all_indices)
-            save_interpolated_light_curve(
-                colour_indices_dict, save_loc, suffix="Colour Indices")
-            filters_to_plot, indices_to_plot, aux_data_to_plot = choose_indices_to_plot(unique_filters,
-                                                                                        num_filters,
-                                                                                        all_indices_formatted,
-                                                                                        sat_auxiliary_table)
-            fig = axis_limits_multiband_gui(app_sat_dict,
-                                            colour_indices_dict,
-                                            sat_auxiliary_table,
-                                            filters_to_plot,
-                                            indices_to_plot,
-                                            aux_data_to_plot,
-                                            save_loc)
-    else:
-        sat_dict = None
-        app_sat_dict = None
-        aux_data_to_plot = choose_aux_data_to_plot(sat_auxiliary_table)
-        axis_limits_singleband_gui(sats_table,
-                                   uncertainty_table,
-                                   sat_auxiliary_table,
-                                   aux_data_to_plot,
-                                   save_loc)
-        # plot_light_curve_singleband(sats_table, uncertainty_table,
-        # sat_auxiliary_table, aux_data_to_plot, save_loc)
-    return sat_dict, app_sat_dict, sats_table, uncertainty_table, sat_auxiliary_table
-
-
 def __debugging__(gb_final_transforms, save_loc):
     """
     Debug the main general_tools. This should simplify git commits by only needing to edit this file.
@@ -6345,6 +5558,19 @@ def __debugging__(gb_final_transforms, save_loc):
 
 
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
+    '''
+    # TODO: Add docstring
+    Parameters
+    ----------
+    fitsdata
+    sigma_clip
+    bkgmethod
+    printval
+
+    Returns
+    -------
+
+    '''
     sigma_clip = SigmaClip(sigma=2.5)
     bkg = SExtractorBackground(sigma_clip)
     # bkg_value1 = bkg.calc_background(fitsdata)
@@ -6387,6 +5613,16 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
 
 
 def ref_star_folder_read(refstars_doc):
+    '''
+    # TODO: Add Docstring
+    Parameters
+    ----------
+    refstars_doc
+
+    Returns
+    -------
+
+    '''
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
     HIP = refstars["HIP"]
@@ -6408,6 +5644,24 @@ def ref_star_search(s,
                     bvindex,
                     vrindex,
                     refstarsfin):
+    '''
+    # TODO: Add Docstring
+    Parameters
+    ----------
+    s
+    f
+    erad
+    edec
+    HIP
+    vref
+    bvindex
+    vrindex
+    refstarsfin
+
+    Returns
+    -------
+
+    '''
     refx = []
     refy = []
     vref2 = []
@@ -6484,6 +5738,16 @@ def ref_star_search(s,
 
 
 def ref_read(refstars_doc):
+    '''
+    # TODO: Add Docstring
+    Parameters
+    ----------
+    refstars_doc
+
+    Returns
+    -------
+
+    '''
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
     HIP = refstars["HIP"]
@@ -6494,11 +5758,6 @@ def ref_read(refstars_doc):
     vrindex = refstars["(V-R)"]
     refstarsfin = np.column_stack((HIP, erad, edec, vref))
     return HIP, erad, edec, vref, bvindex, vrindex, refstarsfin
-
-
-def pinpoint_init():
-    f = win32com.client.Dispatch("Pinpoint.plate")
-    return f
 
 
 def getFileList(inbox):
@@ -6546,6 +5805,16 @@ def fits_header_import(filepath, filter_key='FILTER'):
 
 
 def calc_ArcsecPerPixel(header):
+    '''
+    #TODO: Add Docstring
+    Parameters
+    ----------
+    header
+
+    Returns
+    -------
+
+    '''
     focal_Length = header['FOCALLEN']
     xpix_size = header['XPIXSZ']
     ypix_size = header['XPIXSZ']
@@ -6568,5 +5837,6 @@ def edge_Protect(bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
     im_rms = np.std(fitsdata)
 
     return im_mean, bg_rem, im_rms
+
 
 
