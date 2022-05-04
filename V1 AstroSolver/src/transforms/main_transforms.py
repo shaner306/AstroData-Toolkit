@@ -15,6 +15,7 @@ from random import shuffle
 # from .AstroFunctions import *
 # import TRMtester.py as trm
 import numpy as np
+from astropy.io import ascii
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -25,6 +26,7 @@ import AstroFunctions as astro
 import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
 import auxilary_phot_warner_functions as warn_aux
+import general_gb_functions
 import perform_photometry
 from astropy.io import ascii
 
@@ -373,7 +375,7 @@ def _main_gb_transform_calc_TEST(directory,
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # filepath = os.path.join(dirpath, filename)
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
@@ -441,18 +443,18 @@ def _main_gb_transform_calc_TEST(directory,
             f'{excluded_files} / {split_filecount_location} ({100*(excluded_files/split_filecount_location):.1f}%)')
     large_stars_table = astro.create_large_stars_table(
         large_table_columns, ground_based=True)
-    # large_stars_table = astro.remove_large_airmass(large_stars_table, max_airmass=3.0)
+    # large_stars_table = astro.read_fits_file(large_stars_table, max_airmass=3.0)
     stars_table, different_filter_list = astro.group_each_star_GB(large_stars_table)
     stars_table.pprint(max_lines=30, max_width=200)
     if save_plots:
         ascii.write(stars_table, os.path.join(
             save_loc, 'stars_table.csv'), format='csv')
     gb_transform_table =\
-        astro.calc_gb_first_transforms_AVG(stars_table,
-                                     different_filter_list,
-                                     save_loc,
-                                     plot_results=plot_results,
-                                     save_plots=save_plots)
+        general_gb_functions.calc_gb_first_transforms_AVG(stars_table,
+                                                          different_filter_list,
+                                                          save_loc,
+                                                          plot_results=plot_results,
+                                                          save_plots=save_plots)
     gb_transform_table.pprint(max_lines=30, max_width=-1)
     gb_final_transforms =\
         astro.ground_based_second_order_transforms(gb_transform_table,
@@ -573,7 +575,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     "Iterate over the images."
     for file_num, filepath in enumerate(tqdm(calculation_files)):
         # Read the fits file. Stores the header and image to variables.
-        hdr, imgdata = astro.remove_large_airmass(filepath)
+        hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
@@ -759,31 +761,31 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     ascii.write(slopes_table, os.path.join(
         save_loc, 'slopes_table.csv'), format='csv')
     # Calculate the first and second order extinctions.
-    extinction_table_Warner = warn_aux.second_order_extinciton_calc_Warner(slopes_table,
+    extinction_table_warner = warn_aux.second_order_extinction_calc_warner(slopes_table,
                                                                   different_filter_list,
                                                                   save_plots,
-                                                                  save_loc=save_loc)
+                                                                  save_loc=save_loc,**kwargs)
     # Calculate the exoatmospheric magnitudes (m_0).
-    exoatmospheric_table = warn_aux.exoatmospheric_mags_Warner(
-        stars_table, extinction_table_Warner, different_filter_list)
+    exoatmospheric_table = warn_aux.exoatmospheric_mags_warner(
+        stars_table, extinction_table_warner, different_filter_list)
     # Finish the transform by calculating the colour transform and zero point.
-    Warner_final_transform_table = warn_aux.colour_transform_and_zp_calc_Warner(exoatmospheric_table,
+    warner_final_transform_table = warn_aux.colour_transform_and_zp_calc_Warner(exoatmospheric_table,
                                                                        different_filter_list,
-                                                                       extinction_table_Warner, save_plots,
+                                                                       extinction_table_warner, save_plots,
                                                                        save_loc=save_loc)
     # Save the transform table to a .csv file.
-    ascii.write(Warner_final_transform_table, os.path.join(
+    ascii.write(warner_final_transform_table, os.path.join(
         save_loc, '_gb_final_transforms.csv'), format='csv')
     # Calculate the hidden transform and write it to a .csv file.
     hidden_transform_table = warn_aux.hidden_transform_Warner(exoatmospheric_table,
-                                                     Warner_final_transform_table,
+                                                     warner_final_transform_table,
                                                      different_filter_list,
                                                      save_plots,
                                                      save_loc=save_loc)
     ascii.write(hidden_transform_table, os.path.join(
         save_loc, 'hidden_transform_table.csv'), format='csv')
     exoatmospheric_table_verify = warn_aux.exoatmospheric_mags_verify_Warner(stars_table,
-                                                                    extinction_table_Warner,
+                                                                    extinction_table_warner,
                                                                     hidden_transform_table,
                                                                     different_filter_list)
     # Verify the transforms.
@@ -791,7 +793,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     app_mag_table = astro.verify_gb_transforms_auto(directory,
                                               verification_files,
                                               ref_stars_file,
-                                              Warner_final_transform_table,
+                                              warner_final_transform_table,
                                               hidden_transform_table,
                                               plot_results=True,
                                               save_plots=True,
@@ -802,7 +804,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                                               lon_key=lon_key,
                                               elev_key=elev_key,
                                               save_loc=verify_save_loc)
-    return Warner_final_transform_table
+    return warner_final_transform_table
 
 
 
@@ -1556,7 +1558,7 @@ def _main_sb_transform_calc(directory,
     large_stars_table = astro.create_large_stars_table(
         large_table_columns, ground_based=False)
     stars_table = astro.group_each_star(large_stars_table, ground_based=False)
-    sb_final_transform_columns = astro.init_sb_final_transform_columns()
+    sb_final_transform_columns = auxillary_phot_sb_functions.init_sb_final_transform_columns()
     if save_plots:
         astro.write_table_to_latex(stars_table, f"{os.path.join(save_loc, f'{unique_id}_stars_table')}.txt",
                              formats={'c': '%0.3f',
@@ -1568,12 +1570,12 @@ def _main_sb_transform_calc(directory,
                                                                                                save_plots=save_plots,
                                                                                                save_loc=save_loc,
                                                                                                unique_id=unique_id)
-            sb_final_transform_columns = astro.update_sb_final_transform_columns(sb_final_transform_columns,
-                                                                           index,
-                                                                           filter_fci,
-                                                                           filter_fci_sigma,
-                                                                           zprime_fci,
-                                                                           zprime_fci_sigma)
+            sb_final_transform_columns = auxillary_phot_sb_functions.update_sb_final_transform_columns(sb_final_transform_columns,
+                                                                                                       index,
+                                                                                                       filter_fci,
+                                                                                                       filter_fci_sigma,
+                                                                                                       zprime_fci,
+                                                                                                       zprime_fci_sigma)
             # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
             #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
     else:
@@ -1582,15 +1584,15 @@ def _main_sb_transform_calc(directory,
                                                                                                plot_results=plot_results,
                                                                                                index=index,
                                                                                                save_plots=save_plots)
-            sb_final_transform_columns = astro.update_sb_final_transform_columns(sb_final_transform_columns,
-                                                                           index,
-                                                                           filter_fci,
-                                                                           filter_fci_sigma,
-                                                                           zprime_fci,
-                                                                           zprime_fci_sigma)
+            sb_final_transform_columns = auxillary_phot_sb_functions.update_sb_final_transform_columns(sb_final_transform_columns,
+                                                                                                       index,
+                                                                                                       filter_fci,
+                                                                                                       filter_fci_sigma,
+                                                                                                       zprime_fci,
+                                                                                                       zprime_fci_sigma)
             # print(f"(V-clear) = ({filter_fci:.3f} +/- {filter_fci_sigma:.3f}) * {index} + " \
             #       f"({zprime_fci:.3f} +/- {zprime_fci_sigma:.3f})")
-    sb_final_transform_table = astro.create_sb_final_transform_table(
+    sb_final_transform_table = auxillary_phot_sb_functions.create_sb_final_transform_table(
         sb_final_transform_columns)
     if save_plots:
         formats = {
