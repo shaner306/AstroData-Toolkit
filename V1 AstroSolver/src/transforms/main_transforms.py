@@ -822,6 +822,7 @@ def _main_gb_new_boyd_method(
         elev_key='SITEELEV',
         name_key='Name',
         photometry_method='psf',
+        aperture_estimation_mode='mean',
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
@@ -960,7 +961,8 @@ def _main_gb_new_boyd_method(
         elif photometry_method=='aperture':
             try:
                 # Perform Aperture Photometry
-                photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+
+                photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimation_mode)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
