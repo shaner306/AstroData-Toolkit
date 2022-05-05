@@ -18,13 +18,18 @@ Find:
     Astro Reducer Method
 """
 
-import PySimpleGUI as sg
 import os
 import os.path
-import Main
-import AstroFunctions as astro
-from astropy.nddata import CCDData
 from pathlib import Path
+
+import PySimpleGUI as sg
+from astropy.nddata import CCDData
+
+import Main
+import main_transforms
+import pinpoint
+import trm_auxillary_functions
+
 imagefolder = 0
 catalogfolder = 0
 refdoc = 0
@@ -92,6 +97,24 @@ def Gui():
                         background_color='#F7F3EC',
                         justification='center',
                         size=(30, 1))],
+               [sg.Frame('Transform Method',
+                [[sg.T(""),
+                  sg.Radio('Boyde Method',
+                           default=True,
+                           group_id='Method',
+                           key="NewBoydMethod"),
+                  sg.T(""),
+                  sg.Radio('Warner Method',
+                           group_id='Method',
+                           default=False,
+                           key="WarnerMethod"),
+                  sg.T(""),
+                  sg.Radio('Buckhiem Method',
+                           group_id='Method',
+                           default=False,
+                           key="BuchiemMethod")
+                  ]])
+                ],
                [sg.Frame('Source Capture Mode',
                          [[sg.T(""),
                            sg.Radio('Star Stare Mode',
@@ -110,16 +133,27 @@ def Gui():
                                     "RADIO1",
                                     default=True,
                                     key="-IN82-"),
-                           sg.T("                "),
+                           sg.T(""),
                            sg.Radio('Space Based',
                                     "RADIO1",
                                     default=False,
-                                    key="-IN83-")]])], ]
+                                    key="-IN83-")]])],
+               [sg.Frame('Photometry Method',
+                         [[sg.T(""),
+                           sg.Radio('PSF',
+                                    "RADIO5",
+                                    default=True,
+                                    key="psf"),
+                           sg.T(""),
+                           sg.Radio('Aperture',
+                                    "RADIO5",
+                                    default=False,
+                                    key="aperture")]])]]
     # column2.update(disabled=True)
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
                    [sg.Text("Image Folder:      "),
-                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/Suffield Data/2022-01-17 - Amazonas 2 and SA/SA26/LIGHT",
+                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/2022-03-16/Siderial Stare Mode - Copy/SA23/LIGHT",
                              key="-IN2-",
                              change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
@@ -139,6 +173,9 @@ def Gui():
                    [sg.T(""), sg.Checkbox('Pinpoint Solve',
                                           default=False,
                                           key="-IN100-")],
+                   
+                   
+                   
                    # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
@@ -265,7 +302,7 @@ def Gui():
         #     window["-IN56-"].update(disabled=True)
         #     print("test")
         # print(values["-IN2-"])
-        if event == sg.WIN_CLOSED or event == "Exit":
+        if event == sg.WIN_CLOSED or event == "Exit" :
             window.close()
             break
         elif event == "Reduce":
@@ -400,6 +437,7 @@ def Gui():
                     window.close()
                 except:
                     print("Input Error")
+
                     break
                     window.update()
             else:
@@ -434,6 +472,10 @@ def Gui():
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
             plot_data = values["-IN1014-"]
+            if values['psf'] is True:
+                photometry_method='psf'
+            elif values['aperture'] is True:
+                photometry_method='aperture'
             
             # Check to See if image has been corrected already
             for dirpath,dirnames,files in os.walk(image_dir):
@@ -494,7 +536,7 @@ def Gui():
                     all_sky_solve = False
                 try:
                     print("Pinpoint Solve Images ---- Started")
-                    Main.pinpoint_solve(image_dir,
+                    pinpoint.pinpoint_solve(image_dir,
                                         catalog_dir,
                                         max_mag,
                                         sigma,
@@ -545,26 +587,59 @@ def Gui():
                                 save_loc = os.path.join(image_dir, 'Outputs')
                         except KeyError:
                             save_loc = os.path.join(image_dir, 'Outputs')
+                        
+
+                        if values['WarnerMethod']:
+                            Warner_final_transform_table =\
+                                main_transforms._main_gb_transform_calc_Warner(
+                                    image_dir,
+                                    refstar_dir,
+                                    plot_results=plot_results,
+                                    save_plots=save_plots,
+                                    file_suffix=file_suffix,
+                                    exposure_key=exposure_key,
+                                    name_key=name_key, lat_key=lat_key,
+                                    lon_key=lon_key, elev_key=elev_key,
+                                    save_loc=save_loc, unique_id=unique_id)
+                        if values['NewBoydMethod']:
+                            NewBoydMethod=main_transforms._main_gb_new_boyd_method(
+                              image_dir,
+                              refstar_dir,
+                              plot_results=plot_results,
+                              save_plots=save_plots,
+                              file_suffix=file_suffix,
+                              exposure_key=exposure_key,
+                              name_key=name_key, lat_key=lat_key,
+                              lon_key=lon_key, elev_key=elev_key,
+                              save_loc=save_loc, unique_id=unique_id,
+                              photometry_method=photometry_method)
+                        if values['BuchiemMethod']:
+                            BuchiemMethod=\
+                                main_transforms._main_gb_transform_calc_Buchheim(
+                                    image_dir,
+                                    refstar_dir,
+                                    plot_results=plot_results,
+                                    save_plots=save_plots,
+                                    file_suffix=file_suffix,
+                                    exposure_key=exposure_key,
+                                    name_key=name_key, lat_key=lat_key,
+                                    lon_key=lon_key, elev_key=elev_key,
+                                    save_loc=save_loc, unique_id=unique_id,
+                                    photometry_method=photometry_method
+                                    
+                                    )
+                        
+                          
                             
-                        Warner_final_transform_table =\
-                            astro._main_gb_transform_calc_Warner(
-                                image_dir,
-                                refstar_dir,
-                                plot_results=plot_results,
-                                save_plots=save_plots,
-                                file_suffix=file_suffix,
-                                exposure_key=exposure_key,
-                                name_key=name_key, lat_key=lat_key,
-                                lon_key=lon_key, elev_key=elev_key,
-                                save_loc=save_loc, unique_id=unique_id)
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
                         break
                         window.close()
                     except Exception as e:
                         print(e)
+
                         print("Input Error. Please See Instructions1")
-                        # window.update()
+                        window.update()
                 else:
                     try:
                         Main.space_based_transform(image_dir, refstar_dir)
@@ -584,12 +659,12 @@ def Gui():
                     sats_table,\
                         uncertainty_table,\
                         sat_fwhm_table = \
-                        astro._main_sc_lightcurve(image_dir,
-                                                  temp_dir=temp_dir,
-                                                  max_distance_from_sat=max_distance_from_sat,
-                                                  size=size,
-                                                  max_num_nan=max_num_nan,
-                                                  plot_results=plot_results)
+                        trm_auxillary_functions._main_sc_lightcurve(image_dir,
+                                                                    temp_dir=temp_dir,
+                                                                    max_distance_from_sat=max_distance_from_sat,
+                                                                    size=size,
+                                                                    max_num_nan=max_num_nan,
+                                                                    plot_results=plot_results)
                     sat_fwhm_table.pprint_all()
                     uncertainty_table.pprint_all()
                     sats_table.pprint_all()

@@ -24,7 +24,7 @@ import time
 # #
 # #-------------------------------------------------------------------------------
 
-# #  The following variables are used as switches to run the main functions.
+# #  The following variables are used as switches to run the main general_tools.
 # #
 # #  0 = Don't run function
 # #  1 = Run function
@@ -405,10 +405,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     master_files = ccdp.ImageFileCollection(master_dir)
     
     
-    light_flats=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=light_imgtypes_concatenateded)))
+    light_imgs=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=light_imgtypes_concatenateded)))
     try:
         
-        unique_bin_list_y=list(set(light_flats.summary['ybinning']))
+        unique_bin_list_y=list(set(light_imgs.summary['ybinning']))
         
     except KeyError as e:
         raise e
@@ -466,7 +466,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                 
                 
                 
-                if correct_outliers_params['Hot Pixel'] is True:
+                if correct_outliers_params['Hot Pixel'] and correct_outliers_params['Outlier Boolean']:
                     
                     # FIXME: Only pass in master_dark
                     mask = find_hot_pixels(master_darks,dark_time,mask)
@@ -477,7 +477,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         
                     
                 
-                if correct_outliers_params['Dark Frame Threshold Bool']:
+                if correct_outliers_params['Dark Frame Threshold Bool'] and correct_outliers_params['Outlier Boolean']:
                     
                     # FIXME: Only passs in one master dark
                     mask = dark_frame_threshold(master_darks,dark_time,correct_outliers_params,mask)
@@ -558,7 +558,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             reduced = ccdp.subtract_bias(light, master_bias)
                         
                         
-                            if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                            if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']):
                             
                                 
                                 closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
@@ -579,7 +579,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             
                             
                             
-                            if correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']:
+                            if correct_outliers_params['Outlier Boolean'] and (correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params['Hot Pixel']):
                             
                                 
                                 closest_dark = find_nearest_dark_exposure(light, corrected_master_dark.keys())
@@ -614,10 +614,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         
                             if correct_outliers_params['Cosmic Rays Bool']:
                                 # Convert image to Electrons
-                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['GAINADU'])*u.electron/u.adu)
+                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
                                 reduced_in_e.mask = mask
                                 new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=0, sigclip=4, verbose=True)
-                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['GAINADU'])*u.electron)))
+                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
                                 mask = reduced_in_e.mask
                                 print('Removed Cosmic Rays')
         
@@ -1055,7 +1055,7 @@ def correct_outlier_darks(correct_outliers_params, master_dark, closest_dark, ma
 def find_hot_pixels(master_darks,dark_time,mask):
     # Calculate Dark Current to find hot pixels
     dark_current = master_darks[dark_time].multiply(
-        float(master_darks[dark_time].header['GAINADU'])*u.electron /
+        float(master_darks[dark_time].header['EGAIN'])*u.electron /
         u.adu).divide(float(master_darks[dark_time].header['EXPTIME'])*u.second)
     if (dark_current):
         

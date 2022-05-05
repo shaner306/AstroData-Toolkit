@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Test the functionality of the various functions in AstroFunctions.py.
+Test the functionality of the various general_tools in AstroFunctions.py.
 
 Created on Thu Apr 22 14:58:28 2021
 

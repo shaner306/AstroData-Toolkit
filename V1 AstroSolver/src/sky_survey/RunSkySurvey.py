@@ -5,14 +5,11 @@ Created on Wed Oct 20 12:32:58 2021
 @author: jack.wawrow
 """
 
-import AstroFunctions as astro
-from astropy.io import ascii
-import matplotlib.pyplot as plt
-import matplotlib
-from matplotlib import cm
-import numpy as np
 import os
 import warnings
+
+import sky_survey_functions
+
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('default', category=UserWarning)
 
@@ -33,7 +30,7 @@ gb_final_transforms = None
 save_loc = os.path.join(directory, 'Outputs_SkySurvey')
 
 
-star_aux_table = astro._sky_survey_calc(directory, 
+star_aux_table = sky_survey_functions._sky_survey_calc(directory,
                                         plot_results=plot_results, 
                                         save_plots=save_plots,
                                         file_suffix=file_suffix, 
@@ -61,3 +58,4 @@ star_aux_table = astro._sky_survey_calc(directory,
 # 	label.set_color('black')
 # plt.show()
 # plt.close()
+

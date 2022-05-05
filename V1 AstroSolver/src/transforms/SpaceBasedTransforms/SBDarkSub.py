@@ -468,7 +468,7 @@ def fourierdecomp(overscan, snrcut, fmax, xoff, yoff, T, bpix, info=0):
         if info >= 2:
             # Plot the FFT.
             imstat = utils.imagestat(ftoverscan_abs, bpix)
-            Visualize.plot_image(np.transpose(np.abs(ftoverscan_abs[:T*xn, :T*yn//2])), imstat, 0.0, 10.0)
+            Visualize.plot_image(np.transpose(np.abs(ftoverscan_abs[:T * xn, :T * yn // 2])), imstat, 0.0, 10.0)
 
         mean_ftoverscan_abs = np.mean(ftoverscan_abs[T:T*(xn - 1), T:T*yn//2])
         std_ftoverscan_abs = np.std(ftoverscan_abs[T:T*(xn - 1), T:T*yn//2])
@@ -582,7 +582,7 @@ def clean_sciimage(filename, darkavg, xsc, ysc, xov, yov, snrcut, fmax, xoff, yo
             yn = overscan.shape[1]
             model = fourierd2d(a, xn, yn, xoff, yoff)
             imstat = utils.imagestat(overscan-model, bpix)
-            Visualize.plot_image(np.transpose(overscan-model), imstat, 0.3, 3.0)
+            Visualize.plot_image(np.transpose(overscan - model), imstat, 0.3, 3.0)
 
         # Apply overscan correction to science raster
         scidata_cor = overscan_cor(scidata_c, overscan, a, bpix)
