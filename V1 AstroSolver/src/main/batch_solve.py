@@ -6,8 +6,11 @@ Created on Mon Mar 21 11:48:29 2022
 
 @author: mstew
 
-
 Batch Reduced Image
+
+Bathc_solves purpose is to enable the program to solve multiple catalogs of data.
+
+
 
 
 """
@@ -19,8 +22,10 @@ from astropy.nddata import CCDData
 
 import AstroFunctions as astro
 import Main
+import main_transforms as transforms
 
 # %% Batch Reduce Images
+##
 
 # Manually set the image Reduction Parameters
 
@@ -81,9 +86,12 @@ for dirs in list_subfolders_with_paths:
 
         
 # %% Batch Solve
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy'
-catalog_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
-refstar_dir=r'C:/Users/mstew/Documents/GitHub/Astro2/Reference Star Files/Reference_stars_2022_02_17_d.txt'
+## Batch Solve
+#
+
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
+catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"
+refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 
 # Pinpoint Solve Parameters
@@ -132,7 +140,7 @@ for dirs in list_subfolders_with_paths:
 
     try:
         plot_results = True
-        save_plots = True
+        save_plots = False
         exposure_key = 'EXPTIME'
         name_key = 'Name'
         unique_id = 'GBO'
@@ -159,7 +167,7 @@ for dirs in list_subfolders_with_paths:
         except KeyError:
             save_loc = os.path.join(dirs, 'Outputs')
                 
-        NewBoydMethod=astro._main_gb_new_boyd_method(
+        NewBoydMethod=transforms._main_gb_new_boyd_method(
           dirs,
           refstar_dir,
           plot_results=plot_results,
@@ -169,10 +177,12 @@ for dirs in list_subfolders_with_paths:
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
           save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
-    except Exception:
+    except Exception as e:
+        print(e)
         continue
      
 # %% Create Combined Large Star Table
+##
 import csv
 dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-30\Siderial Stare Mode Reduced No Dark Scale'
 first_switch=True
@@ -194,8 +204,9 @@ with open(file,"a+",newline='\n') as f:
     f.close()
     
 # %% Create Combined Boyd Tables
+##
 import csv
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -230,17 +241,20 @@ with open(file,"a+",newline='\n') as f:
                     next(csvreader)
                 for row in csvreader:
                     writer.writerow(row)
+
 # %% Perform steps 2 and 3 of Boyd Method
+##
 from astropy.table import Table
 from astropy.io import ascii
 import csv
 import os
 import AstroFunctions as astro
+import auxilary_phot_boyde_functions as aux_boyde
 
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy\Siderial Stare Mode - CopyBoyde_Table1_Combined.csv"
+file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\2022-03-16 - CopyBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
@@ -251,6 +265,6 @@ with open(file,'r',newline='\n') as f:
     for row in csvreader:
         Big_Boyde_Table.add_row(row)
         
-Boyde_Table2=astro.calculate_boyde_slope_2(Big_Boyde_Table, True, str(dataset_folder+'\\Output'),4)
+Boyde_Table2=aux_boyde.calculate_boyde_slope_2(Big_Boyde_Table,str(dataset_folder+'\\Output'),4,save_plots=True)
 ascii.write(Boyde_Table2, os.path.join(
     str(os.path.dirname(file)), 'Combined_Boyde_Table2.csv'), format='csv')

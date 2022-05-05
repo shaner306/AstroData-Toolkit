@@ -232,7 +232,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
 #%% Boyde Slopes 2
 
-def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
+def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=True):
     '''
     See calculate_boyde_slope_1
     
@@ -240,6 +240,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     
     Parameters
     ---------
+    save_plots
     Inputs:
         Boyde_Table
     '''
@@ -279,12 +280,12 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         # Get K Prime Prime and Colour transform
         k_prime_prime = fitted_line1.slope.value
         colour_transform = fitted_line1.intercept.value
-        
+
         # Get Uncertainty from Slope 2 fitted line
         residuals = filtered_data - (fitted_line1((x_data)))
         filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
-        
+
         if save_plots is True:
 
             plt.figure()
@@ -295,7 +296,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
             plt.xlabel('Mean Airmass')
             plt.ylabel('C')
             plt.legend()
-           
+
             plt.title('Boydes Second Slope of ' +
                       Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
 
@@ -323,7 +324,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
                 y_data.append(Boyde_Table_grouped[image]['Z-prime'])
                 y_data_e2.append(Boyde_Table_grouped[image]['Step1_Standard_Deviation'])
                 x_data_e2.append(Boyde_Table_grouped[image]['Air Mass Std'])
-        
+
         fitted_line2, mask = or_fit(
             line_init, np.array(x_data), np.array(y_data),weights=1/(np.array(y_data_e2)**2))
         filtered_data = np.ma.masked_array(y_data, mask=mask)
@@ -333,8 +334,8 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
         residuals = filtered_data - (fitted_line2((x_data)))
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
 
-        
-        
+
+
         # Get Important Values
         k_prime = fitted_line2.slope.value
         zero_point = fitted_line2.intercept.value
@@ -345,7 +346,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
 # =============================================================================
 #             plt.plot(x_data, y_data, 'ro',
 #                      fillstyle='none', label='Clipped Data')
-#             
+#
 # =============================================================================
             plt.errorbar(x_data, y_data, yerr=y_data_e2,xerr=x_data_e2, fmt='ko', fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
@@ -356,7 +357,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
             plt.legend()
             plt.title('Boydes Third Slope of ' +
                       Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'] + ' ' + Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])
-            
+
 
             plt.savefig(str(save_loc)+'Boyde_step_3_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
                 Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
@@ -376,6 +377,7 @@ def calculate_boyde_slope_2(Boyde_Table, save_plots, save_loc,match_stars_lim):
     Boyde_Table_grouped['step_3_error']=step3_uncertainty_array
 
     return Boyde_Table_grouped
+
 
 def create_coefficeint_output(Boyde_table_grouped):
     '''

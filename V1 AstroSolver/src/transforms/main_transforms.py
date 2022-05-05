@@ -870,11 +870,12 @@ def _main_gb_new_boyd_method(
     star_aux_table_columns = astro.init_star_aux_table_columns()
 
     "Create the save location if the one specified by the user doesn't exist."
-    if save_plots:
-        save_loc = kwargs.get('save_loc')
-        unique_id = kwargs.get('unique_id')
-        if not os.path.exists(save_loc):
-            os.mkdir(save_loc)
+    #if save_plots:
+    save_loc = kwargs.get('save_loc')
+    unique_id = kwargs.get('unique_id')
+    if not os.path.exists(save_loc):
+        os.mkdir(save_loc)
+
 
     "Create the text file for logging problem files."
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
@@ -1124,7 +1125,10 @@ def _main_gb_new_boyd_method(
         ascii.write(stars_table, os.path.join(
             save_loc, 'stars_table.csv'), format='csv',overwrite=True)
     except Exception as e:
-        raise Exception(e)
+        print(e)
+
+        # raise Exception(e)
+
         
     ### Start Boyd Transformation ###
         # Create Boyde Table
@@ -1171,7 +1175,7 @@ def _main_gb_new_boyd_method(
 
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
-            Boyde_Table, save_plots, save_loc,match_stars_lim)
+            Boyde_Table, save_loc,match_stars_lim,save_plots)
 
         date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
 
@@ -1182,7 +1186,8 @@ def _main_gb_new_boyd_method(
             save_loc, 'Date_data.csv'), format='csv',overwrite=True)
     except Exception:
 
-        raise Exception
+        print(Exception)
+
 
 def _main_gb_transform_calc_Buchheim(directory,
 

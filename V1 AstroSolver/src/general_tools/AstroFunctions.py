@@ -40,7 +40,14 @@ from astropy.table import Table, QTable, hstack
 from astropy.time import Time
 from astropy.utils import iers
 from astropy.wcs import WCS
-from matplotlib import pyplot as plt
+
+# Import for Use in Pycharm
+import matplotlib as mpl
+mpl.use('TkAgg')
+import matplotlib.pyplot as plt
+# Contiue Rest of imports
+
+import  matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
     NavigationToolbar2Tk
 from matplotlib.colors import LogNorm
