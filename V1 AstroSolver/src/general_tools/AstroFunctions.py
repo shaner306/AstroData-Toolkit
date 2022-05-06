@@ -66,6 +66,8 @@ import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
 #import trm_auxillary_functions as trm_aux
 from trm_auxillary_functions import TRM_sat_detection
+import PySimpleGUI as sg
+from astropy.nddata import CCDData
 
 # from scipy.optimize import curve_fit
 
@@ -5846,5 +5848,56 @@ def edge_Protect(bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
 
     return im_mean, bg_rem, im_rms
 
+def sample_dataset(reduce_dir,window):
+    '''
+
+    Parameters
+    ----------
+    reduce_dir: string or path
+    samples the dataset to see if the image are reduced by the program
 
 
+    Returns
+    -------
+
+    '''
+
+
+    if os.path.isdir(reduce_dir):
+        for dirpath, dirnames, files in os.walk(reduce_dir):
+            for name in files:
+                if name.lower().endswith(('.fits', '.fit', '.fts')):
+                    sample_image_path = os.path.join(dirpath, name)
+                    break
+        sample_science_image = CCDData.read(sample_image_path, unit='adu')
+        try:
+            if sample_science_image.header['Correctd'] is True:
+                Popup_string = sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                if Popup_string == 'No':
+                    window.close()
+                    quit()
+        except KeyError:
+            raise('Could not find Correctd keyword')
+    return sample_science_image
+
+def param_file(save_loc,**kwargs):
+    '''
+    Purpose of this funciton is to save the parameters used in the calculations into a file
+    Parameters
+    ----------
+    kwargs: dict
+    kwargs must be a dict object
+
+    Returns
+    -------
+
+    '''
+
+    f = open(os.path.join(save_loc, 'parameters_used.txt'),'a+')
+    for var in kwargs.items():
+        f.write(f" {var[0]} : {var[1]} \n")
+
+
+    f.close()
+
+    return
