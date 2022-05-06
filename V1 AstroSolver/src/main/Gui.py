@@ -25,6 +25,7 @@ from pathlib import Path
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
+import AstroFunctions
 import Main
 import main_transforms
 import pinpoint
@@ -294,6 +295,8 @@ def Gui():
     if windowopen is False:
         window = sg.Window('AstroSolver', layout)
         windowopen is True
+
+
     while True:  # Read Events
         window.Refresh()
         event, values = window.read()
@@ -314,35 +317,20 @@ def Gui():
             if use_existing_masters is True:
                 reduce_dirs = [values["-IN200-"],exisiting_masters_dir] 
             else:
-                reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]] 
-            
-            
-            
-            
+                reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]]
+
+            debug_mode_true=True # TODO: Create GUI Input for this option
             use_existing_masters = values['-1N109-']
             exisiting_masters_dir = values['-1N109-2']
             
-            #### FLAGS #####
+            #### Read Variables and Sample them #####
             
-            # TODO: Create Functions for this
-            
-            if os.path.isdir(reduce_dir):
-                for dirpath,dirnames,files in os.walk(reduce_dir):
-                    for name in files:
-                        if name.lower().endswith(('.fits','.fit','.fts')):
-                            sample_image_path=os.path.join(dirpath,name)
-                            break
-                sample_science_image = CCDData.read(sample_image_path,unit='adu')
-                try:
-                    if sample_science_image.header['Correctd'] is True:
-                        Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
-                        if Popup_string=='No':
-                            window.close()
-                            quit()
-                except KeyError:
-                    print('Could not find Correctd keyword')
-            
-            # TODO: Create Function for this        
+
+            try:
+                sample_science_image=AstroFunctions.sample_dataset(reduce_dir,window)
+            except:
+                raise KeyError('No Image Sampled, reduce_dir is not a directory')
+            # TODO: Create Function for this sampling
             
             # Find Sample Dark
             
@@ -364,6 +352,8 @@ def Gui():
                                     continue 
                             except KeyError: 
                                 raise KeyError("WARNING -- Cound not find Keyword when looking for Dark Frame")
+                        else:
+                            continue
             except:
                 raise KeyError("WARNING -- Could not find Dark Sample image")
             try: 
@@ -428,6 +418,19 @@ def Gui():
             sav_loc = correct_light_directory
             
             target = values["-IN1014-"]
+
+            ### Save All Parameters in the Parameter File
+
+            if debug_mode_true:
+                # Save Coorect Outlier Params
+                for param in correct_outliers_params:
+
+                    astro.param_file(save_loc=sav_loc,param=correct_outliers_params[param])
+                # Save Basic Calibration Parameters
+
+
+            ### Processes
+
             if values["-IN1013-"]:  # Space Based Observations is True
                 try:
                     Main.DarkSub(target, reduce_dir,
@@ -547,6 +550,7 @@ def Gui():
                                         space_based_bool,
                                         use_sextractor,
                                         all_sky_solve)
+
                     
                     window.close()
                 except:

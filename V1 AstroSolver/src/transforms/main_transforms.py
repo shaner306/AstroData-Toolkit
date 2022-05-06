@@ -44,6 +44,7 @@ def _main_gb_transform_calc(directory,
                             elev_key='SITEELEV',
                             name_key='Name',
                             photometry_method='psf',
+                            aperture_estimation_mode='mean',
                             **kwargs):
     """
     Taking 
@@ -73,10 +74,10 @@ def _main_gb_transform_calc(directory,
     auxiliary_data_columns = astro.init_auxiliary_data_columns()
     large_table_columns = astro.init_large_table_columns()
 
-    if save_plots:
-        save_loc = kwargs.get('save_loc')
-        if not os.path.exists(save_loc):
-            os.mkdir(save_loc)
+    #if save_plots:
+    save_loc = kwargs.get('save_loc')
+    if not os.path.exists(save_loc):
+        os.mkdir(save_loc)
     with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
         f.write('File')
         f.write('\t')
@@ -150,7 +151,10 @@ def _main_gb_transform_calc(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,
+                                                                             bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                             hdr=hdr,filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimation_mode)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -520,6 +524,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
                                    lon_key='SITELONG',
                                    elev_key='SITEELEV',
                                    photometry_method='psf',
+                                   aperture_estimation_error='mean',
                                    **kwargs):
     # TODO: Docstring.
     # TODO: Fix errors when save_plots = False.
@@ -619,7 +624,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimation_error)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -962,7 +967,11 @@ def _main_gb_new_boyd_method(
             try:
                 # Perform Aperture Photometry
 
-                photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimation_mode)
+                photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,
+                                                                                 bkg=bkg,
+                                                                                 bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                                 hdr=hdr,filepath=filepath,
+                                                                                 aperture_estimation_mode=aperture_estimation_mode)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
@@ -1203,6 +1212,7 @@ def _main_gb_transform_calc_Buchheim(directory,
                                      lon_key='SITELONG',
                                      elev_key='SITEELEV',
                                      photometry_method='psf',
+                                     aperture_estimaiton_mode='mean',
                                      **kwargs):
 
     # TODO: Docstring.
@@ -1301,7 +1311,7 @@ def _main_gb_transform_calc_Buchheim(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimaiton_mode)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
