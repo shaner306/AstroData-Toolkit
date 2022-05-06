@@ -5877,7 +5877,9 @@ def sample_dataset(reduce_dir,window):
                     window.close()
                     quit()
         except KeyError:
-            raise('Could not find Correctd keyword')
+
+            print('Could not find Correctd keyword')
+            return sample_science_image
     return sample_science_image
 
 def param_file(save_loc,**kwargs):

@@ -25,7 +25,7 @@ from pathlib import Path
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
-import AstroFunctions
+import AstroFunctions as astro
 import Main
 import main_transforms
 import pinpoint
@@ -328,8 +328,10 @@ def Gui():
 
             try:
                 sample_science_image=AstroFunctions.sample_dataset(reduce_dir,window)
+                sample_bool=True
             except:
-                raise KeyError('No Image Sampled, reduce_dir is not a directory')
+                print('No Image Sampled, reduce_dir is not a directory')
+                sample_bool=False
             # TODO: Create Function for this sampling
             
             # Find Sample Dark

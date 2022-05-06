@@ -5,13 +5,15 @@ Created on Thu Jun  3 16:22:33 2021
 @author: shane
 """
 from pathlib import Path
+import matplotlib as mpl
+mpl.use('TkAgg')
 from astropy.nddata import CCDData
 from astropy.visualization import hist
 from astropy.io import fits
 from astropy import units as u
 from collections import Counter
 import ccdproc as ccdp
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import os
 from ccdproc import ImageFileCollection
@@ -449,6 +451,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                                     ybinning=binning,
                                                     filter=list(light_filter)[0],
                                                     include_path=True)[0]
+
+            data_type=(fits.open(example_light))[0].data.dtype
             
             corrected_master_dark={}
             for dark_time in dark_times:
@@ -470,13 +474,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                     
                     # FIXME: Only pass in master_dark
                     mask = find_hot_pixels(master_darks,dark_time,mask)
-                    
-                
-                    
-                    
-                        
-                    
-                
+
                 if correct_outliers_params['Dark Frame Threshold Bool'] and correct_outliers_params['Outlier Boolean']:
                     
                     # FIXME: Only passs in one master dark
@@ -630,7 +628,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             else:
                                 reduced.data= reduced.data - abs(np.min(reduced.data))
                                 
-                                
+                        reduced.data=reduced.data.astype(data_type)
+
                         reduced.meta['correctd'] = True
                         file_name = file_name.split("\\")[-1]
                         try:
