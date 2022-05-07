@@ -32,7 +32,7 @@ import main_transforms as transforms
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
+path=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
 
 create_master_dark=False
 create_master_flat=False
@@ -105,6 +105,7 @@ use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
 photometry_method='aperture'
+aperture_estimation_mode='dynamic'
 
 
 
@@ -176,7 +177,7 @@ for dirs in list_subfolders_with_paths:
           exposure_key=exposure_key,
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
-          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
+          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
     except Exception as e:
         print(e)
         continue

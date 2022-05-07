@@ -1031,16 +1031,17 @@ def _main_gb_new_boyd_method(
         predicted_airmass=float(hdr['AIRMASS'])
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
-        if hdr['CENTALT']<30:
+        #if hdr['CENTALT']<30:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
             
             # for now we will ignore all values above 2, but further calcualtions will need to be prodcued 
             
             # TODO: Write code that handles high variability airmasses (i.e airmass>2)
-            continue 
-        else:
+            # continue
+        #else:
             # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data 
-            airmass = predicted_airmass
+        airmass = predicted_airmass
+
             
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
         star_aux_table_columns =\

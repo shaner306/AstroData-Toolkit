@@ -383,7 +383,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     # TODO: Optimize by searching only around reference star RA/DEC See. detecting_stars
     
     iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm,brightest=150)
+        threshold=sigma * bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
