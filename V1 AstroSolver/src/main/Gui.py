@@ -319,7 +319,7 @@ def Gui():
             else:
                 reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]]
 
-            debug_mode_true=True # TODO: Create GUI Input for this option
+            export_parameter_file=True # TODO: Create GUI Input for this option
             use_existing_masters = values['-1N109-']
             exisiting_masters_dir = values['-1N109-2']
             
@@ -423,11 +423,14 @@ def Gui():
 
             ### Save All Parameters in the Parameter File
 
-            if debug_mode_true:
+            if export_parameter_file:
                 # Save Coorect Outlier Params
-                for param in correct_outliers_params:
+                for param1 in correct_outliers_params:
+                    try:
 
-                    astro.param_file(save_loc=sav_loc,param=correct_outliers_params[param])
+                        astro.param_file(save_loc=sav_loc,param=correct_outliers_params[param1])
+                    except:
+                        continue
                 # Save Basic Calibration Parameters
 
 

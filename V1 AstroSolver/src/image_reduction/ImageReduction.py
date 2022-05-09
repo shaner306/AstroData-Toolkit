@@ -602,7 +602,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             try:
                                 reduced = ccdp.flat_correct(reduced,corrected_master_flat)
                             except: 
-                                print('Corrected Master Flat Not Found')
+                                print('Corrected Master Flat Not Found, reverting to non-outlier_corrected flat')
+                                good_flat = master_flats[reduced.header['filter']]
+                                reduced = ccdp.flat_correct(reduced, good_flat)
                         else :    
                             good_flat = master_flats[reduced.header['filter']]
                             reduced = ccdp.flat_correct(reduced, good_flat)

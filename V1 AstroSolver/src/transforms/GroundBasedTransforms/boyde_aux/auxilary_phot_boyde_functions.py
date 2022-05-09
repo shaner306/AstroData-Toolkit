@@ -410,7 +410,7 @@ def create_coefficeint_output(Boyde_table_grouped):
 
     Returns
     -------
-    Daily_data:
+    coefficient_data:
         k_prime_bbv
         k-prime_vbv
         k_prime_rvr
@@ -424,7 +424,7 @@ def create_coefficeint_output(Boyde_table_grouped):
         Z_vbv
         Z_rvr
     '''
-    Daily_data=Table(
+    coefficient_data=Table(
         names=['Coefficient','Value','Error'],
         dtype=['str','float64','float64'])
 
@@ -437,41 +437,41 @@ def create_coefficeint_output(Boyde_table_grouped):
 
     # TODO: Check to see if this error is right.
     index_bbv=Table(np.array(rows))[0]
-    Daily_data.add_row(['k_prime_bbv',index_bbv['k_prime'],index_bbv[
+    coefficient_data.add_row(['k_prime_bbv',index_bbv['k_prime'],index_bbv[
         'step_3_error']])
-    Daily_data.add_row(['T_bbv', index_bbv['colour_transform'],index_bbv[
+    coefficient_data.add_row(['T_bbv', index_bbv['colour_transform'],index_bbv[
         'step_2_error']])
-    Daily_data.add_row(['k_prime_prime_bbv', index_bbv['k_prime_prime'],
+    coefficient_data.add_row(['k_prime_prime_bbv', index_bbv['k_prime_prime'],
                         index_bbv['step_2_error']])
-    Daily_data.add_row(['Z_bbv', index_bbv['zero_point'],index_bbv['step_3_error']])
+    coefficient_data.add_row(['Z_bbv', index_bbv['zero_point'],index_bbv['step_3_error']])
 
     rows = [row for row in np.array(Boyde_table_grouped) if
             ('G' in row and 'B-V' in row)]
     index_vbv = Table(np.array(rows))[0]
     # Add k_prime_vbv
-    Daily_data.add_row(['k_prime_vbv',index_vbv['k_prime'],index_vbv[
+    coefficient_data.add_row(['k_prime_vbv',index_vbv['k_prime'],index_vbv[
         'step_3_error']])
-    Daily_data.add_row(['T_vbv', index_vbv['colour_transform'], index_vbv[
+    coefficient_data.add_row(['T_vbv', index_vbv['colour_transform'], index_vbv[
         'step_2_error']])
-    Daily_data.add_row(['k_prime_prime_vbv', index_vbv['k_prime_prime'], index_vbv[
+    coefficient_data.add_row(['k_prime_prime_vbv', index_vbv['k_prime_prime'], index_vbv[
         'step_2_error']])
-    Daily_data.add_row(['Z_vbv', index_vbv['zero_point'], index_vbv[
+    coefficient_data.add_row(['Z_vbv', index_vbv['zero_point'], index_vbv[
         'step_3_error']])
 
     rows = [row for row in np.array(Boyde_table_grouped) if
             ('R' in row and 'V-R' in row)]
     index_rvr = Table(np.array(rows))[0]
     # Add k_prime_rvr
-    Daily_data.add_row(['k_prime_rvr',index_rvr['k_prime'],index_rvr[
+    coefficient_data.add_row(['k_prime_rvr',index_rvr['k_prime'],index_rvr[
         'step_3_error']])
-    Daily_data.add_row(['T_rvr', index_rvr['colour_transform'], index_rvr[
+    coefficient_data.add_row(['T_rvr', index_rvr['colour_transform'], index_rvr[
         'step_2_error']])
-    Daily_data.add_row(['k_prime_prime_rvr', index_rvr['k_prime_prime'], index_rvr[
+    coefficient_data.add_row(['k_prime_prime_rvr', index_rvr['k_prime_prime'], index_rvr[
         'step_2_error']])
-    Daily_data.add_row(['Z_rvr', index_rvr['zero_point'], index_rvr[
+    coefficient_data.add_row(['Z_rvr', index_rvr['zero_point'], index_rvr[
         'step_3_error']])
 
-    return Daily_data
+    return coefficient_data
 
 
 
