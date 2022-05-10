@@ -219,8 +219,6 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         return
 
 # Read Reference Star File and Extract Data
-
-
 def ref_star_folder_read(refstars_doc):
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
