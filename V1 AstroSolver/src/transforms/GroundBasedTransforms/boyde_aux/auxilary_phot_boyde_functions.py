@@ -471,7 +471,13 @@ def create_coefficeint_output(Boyde_table_grouped):
     coefficient_data.add_row(['Z_rvr', index_rvr['zero_point'], index_rvr[
         'step_3_error']])
 
-    return coefficient_data
+    # Work around to easily sort data
+    # FIXME: Get sorted_coefficient_data to output correctly
+    #coefficient_df=coefficient_data.argsort(keys='Coefficients')
+    #coefficient_df.sort('Cofficient')
+    #coefficient_data=coefficient_df.from_pandas()
+    sorted_coefficient_data=coefficient_data.sort(['Coefficient'])
+    return sorted_coefficient_data
 
 
 

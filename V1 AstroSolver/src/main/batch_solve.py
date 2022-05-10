@@ -4,17 +4,18 @@ Batch AstroSolves Images
 
 Created on Mon Mar 21 11:48:29 2022
 
-@author: mstew
-
-Batch Reduced Image
-
-Bathc_solves purpose is to enable the program to solve multiple catalogs of data.
-
-
-
+@author: mstes
 
 """
-##
+'''
+Batch Reduced Image Script
+
+Bathc_solves purpose is to enable the user to solve multiple catalogs of data.
+Each module is broken down into sections which may be operated individual or the script can be run as a whole
+
+'''
+
+## Import Section
 import os
 from pathlib import Path
 
@@ -32,13 +33,54 @@ import pinpoint
 
 '''
  Steps: Create Master frame data manually using the GUI
+
+____
+image_path: string
+ must contain only light images
+
+create_master_dark: Boolean
+    default = False
+create_master_flat=False
+create_master_bias=False
+
 '''
+def batch_reduced_images(create_master_dark,
+                         create_master_flat,
+                         create_master_bias,
+                         create_master_dir,
+                         correct_outliers_params,
+
+                         use_existing_masters,
+                         exisiting_masters_dir,
+                         scalable_dark_bool,
+
+
+                         ):
+    list_subfolders_with_paths = [f.path for f in os.scandir(image_path) if f.is_dir()]
+
+    for dirs in list_subfolders_with_paths:
+        sav_loc = Path(str(dirs) + '_Outlier_Corrected')
+        sav_loc.mkdir(exist_ok=True)
+        reduced_dirs = [dirs, exisiting_masters_dir]
+        Main.Image_reduce(reduced_dirs,
+                          create_master_dark,
+                          create_master_flat,
+                          create_master_bias,
+                          correct_outliers_params,
+                          create_master_dir,
+                          use_existing_masters,
+                          exisiting_masters_dir,
+                          scalable_dark_bool,
+                          sav_loc
+                          )
+
+
 
 
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode"
+image_path= r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode"
 
 create_master_dark=False
 create_master_flat=False
@@ -67,8 +109,17 @@ exisiting_masters_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16-
 
 scalable_dark_bool=True
 
+batch_reduced_images(create_master_dark,
+                     create_master_flat,
+                     create_master_bias,
+                     create_master_dir,
+                     correct_outliers_params,
 
-list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
+                     use_existing_masters,
+                     exisiting_masters_dir,
+                     scalable_dark_bool)
+
+list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir()]
 
 
 
@@ -127,15 +178,15 @@ catalog_exp=0.8
 use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
-photometry_method='aperture'
+photometry_method='psf'
 aperture_estimation_mode='mean'
 
 
 
 
-path=dataset_folder
+image_path=dataset_folder
 
-list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
+list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir()]
 
 
 for dirs in list_subfolders_with_paths:
@@ -148,18 +199,18 @@ for dirs in list_subfolders_with_paths:
                 break
     Sample_image = CCDData.read(sample_image,unit='adu')
     
-
-    pinpoint.pinpoint_solve(dirs,
-                        catalog_dir,
-                        max_mag,
-                        sigma,
-                        catalog_exp,
-                        match_residual,
-                        max_solve_time,
-                        catalog,
-                        space_based_bool,
-                        use_sextractor,
-                        all_sky_solve)
+# TODO: Create script that determines if WCS data is in the image
+    # pinpoint.pinpoint_solve(dirs,
+    #                     catalog_dir,
+    #                     max_mag,
+    #                     sigma,
+    #                     catalog_exp,
+    #                     match_residual,
+    #                     max_solve_time,
+    #                     catalog,
+    #                     space_based_bool,
+    #                     use_sextractor,
+    #                     all_sky_solve)
 
 
     try:
@@ -295,7 +346,8 @@ ascii.write(Boyde_Table2, os.path.join(
 
 #% SAve Coefficeint Data
 ###
+# FIXME: Get sorted_coefficient_data to output correctly
 
-coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2)
-ascii.write(coefficient_data, os.path.join(
+sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2)
+ascii.write(sorted_coefficient_data, os.path.join(
             str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)
