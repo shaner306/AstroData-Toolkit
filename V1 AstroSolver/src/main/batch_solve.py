@@ -4,17 +4,18 @@ Batch AstroSolves Images
 
 Created on Mon Mar 21 11:48:29 2022
 
-@author: mstew
-
-Batch Reduced Image
-
-Bathc_solves purpose is to enable the program to solve multiple catalogs of data.
-
-
-
+@author: mstes
 
 """
-##
+'''
+Batch Reduced Image Script
+
+Bathc_solves purpose is to enable the user to solve multiple catalogs of data.
+Each module is broken down into sections which may be operated individual or the script can be run as a whole
+
+'''
+
+## Import Section
 import os
 from pathlib import Path
 
@@ -23,16 +24,63 @@ from astropy.nddata import CCDData
 import AstroFunctions as astro
 import Main
 import main_transforms as transforms
+import pinpoint
 
 # %% Batch Reduce Images
 ##
 
 # Manually set the image Reduction Parameters
 
+'''
+ Steps: Create Master frame data manually using the GUI
+
+____
+image_path: string
+ must contain only light images
+
+create_master_dark: Boolean
+    default = False
+create_master_flat=False
+create_master_bias=False
+
+'''
+def batch_reduced_images(create_master_dark,
+                         create_master_flat,
+                         create_master_bias,
+                         create_master_dir,
+                         correct_outliers_params,
+
+                         use_existing_masters,
+                         exisiting_masters_dir,
+                         scalable_dark_bool,
+
+
+                         ):
+    list_subfolders_with_paths = [f.path for f in os.scandir(image_path) if f.is_dir()]
+
+    for dirs in list_subfolders_with_paths:
+        sav_loc = Path(str(dirs) + '_Outlier_Corrected')
+        sav_loc.mkdir(exist_ok=True)
+        reduced_dirs = [dirs, exisiting_masters_dir]
+        Main.Image_reduce(reduced_dirs,
+                          create_master_dark,
+                          create_master_flat,
+                          create_master_bias,
+                          correct_outliers_params,
+                          create_master_dir,
+                          use_existing_masters,
+                          exisiting_masters_dir,
+                          scalable_dark_bool,
+                          sav_loc
+                          )
+
+
+
+
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-path=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy (2)'
+image_path= r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode"
 
 create_master_dark=False
 create_master_flat=False
@@ -43,35 +91,44 @@ correct_outliers_params = {'Outlier Boolean': False,
                            'Dark Frame Threshold Bool': False,
                            'Dark Frame Threshold Min':  -50,
                            'Dark Frame Threshold Max': 100,
-                           'ccdmask': True,
-                           'Cosmic Rays Bool': True,
-                           'Replace Bool': True,
+                           'ccdmask': False,
+                           'Cosmic Rays Bool': False,
+                           'Replace Bool': False,
                            'Replace Mode':  'Interpolate',
                            'Multiple Flat Combination':False,
                            'Save Corrected Flats': False,
                            'Radius of local Averaging': 1,
-                           'Force Offset':True
+                           'Force Offset':False
                            }
 
 create_master_dir=False
 
 use_existing_masters=True
-exisiting_masters_dir=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\master_frame_data'
-
-scalable_dark_bool=False
+exisiting_masters_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\master_frame_data"
 
 
-list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
+scalable_dark_bool=True
+
+batch_reduced_images(create_master_dark,
+                     create_master_flat,
+                     create_master_bias,
+                     create_master_dir,
+                     correct_outliers_params,
+
+                     use_existing_masters,
+                     exisiting_masters_dir,
+                     scalable_dark_bool)
+
+list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir()]
 
 
 
 for dirs in list_subfolders_with_paths:
-    reduced_dirs=[dirs,exisiting_masters_dir]
-    
-    sav_loc=Path(str(dirs)+'_Outlier_Corrected')
+    sav_loc = Path(str(dirs) + '_Outlier_Corrected')
     sav_loc.mkdir(exist_ok=True)
-    
-    Main.Image_reduce(reduced_dirs,
+    if use_existing_masters:
+        reduced_dirs=[dirs,exisiting_masters_dir]
+        Main.Image_reduce(reduced_dirs,
                       create_master_dark,
                       create_master_flat,
                       create_master_bias,
@@ -83,13 +140,30 @@ for dirs in list_subfolders_with_paths:
                       sav_loc
                       )
 
+    else:
+        reduced_dirs=[dirs,exisiting_masters_dir]
+        Main.Image_reduce(reduced_dirs,
+                          create_master_dark,
+                          create_master_flat,
+                          create_master_bias,
+                          correct_outliers_params,
+                          create_master_dir,
+                          use_existing_masters,
+                          exisiting_masters_dir,
+                          scalable_dark_bool,
+                          sav_loc
+                          )
+
+    
+
+
 
         
 # %% Batch Solve
 ## Batch Solve
 #
 
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
+dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected"
 catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"
 refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
@@ -104,14 +178,15 @@ catalog_exp=0.8
 use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
-photometry_method='aperture'
+photometry_method='psf'
+aperture_estimation_mode='mean'
 
 
 
 
-path=dataset_folder
+image_path=dataset_folder
 
-list_subfolders_with_paths= [f.path for f in os.scandir(path) if f.is_dir()]
+list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir()]
 
 
 for dirs in list_subfolders_with_paths:
@@ -124,19 +199,19 @@ for dirs in list_subfolders_with_paths:
                 break
     Sample_image = CCDData.read(sample_image,unit='adu')
     
-# =============================================================================
-#     Main.pinpoint_solve(dirs,
-#                         catalog_dir,
-#                         max_mag,
-#                         sigma,
-#                         catalog_exp,
-#                         match_residual,
-#                         max_solve_time,
-#                         catalog,
-#                         space_based_bool,
-#                         use_sextractor,
-#                         all_sky_solve)
-# =============================================================================
+# TODO: Create script that determines if WCS data is in the image
+    # pinpoint.pinpoint_solve(dirs,
+    #                     catalog_dir,
+    #                     max_mag,
+    #                     sigma,
+    #                     catalog_exp,
+    #                     match_residual,
+    #                     max_solve_time,
+    #                     catalog,
+    #                     space_based_bool,
+    #                     use_sextractor,
+    #                     all_sky_solve)
+
 
     try:
         plot_results = True
@@ -176,7 +251,7 @@ for dirs in list_subfolders_with_paths:
           exposure_key=exposure_key,
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
-          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method)
+          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
     except Exception as e:
         print(e)
         continue
@@ -206,7 +281,7 @@ with open(file,"a+",newline='\n') as f:
 # %% Create Combined Boyd Tables
 ##
 import csv
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy'
+dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected'
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -254,7 +329,7 @@ import auxilary_phot_boyde_functions as aux_boyde
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\2022-03-16 - CopyBoyde_Table1_Combined.csv"
+file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected\SiderialStareMode_CorrectedBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
@@ -268,3 +343,11 @@ with open(file,'r',newline='\n') as f:
 Boyde_Table2=aux_boyde.calculate_boyde_slope_2(Big_Boyde_Table,str(dataset_folder+'\\Output'),4,save_plots=True)
 ascii.write(Boyde_Table2, os.path.join(
     str(os.path.dirname(file)), 'Combined_Boyde_Table2.csv'), format='csv')
+
+#% SAve Coefficeint Data
+###
+# FIXME: Get sorted_coefficient_data to output correctly
+
+sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2)
+ascii.write(sorted_coefficient_data, os.path.join(
+            str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)

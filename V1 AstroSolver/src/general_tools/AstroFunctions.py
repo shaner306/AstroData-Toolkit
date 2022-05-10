@@ -385,7 +385,7 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     # TODO: Optimize by searching only around reference star RA/DEC See. detecting_stars
     
     iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm,brightest=150)
+        threshold=sigma * bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -5850,6 +5850,8 @@ def edge_Protect(bg_rem, edge_protect, imagesizeX, imagesizeY, fitsdata):
 
 def sample_dataset(reduce_dir,window):
     '''
+    Samples a series of images to find their 'flags'. 'flags' tell the program about
+    the dataset. i.e. whether it has already been corrected
 
     Parameters
     ----------
@@ -5861,23 +5863,36 @@ def sample_dataset(reduce_dir,window):
     -------
 
     '''
-
+    flags={}
+    flags['boolean_correctd']=False
+    flags['']
 
     if os.path.isdir(reduce_dir):
         for dirpath, dirnames, files in os.walk(reduce_dir):
             for name in files:
                 if name.lower().endswith(('.fits', '.fit', '.fts')):
                     sample_image_path = os.path.join(dirpath, name)
-                    break
-        sample_science_image = CCDData.read(sample_image_path, unit='adu')
-        try:
-            if sample_science_image.header['Correctd'] is True:
-                Popup_string = sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
-                if Popup_string == 'No':
-                    window.close()
-                    quit()
-        except KeyError:
-            raise('Could not find Correctd keyword')
+                    sample_science_image = CCDData.read(sample_image_path, unit='adu')
+
+                    try:
+                        if sample_science_image.header['Correctd'] is True:
+                            flags['boolean_correctd'] = True
+                            Popup_string = sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                            if Popup_string == 'No':
+                                window.close()
+                                quit()
+
+                    except KeyError:
+
+                        print('Could not find Correctd keyword, Contiuing to the Next iimage')
+
+
+
+                else:
+                    continue
+
+
+
     return sample_science_image
 
 def param_file(save_loc,**kwargs):

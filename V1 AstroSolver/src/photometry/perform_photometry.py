@@ -387,15 +387,26 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
             aperture_area=apertures.area_overlap(imgdata)
             total_bkg=bkg_mean*aperture_area
 
-            phot_table = aperture_photometry(imgdata, apertures)
-            photometry_result = phot_table
-            photometry_result['aperture_sum'] = phot_table[
-                                                    'aperture_sum'] - total_bkg
-            photometry_result['aperture_sum_err'] = aper_stats.std
-        elif calculate_local_error is False:
-            error = calc_total_error(imgdata, bkg_std, gain)
 
-            photometry_result = aperture_photometry(imgdata - bkg,
+            ### Method One: Take the Standard deviation of the aperture itself
+            # phot_table = aperture_photometry(imgdata, apertures)
+            # photometry_result = phot_table
+            # photometry_result['aperture_sum'] = phot_table[
+            #                                        'aperture_sum'] - total_bkg
+            # photometry_result['aperture_sum_err'] = aper_stats.std
+
+            #Work around way to calculate the total error using localized background standard deviation
+
+            ### Method 2: Calculate Total Error
+
+            error =calc_total_error(imgdata-bkg,bkg_std,gain)
+            photometry_result = aperture_photometry(imgdata-bkg, apertures, error=error)
+
+
+        elif calculate_local_error is False:
+            error = calc_total_error(imgdata-bkg, bkg_std, gain)
+
+            photometry_result = aperture_photometry(imgdata-bkg,
                                                           apertures,
                                                           error=error)
 
@@ -432,25 +443,34 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
                 # Test Annulus inner and Outer dimensions  See Shaw pg. 55
                 "Calculate Local Error"
                 annulus_aperture=CircularAnnulus((positions[0][i],positions[1][i]),r_in=3*radii,r_out=4*radii)
-                bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
-                bkg=bkg_stats.median
-                mask2=annulus_aperture.to_mask(method='exact')
 
+                bkg_stats=ApertureStats(imgdata,annulus_aperture,sigma_clip=sigclip)
+                bkg = bkg_stats.median
+                aper_stats = ApertureStats(imgdata-bkg, aperture)
+
+                # MAsking
+                mask2=annulus_aperture.to_mask(method='exact')
                 combined_aperture_mask=combined_aperture_mask+mask2.to_image(np.shape(imgdata))
 
-                bkg_error=(np.ones(np.shape(imgdata)))*bkg_stats.std
 
-                # Calculate the standard deviaton of the flux
+
+
+                ### Method 1: Calcualte error form the standard deviaiton of the aperture
                 # flux_unc_array.append(ApertureStats(imgdata-bkg,aperture).std)
 
 
-                error=calc_total_error(imgdata,bkg_error,gain)
+                ### Method 2: Calculate Total Error
+                # bkg_error = (np.ones(np.shape(imgdata))) * bkg_stats.std
+                error=calc_total_error(imgdata-bkg,bkg_std,gain)
+
+
+
 
             elif calculate_local_error is False:
                 # Calculate Global Background Error
 
 
-                error=calc_total_error(imgdata, bkg_std, gain)
+                error=calc_total_error(imgdata-bkg, bkg_std, gain)
 
 
 
