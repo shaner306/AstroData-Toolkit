@@ -145,7 +145,7 @@ def Gui():
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
-    tab2_column1 = [[sg.Text('Correct Outliear Parameters',
+    tab2_column1 = [[sg.Text('Correct Outlier Parameters',
                              background_color='#F7F3EC',
                              justification='center',
                              size=(30, 1))],
@@ -298,12 +298,12 @@ def Gui():
                 sample_science_image = CCDData.read(sample_image_path,unit='adu')
                 try:
                     if sample_science_image.header['Correctd'] is True:
-                        Popup_string=sg.popup_yes_no("Images Are Already Reduced by this program, Continue?")
+                        Popup_string=sg.popup_yes_no("Images Are already reduced by this program, Continue?")
                         if Popup_string=='No':
                             window.close()
                             quit()
                 except KeyError:
-                    print('Could not find Correctd keyword')
+                    print('Could not find corrected keyword')
             
             # TODO: Create Function for this        
             
@@ -571,7 +571,7 @@ def Gui():
                         print("Reducing Images ---- Started")
                         window.close()
                     except:
-                        print(" space based Input Error.\
+                        print("Space-Based Input Error.\
                               Please See Instructions")
                         # window.update()
             else:
@@ -597,7 +597,7 @@ def Gui():
                     print(image_dir)
                     window.close()
                 except:
-                    print("Input Error. Please See Instructions2")
+                    print("Input Error. Please See Instructions")
                     # window.update()
                     continue
     window.close()
