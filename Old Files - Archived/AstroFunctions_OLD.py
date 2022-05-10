@@ -2,7 +2,7 @@
 """
 AstroFunctions.py.
 
-This file holds all of the functions that will likely be implemented in a final version of the image processor.
+This file holds all of the general_tools that will likely be implemented in a final version of the image processor.
 
 Created on Thu Apr 15 10:14:43 2021
 
@@ -2765,7 +2765,7 @@ def _main_sc_lightcurve(directory, temp_dir='tmp'):
 
 def __debugging__(gb_final_transforms, save_loc):
     """
-    Debug the main functions. This should simplify git commits by only needing to edit this file.
+    Debug the main general_tools. This should simplify git commits by only needing to edit this file.
 
     Returns
     -------
@@ -2787,4 +2787,4 @@ def __debugging__(gb_final_transforms, save_loc):
     return
 
 
-# TODO: change the SCInstrMagLightCurve.py code into functions in this file.
+# TODO: change the SCInstrMagLightCurve.py code into general_tools in this file.

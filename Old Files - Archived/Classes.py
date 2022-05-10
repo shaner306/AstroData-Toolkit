@@ -1,4 +1,4 @@
-import pandas as pd
+mport pandas as pd
 #import win32com.client as win32
 #import win32com
 import os
@@ -6,36 +6,51 @@ import os
 import math
 import numpy as np
 from numpy import mean
-from pandas import DataFrame
-import scipy
-from scipy import ndimage
-import skimage
-from skimage import measure, filters
 
-import datetime
-import astropy
 from astropy.stats import SigmaClip
 from photutils.background import SExtractorBackground
 from photutils.background import MeanBackground
 from photutils.background import Background2D
 from photutils.background import ModeEstimatorBackground
 from photutils.background import MedianBackground
-import astropy.units as u
-from matplotlib import pyplot as plt
-from photutils.detection import IRAFStarFinder
-from photutils.psf import DAOGroup, BasicPSFPhotometry, IntegratedGaussianPRF
 from astropy.wcs import WCS
-import re
 import AstroFunctions as astro
-import ImageReduction as IR
+import trm_auxillary_functions
+from ImageReduction import ImageReduction as IR
 #from .AstroFunctions import *
 #import TRMtester.py as trm
-import numpy
 import PySimpleGUI as sg
 from pathlib import Path
 from astropy.io import fits
 from ccdproc import ImageFileCollection
 import time
+# import pywin32_system32
+import math
+# import win32com.client as win32
+# import win32com
+import os
+import time
+from pathlib import Path
+
+# from .AstroFunctions import *
+# import TRMtester.py as trm
+import PySimpleGUI as sg
+import numpy as np
+import pandas as pd
+from astropy.io import fits
+from astropy.stats import SigmaClip
+from astropy.wcs import WCS
+from ccdproc import ImageFileCollection
+from numpy import mean
+from photutils.background import Background2D
+from photutils.background import MeanBackground
+from photutils.background import MedianBackground
+from photutils.background import ModeEstimatorBackground
+from photutils.background import SExtractorBackground
+
+import AstroFunctions as astro
+import trm_auxillary_functions
+from ImageReduction import ImageReduction as IR
 
 """
 Classes:
@@ -556,12 +571,12 @@ if TRM:
     max_num_nan = 5
     plot_results = 0
     
-    sats_table, uncertainty_table, sat_fwhm_table = astro._main_sc_lightcurve(directory, 
-                                                                              temp_dir=temp_dir, 
-                                                                              max_distance_from_sat=max_distance_from_sat, 
-                                                                              size=size, 
-                                                                              max_num_nan=max_num_nan, 
-                                                                              plot_results=plot_results)
+    sats_table, uncertainty_table, sat_fwhm_table = trm_auxillary_functions._main_sc_lightcurve(directory,
+                                                                                                temp_dir=temp_dir,
+                                                                                                max_distance_from_sat=max_distance_from_sat,
+                                                                                                size=size,
+                                                                                                max_num_nan=max_num_nan,
+                                                                                                plot_results=plot_results)
     
     sat_fwhm_table.pprint_all()
     uncertainty_table.pprint_all()
@@ -581,7 +596,7 @@ if image_reduce:
 #
 #-------------------------------------------------------------------------------
 
-#  The following variables are used as switches to run the main functions.
+#  The following variables are used as switches to run the main general_tools.
 #
 #  0 = Don't run function
 #  1 = Run function
