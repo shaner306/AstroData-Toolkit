@@ -107,8 +107,8 @@ def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
         sum1 = sum1 + flux_image[x_pix, y_pix]
         pix_flux[i] = flux_image[x_pix, y_pix]
     
-    object_flux = sum1
-    max_pixel_flux = max(pix_flux)
+    object_flux = max
+    max_pixel_flux =np.mean(pix_flux)
     return object_flux, max_pixel_flux
 def MomentCalculation(xmask, ymask, xc, yc, p, q):
         num_pix = xmask.size
@@ -171,7 +171,7 @@ streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Ecl
 streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
 streak1= r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173159frame.fits'
 streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
-STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
+STARS = open(r"D:\Transfer to mac\trm-stars-images\CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
 imagehdularray = fits.open(streak1)
 
 streak_array = []         
@@ -426,7 +426,7 @@ for k in range(streaksize):
                 STARS.write(streak_line+"\n")
                 streak_array.append(new_element)
 
-avg_pix_frac = pix_frac/star_count
+avg_pix_frac = pix_frac/count
 moffat_avg = moffat_avg/count
 gauss_avg = gauss_avg/count
 FWHM= 2*gauss_avg*0.7664
