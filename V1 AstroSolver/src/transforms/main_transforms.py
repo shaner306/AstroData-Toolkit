@@ -22,6 +22,18 @@ from astropy.wcs import WCS
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','boyde_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','buchheim_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','warner_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'SpaceBasedTransforms'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms'))
+sys.path.append(os.path.join(src_path, 'photometry'))
+sys.path.append(os.path.join(src_path, 'data_visualization'))
+
 import AstroFunctions as astro
 import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
@@ -29,6 +41,7 @@ import auxilary_phot_warner_functions as warn_aux
 import auxillary_sb_functions as auxillary_phot_sb_functions
 import general_gb_functions
 import perform_photometry
+from Visualize import plot_match_confirmation
 from astropy.io import ascii
 
 
@@ -200,6 +213,10 @@ def _main_gb_transform_calc(directory,
                 excluded_files += 1
             continue
 
+        filename = filepath.split('\\')[-1]
+        unique_id = filename
+        plot_match_confirmation(wcs, imgdata, matched_stars, unique_id, save_loc, save_plots=save_plots, name_key=name_key)
+
         instr_filter = astro.get_instr_filter_name(hdr)
         colour_indices = astro.get_all_colour_indices(instr_filter)
         # print("match")
@@ -248,8 +265,6 @@ def _main_gb_transform_calc(directory,
                                                                    fwhm,
                                                                    fwhm_std,
                                                                    matched_stars)
-            filename = filepath.split('\\')[-1]
-            unique_id = filename
             # try:
             if not save_plots:
                 c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = astro.ground_based_first_order_transforms(matched_stars,

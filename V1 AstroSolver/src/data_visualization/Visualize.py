@@ -5,6 +5,7 @@ Created on Fri Jun  4 11:00:58 2021
 @author: shane
 """
 
+from tkinter.filedialog import SaveFileDialog
 import numpy as np
 
 from photutils import CircularAperture
@@ -12,6 +13,7 @@ from photutils import CircularAperture
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+import os
 
 
 def plot_histogram(scidata, imstat, sigscalel, sigscaleh):
@@ -94,4 +96,46 @@ def plot_image(scidata, imstat, sigscalel, sigscaleh):
     plt.ylabel("Row (Pixels)")
     plt.show()
 
+    return
+
+
+def plot_match_confirmation(wcs, imgdata, matched_stars, unique_id, save_loc, save_plots=False, name_key='Name'):
+    if save_plots:
+        save_loc = os.path.join(save_loc, 'Annotated Images')
+        if not os.path.exists(save_loc):
+            os.mkdir(save_loc)
+    ref_star_x, ref_star_y = wcs.world_to_pixel(matched_stars.ref_star_loc)
+    img_star_x, img_star_y = wcs.world_to_pixel(matched_stars.img_star_loc)
+    fig = plt.figure(figsize=(12,8))
+    ax = plt.subplot(projection=wcs)
+    ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
+    ax.scatter(ref_star_x, ref_star_y,
+                s=100, edgecolor='red', facecolor='none', label='Reference Star from File')
+
+    ax.scatter(img_star_x, img_star_y,
+                s=100, edgecolor='green', facecolor='none', label='Reference Star from Image')
+    ax.grid(color='gray', ls='solid')
+
+    ref_star_names = np.array(matched_stars.ref_star[name_key])
+    app_mags = np.array(matched_stars.ref_star['V_ref'])
+    i=0
+    try:
+        for x,y in  zip(ref_star_x,ref_star_y):
+
+            ref_star_name = ref_star_names[i]
+            app_mag = app_mags[i]
+            i = i + 1
+            plt.annotate(f"{ref_star_name} ({app_mag})", (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
+    except TypeError:
+        return
+    # HIP_title = reference_stars.colnames[0]
+    # ref_name = reference_stars[HIP_title][possible_ref_star_index]
+    ax.set_ylabel('Declination (J2000)')
+    ax.set_xlabel('Right Ascension (J2000)')
+    plt.title(unique_id)
+    plt.legend()
+    if save_plots:
+        plt.savefig(os.path.join(save_loc, f"{unique_id}.png"))
+    plt.show()
+    plt.close()  
     return

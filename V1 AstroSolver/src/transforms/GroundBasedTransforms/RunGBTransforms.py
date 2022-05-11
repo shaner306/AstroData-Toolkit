@@ -6,8 +6,12 @@ Created on Mon May 31 11:51:04 2021
 
 @author: jmwawrow
 """
-import AstroFunctions as astro
+import sys
 import os
+from os.path import dirname
+src_path = dirname(dirname(dirname(__file__)))
+sys.path.append(os.path.join(src_path, 'transforms'))
+from main_transforms import _main_gb_transform_calc
 
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars'
 directory = r'F:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
@@ -28,8 +32,8 @@ lon_key = 'SITELONG'
 elev_key = 'SITEELEV'
 name_key = 'Name'
 
-save_loc = os.path.join(directory, 'Outputs_testing_Mar2022')
-gb_final_transforms, auxiliary_data_table = astro._main_gb_transform_calc(
+save_loc = os.path.join(directory, 'Outputs_testing_May2022')
+gb_final_transforms, auxiliary_data_table = _main_gb_transform_calc(
     directory,
     ref_stars_file,
     plot_results=plot_results,

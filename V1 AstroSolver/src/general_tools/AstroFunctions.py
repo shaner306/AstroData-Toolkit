@@ -62,6 +62,13 @@ from photutils.background import SExtractorBackground
 from photutils.detection import IRAFStarFinder
 from tqdm import tqdm
 
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','warner_aux'))
+sys.path.append(os.path.join(src_path, 'photometry'))
+sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
+
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
 #import trm_auxillary_functions as trm_aux
@@ -3151,9 +3158,8 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
     app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(
         matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
-    err_sum = app_mag_sigma + \
-        np.nan_to_num(matched_stars.img_instr_mag_sigma,
-                      nan=max_instr_filter_sigma).value
+    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma,
+                                            nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     x = matched_stars.ref_star[colour_index]
