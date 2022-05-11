@@ -74,34 +74,24 @@ for i in filepathall:
         f.CatalogPath = catloc;
         f.CatalogMaximumMagnitude = 13;
         f.CatalogExpansion = 0.8;
-        f.SigmaAboveMean = 3.0; 
-        f.FindImageStars; 
-        f.FindCatalogStars; 
+        f.SigmaAboveMean = 3.0;
         f.MaxSolveTime = 60; 
         f.MaxMatchResidual = 1.5; 
         flag = 0;
-        f.FindCatalogStars()
-        #f.MatchedStars.count
-        f.FindImageStars()
-        refx=[]
-        refy=[]
-        vref2=[]
-        HIP2=[]
-        vrindexdet=[]
-        bvindexdet=[]
-        vmagsats=[]
-        
-        nmstars = f.ImageStars.Count
-        mstars = f.ImageStars;
+        f.solve()
+        nmstars = f.MatchedStars.Count
+        mstars = f.MatchedStars;
         print(":"+ str(nmstars))
         print("Reference Stars Located:")
         print("")
         
-        
+        MatchedNew=[]
         for j in range(1,nmstars):
             mstar = f.ImageStars.Item(j)
             for i in range(len(erad)):
-                if i
+                if round(mstar.Declination,2)==round(edec[i],2) and round(mstar.RightAscension,2)==round(erad[i],2):
+                    MatchedNew.append(HIP[i])
+        print(MatchedNew)
 
         f.DetachFITS()
         f=None
