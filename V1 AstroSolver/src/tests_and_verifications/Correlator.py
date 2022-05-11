@@ -100,55 +100,10 @@ for i in filepathall:
         
         for j in range(1,nmstars):
             mstar = f.ImageStars.Item(j)
-            exptime = f.ExposureInterval  
-            rawflux = mstar.RawFlux;            
-            Zp = 22
-              
-            vmag= Zp - 2.5*(math.log10(rawflux/exptime))
-            instrsmag= -2.5*(math.log10(rawflux/exptime))
-            vmagsats.append(instrsmag)
-            #print(mstar.X)
-            if mstar.X>950 and mstar.X<980 and mstar.Y>580 and mstar.Y<600:
-                intelsatmag=instrsmag
-                #print(mstar.X)
-                print(intelsatmag)
-            else:
-                None; 
-                #print("no")
-            #print(mstar.X)
-            #print(mstar.Y)
-            #print(vmag2)
-            #print(Zp)
-            #print("")
-            
-            
-        if p<66:
-            #print(p)
-            #print(intelsatmag)
-            if intelsatmag>-100:
-                #print("yes")
-                vintelsat.append(intelsatmag) 
-                vobsdates.append(dates)
-                #print("yes")
-            else:
-                    None;
-        else:
-        
-            if min(vmagsats)<0 or min(vmagsats)>0:
-                
-                vintelsat.append(min(vmagsats)) 
-                vobsdates.append(dates)
-                print("non")
-            else:
-                None;
+            for i in range(len(erad)):
+                if i
 
         f.DetachFITS()
-        p=p+1
         f=None
     except:
-        None;
-plot=plt.scatter(vobsdates,vintelsat)
-ax = plot.axes
-ax.invert_yaxis()
-n=0;
-flag = 1;
+        print("Pinpoint failed to solve")
