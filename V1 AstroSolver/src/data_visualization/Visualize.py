@@ -9,11 +9,22 @@ from tkinter.filedialog import SaveFileDialog
 import numpy as np
 
 from photutils import CircularAperture
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 import matplotlib
+from matplotlib import cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import os
+import re
+
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+
+import AstroFunctions as astro
 
 
 def plot_histogram(scidata, imstat, sigscalel, sigscaleh):
@@ -99,35 +110,52 @@ def plot_image(scidata, imstat, sigscalel, sigscaleh):
     return
 
 
-def plot_match_confirmation(wcs, imgdata, matched_stars, unique_id, save_loc, save_plots=False, name_key='Name'):
+def plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique_id, save_loc, save_plots=False, name_key='Name'):
+    viridis = cm.get_cmap('viridis', 2)
+    colours = viridis(np.linspace(0, 1, 2))
     if save_plots:
         save_loc = os.path.join(save_loc, 'Annotated Images')
         if not os.path.exists(save_loc):
             os.mkdir(save_loc)
-    ref_star_x, ref_star_y = wcs.world_to_pixel(matched_stars.ref_star_loc)
     img_star_x, img_star_y = wcs.world_to_pixel(matched_stars.img_star_loc)
+    field_in_img = astro.get_field_name(matched_stars, name_key=name_key)
+    ref_names = np.array(reference_stars[name_key])
+    field_names = np.empty(np.shape(ref_names), dtype=object)
+    for i, name in enumerate(ref_names):
+            split_string = re.split('[^a-zA-Z0-9]', str(name))
+            if len(split_string) > 1:
+                field_names[i] = ' '.join(split_string[:-1])
+            elif len(split_string) == 1:
+                field_names[i] = split_string[0]
+    mask = field_names == field_in_img
+    field_stars = reference_stars[mask]
+    field_star_loc = SkyCoord(ra=field_stars['RA'], dec=field_stars['Dec'], 
+                                  unit=(u.hourangle, u.deg))
+    ref_star_x, ref_star_y = wcs.world_to_pixel(field_star_loc)
+    try:
+        num_img_stars = len(matched_stars.img_instr_mag)
+    except TypeError:
+        return
+    num_field_stars = len(field_stars)
     fig = plt.figure(figsize=(12,8))
     ax = plt.subplot(projection=wcs)
     ax.imshow(imgdata, cmap='gray', norm=LogNorm(), interpolation='nearest')
     ax.scatter(ref_star_x, ref_star_y,
-                s=100, edgecolor='red', facecolor='none', label='Reference Star from File')
+                s=100, edgecolor=colours[0], facecolor='none', label=f'Reference Star from File ({num_field_stars})')
 
     ax.scatter(img_star_x, img_star_y,
-                s=100, edgecolor='green', facecolor='none', label='Reference Star from Image')
+                s=100, edgecolor=colours[1], facecolor='none', label=f'Reference Star from Image ({num_img_stars})')
     ax.grid(color='gray', ls='solid')
 
-    ref_star_names = np.array(matched_stars.ref_star[name_key])
-    app_mags = np.array(matched_stars.ref_star['V_ref'])
+    ref_star_names = np.array(field_stars[name_key])
+    app_mags = np.array(field_stars['V_ref'])
     i=0
-    try:
-        for x,y in  zip(ref_star_x,ref_star_y):
+    for x,y in  zip(ref_star_x,ref_star_y):
+        ref_star_name = ref_star_names[i]
+        app_mag = app_mags[i]
+        i = i + 1
+        plt.annotate(f"{ref_star_name} ({app_mag})", (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
 
-            ref_star_name = ref_star_names[i]
-            app_mag = app_mags[i]
-            i = i + 1
-            plt.annotate(f"{ref_star_name} ({app_mag})", (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
-    except TypeError:
-        return
     # HIP_title = reference_stars.colnames[0]
     # ref_name = reference_stars[HIP_title][possible_ref_star_index]
     ax.set_ylabel('Declination (J2000)')

@@ -215,7 +215,7 @@ def _main_gb_transform_calc(directory,
 
         filename = filepath.split('\\')[-1]
         unique_id = filename
-        plot_match_confirmation(wcs, imgdata, matched_stars, unique_id, save_loc, save_plots=save_plots, name_key=name_key)
+        plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique_id, save_loc, save_plots=save_plots, name_key=name_key)
 
         instr_filter = astro.get_instr_filter_name(hdr)
         colour_indices = astro.get_all_colour_indices(instr_filter)
