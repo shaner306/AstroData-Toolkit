@@ -17,21 +17,24 @@ import matplotlib.pyplot as plt
 import datetime
 
 #inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
-inbox = 'D:\\2021-03-10 - Calibrated\\Intelsat 10-02 Post Eclipse\\LIGHT\\G'
+inbox = f'D:\Transfer to mac\Solved Stars\Tycho 4966_1321_Post\LIGHT\R'
 
 f = win32com.client.Dispatch("Pinpoint.plate")
 catloc = 'D:\squid\\USNOA20-All';
-refstars_doc = 'D:\\Reference_stars.xlsx'
-refstars = pd.read_excel(refstars_doc)
+refstars_doc = f'D:\Astro2\Reference Star Files\Reference_stars_2022_02_17.txt'
+refstars = pd.read_csv(refstars_doc,delim_whitespace=True)
 refstars.head()
 HIP= refstars["HIP"]
-erad = refstars["erad"]
-edec= refstars["edec"]
+erad = refstars["RA"]
+edec= refstars["DEC"]
 vref= refstars["V"]
 bvindex=refstars["(B-V)"]
 vrindex=refstars["(V-R)"]
 refstarsfin= np.column_stack((HIP, erad,edec,vref))
 #print(refstarsfin)
+eradNew=[]
+edecNew=[]
+
 
 
 def getFileList(directory = os.path.dirname(inbox)):
@@ -49,15 +52,19 @@ for i in c:
     filepathall.append(filepath2)
     o=o+1;
 
-o=0;
-p=1;
-f.DetachFITS
-vintelsat=[]
-vobsdates=[]
+for i in range(len(erad)):
+    tmp=erad[i].split(" ")
+    rad=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
+    tmp=edec[i].split(" ")
+    dec=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
+    edecNew.append(dec)
+    eradNew.append(rad)
+
+
 for i in filepathall:
     f = win32com.client.Dispatch("Pinpoint.plate")
     try:
-        f.AttachFITS(filepathall[o])
+        f.AttachFITS(i)
         #print(c[o])
         dateofimage=f.ExposureStartTime;
         dates = matplotlib.dates.date2num(dateofimage)
@@ -80,20 +87,19 @@ for i in filepathall:
         flag = 0;
         f.solve()
         nmstars = f.MatchedStars.Count
-        mstars = f.MatchedStars;
-        print(":"+ str(nmstars))
-        print("Reference Stars Located:")
-        print("")
+        mstars = f.MatchedStars
+        print("Reference Stars Located:"+ str(nmstars))
         
-        MatchedNew=[]
+        MatchedNew={}
+        pinpointMatched={}
         for j in range(1,nmstars):
-            mstar = f.ImageStars.Item(j)
+            mstar = mstars.Item(j)
             for i in range(len(erad)):
                 if round(mstar.Declination,2)==round(edec[i],2) and round(mstar.RightAscension,2)==round(erad[i],2):
-                    MatchedNew.append(HIP[i])
+                    MatchedNew[HIP[i]]=[erad[i],edec[i],vref[i],vrindex[i],bvindex[i]]
+            pinpointMatched[j]=[mstar.RightAscension,mstar.Declination,mstar.Magnitude]
         print(MatchedNew)
-
+        print(pinpointMatched)
         f.DetachFITS()
-        f=None
     except:
         print("Pinpoint failed to solve")
