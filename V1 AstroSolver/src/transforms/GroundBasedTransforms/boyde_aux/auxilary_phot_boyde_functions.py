@@ -12,11 +12,13 @@ Created on Fri Apr 29 14:04:14 2022
 
 import numpy
 import numpy as np
-
+import matplotlib as mpl
+mpl.use('Agg')
 from astropy.modeling.fitting import  FittingWithOutlierRemoval, LinearLSQFitter
 from astropy.modeling.models import Linear1D
 
 from astropy.stats import sigma_clip
+
 
 from matplotlib import pyplot as plt
 
@@ -90,6 +92,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
     '''
     hdr, imgdata = astro.read_fits_file(filepath)
 
+    #TODO: Add Try catch for
     predicted_airmass = float(hdr['AIRMASS'])
     img_filter=str(hdr['FILTER'])
     
@@ -98,21 +101,23 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
     
     airmass=predicted_airmass
     
-    # Create Table with headers
-
-    # Create a dict object of column names that contain the colour indices
-    # Keys are reference table column index
-    # Values are column names
 
     fit = LinearLSQFitter(calc_uncertainties=True)
     line_init = Linear1D()
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=3)
 
+    # Create Table with headers
+    # Create a dict object of column names that contain the colour indices
+    # Keys are reference table column index
+    # Values are column names
+
     colour_incides = {}
     colour_indices_errors={}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
     reference_magntiude_column_error = matched_stars.ref_star.colnames.index("e_V")
-    for column_num, colname in enumerate(matched_stars.ref_star.colnames):
+
+
+    for column_num, colname in enumerate(matched_stars.ref_star.colnames):                                              #Dynamically create colour_indices and colour_indices_errors
         if (('-' in colname) and ('e' not in colname)):
             colour_incides[column_num] = colname
         if (('-' in colname) and ('e' in colname)):
@@ -127,6 +132,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
         y_data = []
         x_data = []
         y_data_e=[]
+        labels=[]
 
         for row, matched_ref_star_vals in enumerate(matched_stars.ref_star):
 
@@ -141,41 +147,37 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
             mag_unc_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
             #mag_unc_column = [i for i,colname in enumerate(stars_table.colnames) if str() == colname]
-            mag_unc=np.max(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
+            mag_unc=np.mean(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
             if mag_unc==0 or mag_unc==np.nan or mag_unc<np.nanmean((stars_table[str(img_filter.lower()+'_sigma')])*0.25):
                 # If magnitude uncertainty is 0 or np.nan skip entry or less than 0.25 of the mean exclude the value
                 continue
 
-
+            # TODO: Restructure so it's easier to read
             # Difference between the two
             if (img_filter == 'V') or (img_filter == 'G'):
                 diff_mag = ref_mag-ins_mag
                 diff_mag_error=ref_mag_e
             else:
-                matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
-                if len(matched_index) ==0:
-                    matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if ('V-'+ str(img_filter) in matched_stars.ref_star.colnames[i])]
-                    if len(matched_index)==0:
-                        print('Could not find corresponding index')
-                        break
-                    else:
-                        ref_filter_mag=-(matched_ref_star_vals[matched_index[0]]-ref_mag)
-                        diff_mag=ref_filter_mag-ins_mag
-                        diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
 
-                    
-                    
+                if str(img_filter)+'-V' in matched_stars.ref_star.colnames:
+                    matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
+                    ref_filter_mag = matched_ref_star_vals[matched_index[0]] + ref_mag
+                    diff_mag = ref_filter_mag - ins_mag
+                    diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
+                elif 'V-'+ str(img_filter) in matched_stars.ref_star.colnames:
+                    matched_index = [i for i in range(len(matched_stars.ref_star.colnames)) if
+                                     ('V-' + str(img_filter) in matched_stars.ref_star.colnames[i])]
+                    ref_filter_mag = -(matched_ref_star_vals[matched_index[0]] - ref_mag)
+                    diff_mag = ref_filter_mag - ins_mag
+                    diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
                 else:
-                    ref_filter_mag=matched_ref_star_vals[matched_index[0]]+ref_mag
-                    diff_mag=ref_filter_mag-ins_mag
-                    diff_mag_error=(matched_ref_star_vals[matched_index[1]]+ref_mag_e)
+                    print('Could not find corresponding index')
+                    break
 
-                    
-                    
-               
-                    
+            star_name=matched_ref_star_vals['Name']
             y_data.append(diff_mag)
             y_data_e.append(diff_mag_error+mag_unc)
+            labels.append(star_name)
             x_data.append(matched_stars.ref_star[row][colour_index])
 
         # Implement Linear Regression Model
@@ -213,6 +215,14 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
             plt.xlabel(colour_incides[colour_index])
             plt.ylabel('V_ref-v_inst')
+
+            i=0
+            for x,y in  zip(x_data,y_data):
+
+                label=labels[i]
+                i = i + 1
+                plt.annotate(label, (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
+
             plt.legend()
             
             plt.title('Step 1: V_ref-v_inst vs.' +
@@ -221,7 +231,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             plt.savefig(str(sav_loc)+'Boyde_step_1_' +
                         str(colour_incides[colour_index])+'_'+str(img_filter)+ os.path.basename(filepath) +'.png')
 
-            plt.close()
+            plt.close('all')
 
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
@@ -302,8 +312,9 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
 
             plt.savefig(str(save_loc)+'Boyde_step_2_' + str(Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Index (i.e. B-V)'])+'_'+str(
                 Boyde_Table_grouped[Boyde_Table_grouped.groups.indices[i]]['Colour Filter'])+'.png')
-            #plt.show()
-            plt.close()
+            #plt.show(block=False)
+            plt.clf()
+            plt.close('all')
 
         for image in np.arange(Boyde_Table_grouped.groups.indices[i], index1):
             k_prime_prime_array.append(k_prime_prime)
@@ -379,7 +390,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
     return Boyde_Table_grouped
 
 
-def create_coefficeint_output(Boyde_table_grouped):
+def create_coefficeint_output(Boyde_table_grouped,file):
     '''
     Calculates the coefficients for the particular data
     Useful for comparing different dataset
@@ -476,8 +487,11 @@ def create_coefficeint_output(Boyde_table_grouped):
     #coefficient_df=coefficient_data.argsort(keys='Coefficients')
     #coefficient_df.sort('Cofficient')
     #coefficient_data=coefficient_df.from_pandas()
-    sorted_coefficient_data=coefficient_data.sort(['Coefficient'])
-    return sorted_coefficient_data
+    coefficient_data.sort(['Coefficient'])
+    ascii.write(coefficient_data, os.path.join(
+        str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)
+
+    return coefficient_data
 
 
 

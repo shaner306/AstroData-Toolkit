@@ -818,7 +818,7 @@ def _main_gb_new_boyd_method(
         directory,
         ref_stars_file,
         plot_results=False,
-        save_plots=False,
+        save_plots=True,
         remove_large_airmass_bool=False,
         file_suffix=(".fits", ".fit", ".fts"),
         exposure_key='EXPTIME',
@@ -826,13 +826,14 @@ def _main_gb_new_boyd_method(
         lon_key='SITELONG',
         elev_key='SITEELEV',
         name_key='Name',
-        photometry_method='psf',
+        photometry_method='aperture',
         aperture_estimation_mode='mean',
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
     calculating the colour transforms to convert instrumental magntiude to standard magntiude
 
+    $ TODO: Docstring
     Parameters
     ----------
     directory : TYPE
@@ -925,8 +926,11 @@ def _main_gb_new_boyd_method(
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
-    
+        try:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
+        except:
+            print("Could not find FWHM Tag")
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=3)
         
         
         
@@ -1154,22 +1158,24 @@ def _main_gb_new_boyd_method(
         
         
         
-        if predicted_airmass > 3:
+        #if predicted_airmass > 3:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
 
             # for now we will ignore all values above 2, but further calcualtions will need to be prodcued
 
             # TODO: Write code that handles high variability airmasses (i.e airmass>2)
-            continue
-        else:
+        #    continue
+        #else:
             # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data
 
-            try:
-                Boyde_Table = boyde_aux.calculate_boyde_slopes(
-                    matched_stars, filepath, Boyde_Table, save_plots,
-                    save_loc,stars_table)
-            except:
-                continue
+        try:
+            Boyde_Table = boyde_aux.calculate_boyde_slopes(
+                matched_stars, filepath, Boyde_Table, save_plots,
+                save_loc,stars_table)
+        except Exception as e:
+            raise KeyError(e)
+            print("Could not Calculate Boyde Slopes")
+            continue
 
 
     # Calculating Second Step of Boyd Method

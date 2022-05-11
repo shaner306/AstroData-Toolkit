@@ -163,7 +163,7 @@ for dirs in list_subfolders_with_paths:
 ## Batch Solve
 #
 
-dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected"
+dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
 catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"
 refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
@@ -171,14 +171,14 @@ refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Refere
 # Pinpoint Solve Parameters
 max_mag=13
 sigma=3
-max_solve_time=60
+max_solve_time=60 # Seconds
 match_residual=1.5
 catalog=11
 catalog_exp=0.8
 use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
-photometry_method='psf'
+photometry_method='aperture'
 aperture_estimation_mode='mean'
 
 
@@ -215,7 +215,7 @@ for dirs in list_subfolders_with_paths:
 
     try:
         plot_results = True
-        save_plots = False
+        save_plots = True
         exposure_key = 'EXPTIME'
         name_key = 'Name'
         unique_id = 'GBO'
@@ -251,7 +251,8 @@ for dirs in list_subfolders_with_paths:
           exposure_key=exposure_key,
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
-          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
+          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,
+            aperture_estimation_mode=aperture_estimation_mode)
     except Exception as e:
         print(e)
         continue
@@ -281,7 +282,8 @@ with open(file,"a+",newline='\n') as f:
 # %% Create Combined Boyd Tables
 ##
 import csv
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected'
+import os
+dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources"
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -329,7 +331,7 @@ import auxilary_phot_boyde_functions as aux_boyde
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected\SiderialStareMode_CorrectedBoyde_Table1_Combined.csv"
+file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources\UncappedDynamicSourcesBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
@@ -348,6 +350,4 @@ ascii.write(Boyde_Table2, os.path.join(
 ###
 # FIXME: Get sorted_coefficient_data to output correctly
 
-sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2)
-ascii.write(sorted_coefficient_data, os.path.join(
-            str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)
+sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2,file)

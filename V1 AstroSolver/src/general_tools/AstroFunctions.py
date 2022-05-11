@@ -43,7 +43,7 @@ from astropy.wcs import WCS
 
 # Import for Use in Pycharm
 import matplotlib as mpl
-mpl.use('TkAgg')
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 # Contiue Rest of imports
 
@@ -640,10 +640,10 @@ def calculate_magnitudes(fluxes, exptime):
         image.
 
     """
-    #fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
-    #instr_mags_units = u.Magnitude(fluxes)
-    #instr_mags = instr_mags_units.value
-    instr_mags=-2.51* np.log10(fluxes/exptime)
+    fluxes_normed = normalize_flux_by_time(fluxes, exptime)
+    instr_mags_units = u.Magnitude(fluxes_normed)
+    instr_mags = instr_mags_units.value
+    # instr_mags=-2.51* np.log10(fluxes/exptime)
     return instr_mags
 
 
@@ -5916,3 +5916,4 @@ def param_file(save_loc,**kwargs):
     f.close()
 
     return
+
