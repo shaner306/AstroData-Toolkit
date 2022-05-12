@@ -215,7 +215,8 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             #plt.plot(x_data, y_data, 'ro',
             #         fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
+            plt.plot(x_data, fitted_line1(x_data), 'k:', label=f"Z': {fitted_line1.intercept.value:.3f}, C: {fitted_line1.slope.value:.3f}")
+            # plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
             plt.xlabel(colour_incides[colour_index])
             plt.ylabel('V_ref-v_inst')
 
@@ -364,7 +365,8 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
 # =============================================================================
             plt.errorbar(x_data, y_data, yerr=y_data_e2,xerr=x_data_e2, fmt='ko', fillstyle='none', label='Clipped Data')
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line2(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
+            plt.plot(x_data, fitted_line2(x_data), 'k:', label=f"k': {k_prime:.3f}, Zp: {zero_point:.3f}")
+            # plt.plot(x_data, fitted_line2(x_data), 'k:', label=("k':"+str(k_prime)+'Zp: '+ str(zero_point)))
 # label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.xlabel('Mean Airmass')
             plt.ylabel('Z_prime')
