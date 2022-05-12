@@ -6,7 +6,7 @@ Created on Thu Jun  3 16:22:33 2021
 """
 from pathlib import Path
 import matplotlib as mpl
-mpl.use('TkAgg')
+mpl.use('Agg')
 from astropy.nddata import CCDData
 from astropy.visualization import hist
 from astropy.io import fits

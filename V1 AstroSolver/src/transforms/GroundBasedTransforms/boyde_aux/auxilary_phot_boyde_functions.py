@@ -173,12 +173,15 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
                 else:
                     print('Could not find corresponding index')
                     break
+            if ((str(diff_mag_error+mag_unc) != 'nan')
+                and (str(diff_mag) != 'nan')
+                and (str(x_data) != 'nan')):
 
-            star_name=matched_ref_star_vals['Name']
-            y_data.append(diff_mag)
-            y_data_e.append(diff_mag_error+mag_unc)
-            labels.append(star_name)
-            x_data.append(matched_stars.ref_star[row][colour_index])
+                star_name=matched_ref_star_vals['Name']
+                y_data.append(diff_mag)
+                y_data_e.append(diff_mag_error+mag_unc)
+                labels.append(star_name)
+                x_data.append(matched_stars.ref_star[row][colour_index])
 
         # Implement Linear Regression Model
 
