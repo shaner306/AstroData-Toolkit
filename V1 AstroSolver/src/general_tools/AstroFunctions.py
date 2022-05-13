@@ -28,14 +28,12 @@ import numpy
 import numpy as np
 import pandas as pd
 from astropy import table
-from astropy.coordinates import EarthLocation, AltAz, SkyCoord, \
-    match_coordinates_sky
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord, match_coordinates_sky
 from astropy.io import fits, ascii
 from astropy.modeling.fitting import LevMarLSQFitter, FittingWithOutlierRemoval
 from astropy.modeling.models import Linear1D
 from astropy.stats import SigmaClip
-from astropy.stats import sigma_clip, \
-    sigma_clipped_stats
+from astropy.stats import sigma_clip, sigma_clipped_stats
 from astropy.table import Table, QTable, hstack
 from astropy.time import Time
 from astropy.utils import iers
@@ -46,10 +44,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 # Contiue Rest of imports
-
 import  matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
-    NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -71,31 +67,17 @@ sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
 
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
-#import trm_auxillary_functions as trm_aux
 from trm_auxillary_functions import TRM_sat_detection
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
-# from scipy.optimize import curve_fit
-
 # If you are working offline, set the following to False.
-# In that case, it will use the International Earth Rotation and Reference
-# Systems (IERS) data
+# In that case, it will use the International Earth Rotation and Reference Systems (IERS) data
 # that was included with the astropy release installed on the system.
-# That may not be as accurate
-# for times that are more recent thatn the astropy release date.
+# That may not be as accurate for times that are more recent thatn the astropy release date.
 iers.conf.auto_download = True
 
-# Testing Github Desktop functionality.
-
-
 plt.rcParams.update({"text.usetex": False})
-
-
-# def linear_func(x, m, b):
-#     y = (m * x) + b
-#     return y
-
 
 def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
     """
@@ -106,12 +88,11 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
     niter : int, optional
         Maximum number of iterations. The default is 3.
     sigma : float, optional
-        The number of standard deviations to use for both the lower and upper 
-        clipping limit. The default is 3.0.
+        The number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
     slope : float
-
+        The slope value used to initialize the linear fit. The default is 1.0.
     intercept: float
-
+        The intercept value used to initialize the linear fit. The default is 0.0.
     Returns
     -------
     fit : An Astropy fitter
@@ -123,14 +104,15 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
         An instance of an Astropy Linear1D.
 
     """
+
     fit = LevMarLSQFitter(calc_uncertainties=True)
-    or_fit = FittingWithOutlierRemoval(
-        fit, sigma_clip, niter=niter, sigma=sigma)
+    or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
     line_init = Linear1D(slope=slope, intercept=intercept)
     return fit, or_fit, line_init
 
 
 def BackgroundIteration(image, tolerance):
+    #TODO: Shane, add docstring.
     old_mean = 1e9
     old_rms = 1e9
 
@@ -138,10 +120,7 @@ def BackgroundIteration(image, tolerance):
     new_rms = 2e9
 
     while abs(new_rms - old_rms) > (tolerance * old_rms):
-        # old_mean = float(new_mean)
         old_rms = float(new_rms)
-        # image = myclip(image, (old_mean - 2 * old_rms),
-        # (old_mean + 2 * old_rms))
 
         if (np.size(image) == 0):
             new_mean = 0
@@ -150,11 +129,11 @@ def BackgroundIteration(image, tolerance):
 
         new_mean = np.mean(image)
         new_rms = numpy.std(image)
-        # retval = [new_mean, new_rms]
         return new_mean, new_rms
 
 
 def myclip(x1, lo, hi):
+    #TODO: Shane, add docstring.
     vector = np.vectorize(np.float)
     x = vector(x1)
 
@@ -167,8 +146,8 @@ def myclip(x1, lo, hi):
 
 
 def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
+    #TODO: Shane, add docstring.
     num_elem_x = mask_x.size
-    # num_elem_y = mask_y.size
     sum1 = 0
     pix_flux = np.zeros((num_elem_x))
     for i in range(num_elem_x):
@@ -184,6 +163,7 @@ def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
 
 
 def MomentCalculation(xmask, ymask, xc, yc, p, q):
+    #TODO: Shane, add docstring.
     num_pix = xmask.size
     mom = sum((xmask - xc) ** p * (ymask - yc) ** q) / num_pix
     moment = mom
@@ -191,25 +171,25 @@ def MomentCalculation(xmask, ymask, xc, yc, p, q):
 
 
 def EccentricityCalculation(m11, m02, m20):
+    #TODO: Shane, add docstring.
     eccent = numpy.sqrt((m20 - m02) ** 2 + (4 * m11 ** 2)) / (m20 + m02)
     return eccent
 
 
 def Compact(num_pix, m02, m20):
+    #TODO: Shane, add docstring.
     compact = (num_pix / (m02 + m20))
     return compact
 
 
 def WeightedCentroid(mask_x, mask_y, flux_image):
+    #TODO: Shane, add docstring.
     num_elem_x = mask_x.size
     num_elem_y = mask_y.size
     x_wt_sum = 0
     y_wt_sum = 0
     flux_sum = 0
-    # print("2")
     if num_elem_x != num_elem_y:
-        # object_flux = -999
-        # print("3")
         return
     else:
         for i in range(num_elem_x):
@@ -226,7 +206,6 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     x_var_sum = 0
     y_var_sum = 0
     flux_sum = 0
-    # print("2")
     for i in range(num_elem_x):
         x_pix = mask_x[i]
         y_pix = mask_y[i]
@@ -244,8 +223,7 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
 
 def read_ref_stars(ref_stars_file):
     """
-    Read a file containing information regarding the reference stars to be
-    used to calculate the transforms.
+    Read a file containing information regarding the reference stars to be used to calculate the transforms.
 
     Parameters
     ----------
@@ -257,21 +235,16 @@ def read_ref_stars(ref_stars_file):
     reference_stars : astropy.table.Table
         Table with the data extracted from ref_stars_file.
     ref_star_positions : astropy.coordinates.sky_coordinate.SkyCoord
-        AstroPy SkyCoord object containing the RA/dec positions of all
-        reference stars in the file.
+        AstroPy SkyCoord object containing the RA/dec positions of all reference stars in the file.
 
     """
 
     try:
-        reference_stars = ascii.read(
-            ref_stars_file, format='basic',
-            delimiter='\t', guess=False, encoding='UTF-8')
+        reference_stars = ascii.read(ref_stars_file, format='basic', delimiter='\t', guess=False, encoding='UTF-8')
     except Exception:
         reference_stars = ascii.read(ref_stars_file, encoding='UTF-8')
     reference_stars = reference_stars.filled(np.nan)
-    ref_star_positions = SkyCoord(
-        ra=reference_stars['RA'],
-        dec=reference_stars['Dec'], unit=(u.hourangle, u.deg))
+    ref_star_positions = SkyCoord(ra=reference_stars['RA'], dec=reference_stars['Dec'], unit=(u.hourangle, u.deg))
 
     return reference_stars, ref_star_positions
 
@@ -296,10 +269,6 @@ def read_fits_file(filepath):
     with fits.open(filepath, memmap=False) as hdul:
         hdr = hdul[0].header
         imgdata = hdul[0].data
-    # hdul = fits.open(filepath)
-    # hdr = hdul[0].header
-    # imgdata = hdul[0].data
-    # hdul.close()
     return hdr, imgdata
 
 
@@ -312,8 +281,7 @@ def get_instr_filter_name(hdr, filter_key='FILTER'):
     hdr : astropy.io.fits.header.Header
         Header from the fits file.
     filter_key : string, optional
-        Keyword of the entry in the FITS header that 
-        contains the filter information. The default is 'FILTER'.
+        Keyword of the entry in the FITS header that contains the filter information. The default is 'FILTER'.
 
     Returns
     -------
@@ -321,6 +289,7 @@ def get_instr_filter_name(hdr, filter_key='FILTER'):
         Instrumental filter band of the image.
 
     """
+
     instr_filter = hdr[filter_key][0].lower()
     return instr_filter
 
@@ -335,15 +304,14 @@ def calculate_img_bkg(imgdata, sigma=3.0):
     imgdata : numpy.ndarray
         Data from the fits file.
     sigma : float
-        Number of standard deviations to use for both the lower and
-        upper clipping limit. The default is 3.0.
+        Number of standard deviations to use for both the lower and upper clipping limit. The default is 3.0.
 
     Returns
     -------
     bkg : float
         Median background value of the image in ADU.
     bkg_std : float
-        Standard deviation of the image background in ADU.3
+        Standard deviation of the image background in ADU.
 
     """
     _, bkg, bkg_std = sigma_clipped_stats(imgdata, sigma=3.0)
@@ -358,15 +326,14 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
     ----------
     imgdata : numpy.ndarray
         Data from the fits file.
-    fwhm : float, optional
-        Initial guess of FWHM of the image stars in pixels. The default is 2.0.
     bkg : float
         Background value of the image in ADU.
     bkg_std : float
         Standard deviation of the image background in ADU.
+    fwhm : float, optional
+        Initial guess of FWHM of the image stars in pixels. The default is 2.0.
     sigma : float
-        Number of standard deviations above the background to use as the
-        threshold.
+        Number of standard deviations above the background to use as the threshold. The default is 4.0.
 
     Returns
     -------
@@ -387,12 +354,10 @@ def detecting_stars(imgdata, bkg, bkg_std, fwhm=2.0, sigma=4.0):
             mag
 
     """
-    # iraffind = IRAFStarFinder(threshold=bkg+3*bkg_std, fwhm=fwhm)
-    
+   
     # TODO: Optimize by searching only around reference star RA/DEC See. detecting_stars
     
-    iraffind = IRAFStarFinder(
-        threshold=sigma * bkg_std, fwhm=fwhm)
+    iraffind = IRAFStarFinder(threshold=sigma * bkg_std, fwhm=fwhm)
     irafsources = iraffind(imgdata - bkg)
     return irafsources
 
@@ -424,34 +389,32 @@ def convert_pixel_to_ra_dec(irafsources, wcs):
     Returns
     -------
     skypositions : astropy.coordinates.sky_coordinate.SkyCoord
-        AstroPy SkyCoord object containing the RA/dec positions of all 
-        sources in the image.
+        AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
 
     """
-    skypositions = wcs.pixel_to_world(
-        irafsources['xcentroid'], irafsources['ycentroid'])
+
+    skypositions = wcs.pixel_to_world(irafsources['xcentroid'], irafsources['ycentroid'])
     return skypositions
 
 
-def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT',
-                             lon_key='SITELONG', elev_key='SITEELEV'):
+def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT', lon_key='SITELONG', elev_key='SITEELEV'):
     """
     Convert RA/dec locations to Altitude/Azimuth (Azimuth/Elevation).
 
     Parameters
     ----------
     skypositions : astropy.coordinates.sky_coordinate.SkyCoord
-        AstroPy SkyCoord object containing the RA/dec position(s) to be 
-        converted to Alt/Az.
+        AstroPy SkyCoord object containing the RA/dec position(s) to be converted to Alt/Az.
     hdr : astropy.io.fits.header.Header
         Header from the fits file.
 
     Returns
     -------
     altazpositions : astropy.coordinates.sky_coordinate.SkyCoord
-        Alt/Az position(s) of the skyposition(s)
+        Alt/Az position(s) of the skyposition(s).
 
     """
+
     obstime = Time(hdr['DATE-OBS'], format='fits')
     lat = hdr[lat_key]
     lon = hdr[lon_key]
@@ -467,8 +430,7 @@ def convert_ra_dec_to_alt_az(skypositions, hdr, lat_key='SITELAT',
 
 def calculate_fwhm(irafsources):
     """
-    Calculate the mean and standard deviation FWHM of all sources in the image
-    in pixels.
+    Calculate the mean and standard deviation FWHM of all sources in the image in pixels.
 
     Parameters
     ----------
@@ -498,14 +460,14 @@ def calculate_fwhm(irafsources):
         Standard deviation of the FWHM of all sources in the image.
 
     """
+
     fwhms = np.array(irafsources['fwhm'])
     fwhm = fwhms.mean()
     fwhm_std = fwhms.std()
     return fwhms, fwhm, fwhm_std
 
 
-def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
-                           focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ',
+def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std, focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', 
                            ypixsz_key='YPIXSZ'):
     """
     Convert the FWHM from pixels to arcsec.
@@ -521,14 +483,11 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     fwhm_std : float
         Standard deviation of the FWHM of all sources in the image.
     focal_length_key : string, optional
-        Key in the FITS header that contains the focal length. The default is 
-        'FOCALLEN'.
+        Key in the FITS header that contains the focal length. The default is 'FOCALLEN'.
     xpixsz_key : string, optional
-        Key in the FITS header that contains the x pixel size. The default is
-        'XPIXSZ'.
+        Key in the FITS header that contains the x pixel size. The default is 'XPIXSZ'.
     ypixsz_key : string, optional
-        Key in the FITS header that contains the y pixel size. The default is 
-        'YPIXSZ'.
+        Key in the FITS header that contains the y pixel size. The default is  'YPIXSZ'.
 
     Returns
     -------
@@ -552,6 +511,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
             fwhm_std_arcsec = fwhm_std * arcsec_per_pix.value
             fwhms_arcsec = fwhms * arcsec_per_pix.value
     except KeyError:
+        #TODO: Properly flag when the FWHM is in pixels.
         print("FWHM in pixels.")
         fwhms_arcsec = fwhms
         fwhm_arcsec = None
@@ -559,9 +519,7 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
-def convert_fwhm_to_arcsec_trm(hdr, fwhm,
-                               focal_length_key='FOCALLEN',
-                               xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
+def convert_fwhm_to_arcsec_trm(hdr, fwhm, focal_length_key='FOCALLEN', xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):
     """
     Convert the FWHM from pixels to arcsec.
 
@@ -572,14 +530,11 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
     fwhm : float
         Mean FWHM of all sources in the image.
     focal_length_key : string, optional
-        Key in the FITS header that contains the focal length.
-        The default is 'FOCALLEN'.
+        Key in the FITS header that contains the focal length. The default is 'FOCALLEN'.
     xpixsz_key : string, optional
-        Key in the FITS header that contains the x pixel size.
-        The default is 'XPIXSZ'.
+        Key in the FITS header that contains the x pixel size. The default is 'XPIXSZ'.
     ypixsz_key : string, optional
-        Key in the FITS header that contains the y pixel size.
-        The default is 'YPIXSZ'.
+        Key in the FITS header that contains the y pixel size. The default is 'YPIXSZ'.
 
     Returns
     -------
@@ -597,6 +552,7 @@ def convert_fwhm_to_arcsec_trm(hdr, fwhm,
             arcsec_per_pix = rad_per_pix.to(u.arcsec)
             fwhm_arcsec = fwhm * arcsec_per_pix.value
     except KeyError:
+        #TODO: Properly flag when FWHM is in pixels.
         print("FWHM in pixels.")
         fwhm_arcsec = fwhm
     return fwhm_arcsec
@@ -610,8 +566,7 @@ def normalize_flux_by_time(fluxes_tab, exptime):
     Parameters
     ----------
     fluxes_tab : array-like
-        1D array-like containing the fluxes for all sources in the image
-        in counts.
+        1D array-like containing the fluxes for all sources in the image in counts.
     exptime : float
         Expsure time of the image in seconds.
 
@@ -633,62 +588,42 @@ def calculate_magnitudes(fluxes, exptime):
 
     Parameters
     ----------
-    photometry_result : astropy.table.Table
-        Table with the photometry results, i.e.,
-        centroids and fluxes estimations and the initial estimates used to
-        start the fitting process.
+    fluxes : numpy array
+        Array containing the time normalized fluxes with units counts / second.
     exptime : float
         Expsure time of the image in seconds.
 
     Returns
     -------
     instr_mags : numpy array
-        Array containing the instrumental magnitudes of the sources in the
-        image.
+        Array containing the instrumental magnitudes of the sources in the image.
 
     """
     fluxes_normed = normalize_flux_by_time(fluxes, exptime)
     instr_mags_units = u.Magnitude(fluxes_normed)
     instr_mags = instr_mags_units.value
-    # instr_mags=-2.51* np.log10(fluxes/exptime)
     return instr_mags
 
 
-def calculate_magnitudes_sigma(fluxes,flux_unc, exptime):
+def calculate_magnitudes_sigma(fluxes):
     """
-    Calculate the standard deviation of the instrumental magnitudes of the
-    sources in the image.
+    Calculate the standard deviation of the instrumental magnitudes of the sources in the image.
 
     Parameters
     ----------
-    photometry_result : astropy.table.Table
-        Table with the photometry results, i.e., centroids, fluxes, amd flux
-        uncertainty estimations and the initial
-        estimates used to start the fitting process.
-    exptime : float
-        Expsure time of the image in seconds.
+    fluxes : numpy array
+        Array containing the time normalized fluxes with units counts / second.
 
     Returns
     -------
     instr_mags_sigma : numpy array
-        Array containing the standard deviation of the instrumental magnitudes
-        of the sources in the image.
+        Array containing the standard deviation of the instrumental magnitudes of the sources in the image.
+    snr : numpy array
+        Array containing the Signal-to-Noise Ratio (SNR) of the sources in the image.
 
     """
-# =============================================================================
-#     fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
-# =============================================================================
-    #fluxes=photometry_result['flux_fit']
-    #flux_unc=photometry_result['flux_unc']
-# =============================================================================
-#     flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
-# =============================================================================
-    # snr = (fluxes / flux_uncs).value
+
     snr = np.sqrt(fluxes)
-# =============================================================================
-#     instr_mags_sigma = 1.0857 / np.sqrt(snr)
-# =============================================================================
-    
     instr_mags_sigma=1.0857/snr
     return instr_mags_sigma, snr
 
@@ -699,8 +634,24 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
                                         xpixsz_key='XPIXSZ',
                                         ypixsz_key='YPIXSZ',
                                         filter_key='Filter'):
+    """
+    Parameters
+    ----------
+    bkg : 
+    hdr : 
+    exptime :
+    gb_final_transforms : 
+    focal_length_key : 
+    xpixsz_key : 
+    ypixsz_key : 
+    filter_key : 
+
+    Returns
+    -------
+    bsb : 
+
+    """
     bkg_flux = normalize_flux_by_time(bkg, exptime)
-    # bkg_std_flux = normalize_flux_by_time(bkg_std, exptime)
     try:
         focal_length = hdr[focal_length_key] * u.mm
         xpixsz = hdr[xpixsz_key] * u.um
@@ -715,9 +666,9 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
         bsb = np.nan
         return bsb
     bkg_flux_per_area = bkg_flux / square_arcsec_per_pix
-    # bkg_flux_std_per_area = bkg_std_flux / square_arcsec_per_pix
     bsb_units = u.Magnitude(bkg_flux_per_area)
     instr_bsb = bsb_units.value
+    #TODO: Fix this to properly apply the zero point.
     if not gb_final_transforms:
         if 'ZMAG' in hdr.keys():
             bsb = instr_bsb + hdr['ZMAG']
@@ -735,128 +686,81 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
     return bsb
 
 
-def calculate_BSB_sigma(bkg, bkg_std, exptime):
-    fluxes = normalize_flux_by_time(bkg, exptime)
-    flux_uncs = normalize_flux_by_time(bkg_std, exptime)
-    # snr = (fluxes / flux_uncs).value
-    snr = np.sqrt(fluxes)
-    instr_mags_sigma = 1.0857 / np.sqrt(snr)
-    return instr_mags_sigma
-
-
-def calculate_limiting_magnitude(bkg, hdr, exptime,
-                                 fwhm, gb_final_transforms=None,
-                                 focal_length_key='FOCALLEN',
-                                 xpixsz_key='XPIXSZ',
-                                 ypixsz_key='YPIXSZ',
-                                 filter_key='Filter'):
-    bkg_flux = normalize_flux_by_time(bkg, exptime)
-    square_fwhm = pi * ((fwhm / 2.0) ** 2)
-    bkg_flux_per_square_fwhm = bkg_flux * square_fwhm
-    limiting_mag_units = u.Magnitude(bkg_flux_per_square_fwhm)
-    limiting_mag = limiting_mag_units.value
-    # if not gb_final_transforms:
-    #     limiting_mag = limiting_mag_units.value
-    # else:
-    #     instr_filter = get_instr_filter_name(hdr, filter_key)
-    #     if instr_filter == 'v' or instr_filter =='g':
-    #         mask = (gb_final_transforms['filter'] == instr_filter) &
-    # (gb_final_transforms['CI'] == 'B-V')
-    #     else:
-    #         mask = gb_final_transforms['filter'] == instr_filter
-    #     zpoint = float(gb_final_transforms['Z_f'][mask])
-    #     limiting_mag = zpoint + limiting_mag_units.value
-    return limiting_mag
-
-
-# def add_zpoint(sat_auxiliary_table, unique_filters,
-#  gb_final_transforms=None):
-#     if not gb_final_transforms:
-#         return
-
-
-def find_ref_stars(reference_stars,
-                   ref_star_positions,
-                   skypositions,
-                   instr_mags,
-                   instr_mags_sigma,
-                   snrs,
-                   fluxes,
-                   fluxes_unc,
-                   ground_based=False,
-                   altazpositions=None,
-                   max_ref_sep=1.0):
+def calculate_BSB_sigma(bkg, exptime):
     """
-    Match the stars detected in the image to those provided in the
-    reference star file.
+    Parameters
+    ----------
+    bkg : 
+    exptime : 
+
+    Returns
+    -------
+    bsb_mags_sigma : 
+
+    """
+    fluxes = normalize_flux_by_time(bkg, exptime)
+    snr = np.sqrt(fluxes)
+    bsb_mags_sigma = 1.0857 / np.sqrt(snr)
+    return bsb_mags_sigma
+
+
+def find_ref_stars(reference_stars, ref_star_positions, skypositions, instr_mags, instr_mags_sigma, snrs, fluxes,
+                   fluxes_unc, ground_based=False, altazpositions=None, max_ref_sep=1.0):
+    #TODO: Rewrite this so it can be done prior to doing photometry.
+    """
+    Match the stars detected in the image to those provided in the reference star file.
 
     Parameters
     ----------
     reference_stars : astropy.table.Table
         Table with the data extracted from ref_stars_file.
     ref_star_positions : astropy.coordinates.sky_coordinate.SkyCoord
-        AstroPy SkyCoord object containing the RA/dec positions of all
-        reference stars in the file.
+        AstroPy SkyCoord object containing the RA/dec positions of all reference stars in the file.
     skypositions : astropy.coordinates.sky_coordinate.SkyCoord
-        AstroPy SkyCoord object containing the RA/dec positions of all
-        sources in the image.
+        AstroPy SkyCoord object containing the RA/dec positions of all sources in the image.
     instr_mags : numpy array
-        Array containing the instrumental magnitudes of the sources
-        in the image.
+        Array containing the instrumental magnitudes of the sources in the image.
     instr_mags_sigma : numpy array
-        Array containing the standard deviation of the instrumental
-        magnitudes of the sources in the image.
+        Array containing the standard deviation of the instrumental magnitudes of the sources in the image.
     fluxes : numpy array
         Array containing the non-normalized fluxes of all sources.
     ground_based : bool, optional
-        Whether or not the image is from a ground-based sensor.
-        The default is False.
+        Whether or not the image is from a ground-based sensor. The default is False.
     altazpositions : astropy.coordinates.sky_coordinate.SkyCoord, optional
-        Alt/Az position(s) of the skyposition(s).
-        Must be provided if ground_based is true. The default is None.
+        Alt/Az position(s) of the skyposition(s). Must be provided if ground_based is true. The default is None.
     max_ref_sep : float, optional
-        Maximum angular separtation to consider an image star to be a
-        reference star in arcsec. The default is 10.0.
+        Maximum angular separtation to consider an image star to be a reference star in arcsec. The default is 1.0.
 
     Returns
     -------
     matched_stars : namedtuple
         Attributes:
             ref_star_index : array-like or int
-                Index of the star(s) in ref_stars_file that correspond to a
-                star in the image.
+                Index of the star(s) in ref_stars_file that correspond to a star in the image.
             img_star_index : array-like or int
-                Index of the star(s) detected in the image that correspond to
-                a star in ref_stars_file.
+                Index of the star(s) detected in the image that correspond to a star in ref_stars_file.
             ref_star : astropy.table.Table
-                Rows from ref_stars_file that correspond to a matched
-                reference star.
+                Rows from ref_stars_file that correspond to a matched reference star.
             ref_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
                 RA/dec of the matched reference star(s) from ref_stars_file.
             img_star_loc : astropy.coordinates.sky_coordinate.SkyCoord
                 RA/dec of the matched star(s) detected in the image.
             ang_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in the
-                image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             img_instr_mag : numpy array
-                Array containing the instrumental magnitudes of the matched
-                star(s) detected in the image.
+                Array containing the instrumental magnitudes of the matched star(s) detected in the image.
             img_instr_mag_sigma : numpy array
-                Array containing the standard deviations of the instrumental
-                magnitudes of the matched star(s) 
+                Array containing the standard deviations of the instrumental magnitudes of the matched star(s) 
                 detected in the image.
             flux : numpy array
-                Array containing the non-normalized fluxes of the matched
-                star(s) detected in the image.
+                Array containing the non-normalized fluxes of the matched star(s) detected in the image.
             img_star_altaz : astropy.coordinates.sky_coordinate.SkyCoord
-                Alt/Az of the matched star(s) detected in the image.
-                None if ground_based is False.
+                Alt/Az of the matched star(s) detected in the image. None if ground_based is False.
             img_star_airmass : float
                 sec(z) of img_star_altaz. None if ground_based is False.
     None : if no stars are matched.
 
     """
-    # reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
     max_ref_sep = max_ref_sep * u.arcsec
     idx, sep2d, _ = match_coordinates_sky(skypositions, ref_star_positions)
     img_star_index = np.where(sep2d < max_ref_sep)
@@ -867,21 +771,11 @@ def find_ref_stars(reference_stars,
         img_star_index = int(img_star_index[0])
     else:
         img_star_index = img_star_index[0]
-    # ref_star_index = np.where(sep2d < max_ref_sep)
-    # if len(ref_star_index[0]) == 0:
-    #     print("No reference star detected in the image.")
-    #     return
-    # elif len(ref_star_index[0]) == 1:
-    #     ref_star_index = int(ref_star_index[0])
-    # else:
-    #     ref_star_index = ref_star_index[0]
     ref_star_index = idx[img_star_index]
-    # img_star_index = idx[ref_star_index]
     ref_star = reference_stars[ref_star_index]
     ref_star_loc = ref_star_positions[ref_star_index]
     img_star_loc = skypositions[img_star_index]
     ang_separation = sep2d[img_star_index]
-    # ang_separation = sep2d[ref_star_index]
     img_instr_mag = instr_mags[img_star_index]
     img_instr_mag_sigma = instr_mags_sigma[img_star_index]
     img_snr = snrs[img_star_index]
@@ -922,7 +816,8 @@ def find_ref_stars(reference_stars,
         img_fluxes,
         img_fluxes_unc,
         img_star_altaz,
-        img_star_airmass)
+        img_star_airmass
+        )
 
 
 def get_field_name(matched_stars, name_key='Name'):
@@ -931,6 +826,7 @@ def get_field_name(matched_stars, name_key='Name'):
 
     Parameters
     ----------
+    TODO: update matched_stars as needed.
     matched_stars : namedtuple
         Attributes:
             ref_star_index : array-like or int
@@ -965,14 +861,13 @@ def get_field_name(matched_stars, name_key='Name'):
             img_star_airmass : float
                 sec(z) of img_star_altaz. None if ground_based is False.
     name_key : string, optional
-        The column name of the unique identifier/star name in
-        matched_stars.ref_star. The default is 'Name'.
+        The column name of the unique identifier/star name in matched_stars.ref_star. The default is 'Name'.
 
     Returns
     -------
     field : string
-        Unique identifier of the star field that the reference star is
-        in (e.g. Landolt field "108").
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+    TODO: Add what conditions lead to a return of 'None'?
 
     """
     try:
@@ -989,8 +884,7 @@ def get_field_name(matched_stars, name_key='Name'):
             else:
                 return
     elif num_stars == 1:
-        split_string = re.split(
-            '[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
+        split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
         if len(split_string) > 1:
             return ' '.join(split_string[:-1])
         elif len(split_string) == 1:
@@ -1018,11 +912,9 @@ def init_auxiliary_data_columns():
             fwhm_std : empty list
                 Standard deviation of the FWHM of all sources in the image.
             avg_mag_sigma : empty list
-                Average uncertainty of the magnitudes of all of the reference
-                stars in the image.
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
             std_mag_sigma : empty list
-                Standard deviation of the uncertainties of the magnitudes of
-                all of the reference stars in the image.
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
 
     """
     filename = []
@@ -1038,12 +930,10 @@ def init_auxiliary_data_columns():
                                          'fwhm_std',
                                          'avg_mag_sigma',
                                          'std_mag_sigma'])
-    return auxiliary_data_columns(filename, exposure_time, fwhm,
-                                  fwhm_std, avg_mag_sigma, std_mag_sigma)
+    return auxiliary_data_columns(filename, exposure_time, fwhm, fwhm_std, avg_mag_sigma, std_mag_sigma)
 
 
-def update_auxiliary_data_columns(auxiliary_data_columns, filename,
-                                  exptime, fwhm, fwhm_std, matched_stars):
+def update_auxiliary_data_columns(auxiliary_data_columns, filename, exptime, fwhm, fwhm_std, matched_stars):
     """
     Update the columns that will create the auxiliary data table.
 
@@ -1060,11 +950,9 @@ def update_auxiliary_data_columns(auxiliary_data_columns, filename,
             fwhm_std : float list
                 Standard deviation of the FWHM of all sources in the image.
             avg_mag_sigma : float list
-                Average uncertainty of the magnitudes of all of the reference
-                stars in the image.
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
             std_mag_sigma : float list
-                Standard deviation of the uncertainties of the magnitudes of
-                all of the reference stars in the image.
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
     filename : string
         Name of the file to calculate the transforms for.
     exptime : float or int
@@ -1073,6 +961,7 @@ def update_auxiliary_data_columns(auxiliary_data_columns, filename,
         Mean FWHM of all sources in the image.
     fwhm_std : float
         Standard deviation of the FWHM of all sources in the image.
+    TODO: update matched_stars definition as needed.
     matched_stars : namedtuple
         Attributes:
             ref_star_index : array-like or int
@@ -1120,11 +1009,9 @@ def update_auxiliary_data_columns(auxiliary_data_columns, filename,
             fwhm_std : float list
                 Standard deviation of the FWHM of all sources in the image.
             avg_mag_sigma : float list
-                Average uncertainty of the magnitudes of all of the reference
-                stars in the image.
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
             std_mag_sigma : float list
-                Standard deviation of the uncertainties of the magnitudes of
-                all of the reference stars in the image.
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
 
     """
     updated_auxiliary_data_columns = auxiliary_data_columns
@@ -1156,11 +1043,9 @@ def create_auxiliary_data_table(auxiliary_data_columns):
             fwhm_std : float list
                 Standard deviation of the FWHM of all sources in the image.
             avg_mag_sigma : float list
-                Average uncertainty of the magnitudes of all of the reference
-                stars in the image.
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
             std_mag_sigma : float list
-                Standard deviation of the uncertainties of the magnitudes of
-                all of the reference stars in the image.
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
 
     Returns
     -------
@@ -1176,11 +1061,9 @@ def create_auxiliary_data_table(auxiliary_data_columns):
             fwhm_sigma : float
                 Standard deviation of the FWHM of all sources in the image.
             avg mag_sigma : float
-                Average uncertainty of the magnitudes of all of the reference
-                stars in the image.
+                Average uncertainty of the magnitudes of all of the reference stars in the image.
             std mag_sigma : float
-                Standard deviation of the uncertainties of the magnitudes of
-                all of the reference stars in the image.
+                Standard deviation of the uncertainties of the magnitudes of all of the reference stars in the image.
 
     """
     auxiliary_data_table = Table(
@@ -1204,7 +1087,7 @@ def create_auxiliary_data_table(auxiliary_data_columns):
     return auxiliary_data_table
 
 
-def init_large_table_columns(**kwargs):
+def init_large_table_columns():
     """
     Create all of the columns that will be turned into the large stars table.
 
@@ -1213,8 +1096,7 @@ def init_large_table_columns(**kwargs):
     large_table_columns : namedtuple
         Attributes:
             field : empty list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : empty list
                 Name/unique identifier of the reference star.
             times : empty list
@@ -1232,14 +1114,11 @@ def init_large_table_columns(**kwargs):
             img_star_dec : empty list
                 Declination of the reference star(s) found in the image.
             angular_separation : empty list
-                Angular distance between the matched star(s) detected in the
-                image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             img_star_mag : empty list
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             img_star_mag_sigma : empty list
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filters : empty list
                 Filter used during for the image.
             V_apparents : empty list
@@ -1253,8 +1132,7 @@ def init_large_table_columns(**kwargs):
             V_I_apparents : empty list
                 Apparent V-I colour index from the reference file.
             V_sigma_apparents : empty list
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             img_star_airmass : empty list
                 Sec(z) of the reference star(s) found in the image.
 
@@ -1285,10 +1163,10 @@ def init_large_table_columns(**kwargs):
     V_R_sigma_apparents = []
     V_I_sigma_apparents = []
     img_star_airmass = []
+    #TODO: add the airmass listed in the FITS column.
     fits_column_airmass = []
     num_stars = []
     img_names = []
-    # X_rounded = []
 
     large_table_columns = namedtuple('large_table_columns',
                                      ['field',
@@ -1320,7 +1198,6 @@ def init_large_table_columns(**kwargs):
                                       # 'fits_column_airmass',
                                       'num_stars',
                                       'img_name'
-                                      # 'X_rounded'
                                       ])
     return large_table_columns(field,
                                ref_star_name,
@@ -1351,13 +1228,11 @@ def init_large_table_columns(**kwargs):
                                # fits_column_airmass,
                                num_stars,
                                img_names
-                               # X_rounded
                                )
 
 
-def update_large_table_columns(large_table_columns, filename,
-                               matched_stars, hdr, exptime, ground_based=False,
-                               name_key='Name', **kwargs):
+def update_large_table_columns(large_table_columns, filename, matched_stars, hdr, exptime, ground_based=False, 
+                               name_key='Name'):
     """
     Update columns to be used for the large stars table based on information
     from the current image.
@@ -1367,8 +1242,7 @@ def update_large_table_columns(large_table_columns, filename,
     large_table_columns : namedtuple
         Attributes:
             field : string list
-                Unique identifier of the star field that the reference
-                star is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -1378,26 +1252,19 @@ def update_large_table_columns(large_table_columns, filename,
             exposure : numpy.float64
                 Exposure time of the image.
             ref_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in
-                unit hourangle.
+                Right ascension of the reference star(s) from the file in unit hourangle.
             ref_star_dec : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
+                Declination of the reference star(s) from the file in unit degree.
             img_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in the image in
-                unit hourangle.
+                Right ascension of the reference star(s) found in the image in unit hourangle.
             img_star_dec : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) found in the image in
-                unit degree.
+                Declination of the reference star(s) found in the image in unit degree.
             angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             img_star_mag : numpy.float64
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             img_star_mag_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filters : string list
                 Filter used during for the image.
             V_apparents : numpy.float64
@@ -1411,10 +1278,10 @@ def update_large_table_columns(large_table_columns, filename,
             V_I_apparents : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma_apparents : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             img_star_airmass : numpy.float64
                 Sec(z) of the reference star(s) found in the image.
+    TODO: update matched_stars as needed.
     matched_stars : namedtuple
         Attributes:
             ref_star_index : array-like or int
@@ -1453,19 +1320,16 @@ def update_large_table_columns(large_table_columns, filename,
     exptime : float
         Expsure time of the image in seconds.
     ground_based : bool, optional
-        Whether or not the image is from a ground-based sensor.
-        The default is False.
+        Whether or not the image is from a ground-based sensor. The default is False.
     name_key : string, optional
-        The column name of the unique identifier/star name in
-        matched_stars.ref_star. The default is 'Name'.
+        The column name of the unique identifier/star name in matched_stars.ref_star. The default is 'Name'.
 
     Returns
     -------
     updated_large_table_columns : namedtuple
         Attributes:
             field : string list
-                Unique identifier of the star field that the
-                reference star is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -1475,26 +1339,20 @@ def update_large_table_columns(large_table_columns, filename,
             exposure : numpy.float64
                 Exposure time of the image.
             ref_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in
-                unit hourangle.
+                Right ascension of the reference star(s) from the file in unit hourangle.
             ref_star_dec : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
+                Declination of the reference star(s) from the file in unit degree.
             img_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in
-                the image in unit hourangle.
+                Right ascension of the reference star(s) found in the image in unit hourangle.
             img_star_dec : astropy.coordinates.angles.Latitude
                 Declination of the reference star(s) found in the image in
                 unit degree.
             angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             img_star_mag : numpy.float64
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             img_star_mag_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filters : string list
                 Filter used during for the image.
             V_apparents : numpy.float64
@@ -1508,11 +1366,9 @@ def update_large_table_columns(large_table_columns, filename,
             V_I_apparents : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma_apparents : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             img_star_airmass : numpy.float64
-                Sec(z) of the reference star(s) found in the image.
-                Only output if ground_based is True.
+                Sec(z) of the reference star(s) found in the image. Only output if ground_based is True.
 
     """
     updated_large_table_columns = large_table_columns
@@ -1524,81 +1380,52 @@ def update_large_table_columns(large_table_columns, filename,
         for row in matched_stars.ref_star:
             split_string = re.split('[^a-zA-Z0-9]', str(row[name_key]))
             if len(split_string) > 1:
-                updated_large_table_columns.field.append(
-                    ' '.join(split_string[:-1]))
+                updated_large_table_columns.field.append(' '.join(split_string[:-1]))
             elif len(split_string) == 1:
                 updated_large_table_columns.field.append(split_string[0])
             else:
                 print('Could not find the name of the field.')
-        updated_large_table_columns.ref_star_name.extend(
-            matched_stars.ref_star[name_key])
+        updated_large_table_columns.ref_star_name.extend(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.extend(matched_stars.flux)
-        updated_large_table_columns.flux_unc_table.extend(
-            matched_stars.flux_unc)
+        updated_large_table_columns.flux_unc_table.extend(matched_stars.flux_unc)
         time = Time(hdr['DATE-OBS'], format='fits')
         time_repeat = np.full(num_stars, time.jd)
         updated_large_table_columns.times.extend(time_repeat)
         exposure_repeat = np.full(num_stars, exptime)
         updated_large_table_columns.exposure.extend(exposure_repeat)
-        updated_large_table_columns.ref_star_RA.extend(
-            matched_stars.ref_star_loc.ra.to(u.hourangle))
-        updated_large_table_columns.ref_star_dec.extend(
-            matched_stars.ref_star_loc.dec)
-        updated_large_table_columns.img_star_RA.extend(
-            matched_stars.img_star_loc.ra.to(u.hourangle))
-        updated_large_table_columns.img_star_dec.extend(
-            matched_stars.img_star_loc.dec)
-        updated_large_table_columns.angular_separation.extend(
-            matched_stars.ang_separation.to(u.arcsec))
-        updated_large_table_columns.img_star_mag.extend(
-            matched_stars.img_instr_mag)
-        updated_large_table_columns.img_star_mag_sigma.extend(
-            matched_stars.img_instr_mag_sigma)
+        updated_large_table_columns.ref_star_RA.extend(matched_stars.ref_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.ref_star_dec.extend(matched_stars.ref_star_loc.dec)
+        updated_large_table_columns.img_star_RA.extend(matched_stars.img_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.img_star_dec.extend(matched_stars.img_star_loc.dec)
+        updated_large_table_columns.angular_separation.extend(matched_stars.ang_separation.to(u.arcsec))
+        updated_large_table_columns.img_star_mag.extend(matched_stars.img_instr_mag)
+        updated_large_table_columns.img_star_mag_sigma.extend(matched_stars.img_instr_mag_sigma)
         updated_large_table_columns.SNR.extend(matched_stars.SNR)
         filter_name_repeat = np.full(num_stars, hdr['FILTER'][0])
         updated_large_table_columns.filters.extend(filter_name_repeat)
         filename_repeat = np.full(num_stars, filename)
         updated_large_table_columns.img_name.extend(filename_repeat)
-        updated_large_table_columns.V_apparents.extend(
-            matched_stars.ref_star['V_ref'])
+        updated_large_table_columns.V_apparents.extend(matched_stars.ref_star['V_ref'])
         try:
-            updated_large_table_columns.B_V_apparents.extend(
-                matched_stars.ref_star['(B-V)'])
-            updated_large_table_columns.U_B_apparents.extend(
-                matched_stars.ref_star['(U-B)'])
-            updated_large_table_columns.V_R_apparents.extend(
-                matched_stars.ref_star['(V-R)'])
-            updated_large_table_columns.V_I_apparents.extend(
-                matched_stars.ref_star['(V-I)'])
-            updated_large_table_columns.V_sigma_apparents.extend(
-                matched_stars.ref_star['V_sigma'])
-            updated_large_table_columns.B_V_sigma_apparents.extend(
-                matched_stars.ref_star['(B-V)_sigma'])
-            updated_large_table_columns.U_B_sigma_apparents.extend(
-                matched_stars.ref_star['(U-B)_sigma'])
-            updated_large_table_columns.V_R_sigma_apparents.extend(
-                matched_stars.ref_star['(V-R)_sigma'])
-            updated_large_table_columns.V_I_sigma_apparents.extend(
-                matched_stars.ref_star['(V-I)_sigma'])
+            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_sigma_apparents.extend(matched_stars.ref_star['e_B-V'])
+            updated_large_table_columns.U_B_sigma_apparents.extend(matched_stars.ref_star['e_U-B'])
+            updated_large_table_columns.V_R_sigma_apparents.extend(matched_stars.ref_star['e_V-R'])
+            updated_large_table_columns.V_I_sigma_apparents.extend(matched_stars.ref_star['e_V-I'])
         except KeyError:
-            updated_large_table_columns.B_V_apparents.extend(
-                matched_stars.ref_star['B-V'])
-            updated_large_table_columns.U_B_apparents.extend(
-                matched_stars.ref_star['U-B'])
-            updated_large_table_columns.V_R_apparents.extend(
-                matched_stars.ref_star['V-R'])
-            updated_large_table_columns.V_I_apparents.extend(
-                matched_stars.ref_star['V-I'])
-            updated_large_table_columns.V_sigma_apparents.extend(
-                matched_stars.ref_star['e_V'])
-            updated_large_table_columns.B_V_sigma_apparents.extend(
-                matched_stars.ref_star['e_B-V'])
-            updated_large_table_columns.U_B_sigma_apparents.extend(
-                matched_stars.ref_star['e_U-B'])
-            updated_large_table_columns.V_R_sigma_apparents.extend(
-                matched_stars.ref_star['e_V-R'])
-            updated_large_table_columns.V_I_sigma_apparents.extend(
-                matched_stars.ref_star['e_V-I'])
+            updated_large_table_columns.B_V_apparents.extend(matched_stars.ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.extend(matched_stars.ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.extend(matched_stars.ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.extend(matched_stars.ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.extend(matched_stars.ref_star['V_sigma'])
+            updated_large_table_columns.B_V_sigma_apparents.extend(matched_stars.ref_star['(B-V)_sigma'])
+            updated_large_table_columns.U_B_sigma_apparents.extend(matched_stars.ref_star['(U-B)_sigma'])
+            updated_large_table_columns.V_R_sigma_apparents.extend(matched_stars.ref_star['(V-R)_sigma'])
+            updated_large_table_columns.V_I_sigma_apparents.extend(matched_stars.ref_star['(V-I)_sigma'])
         num_stars_repeat = np.full(num_stars, num_stars)
         updated_large_table_columns.num_stars.extend(num_stars_repeat)
         if not ground_based:
@@ -1607,89 +1434,56 @@ def update_large_table_columns(large_table_columns, filename,
             matched_stars.img_star_airmass)
         # fits_column_airmass_repeat = np.full(num_stars, matched_stars.fits_column_airmass)
         # updated_large_table_columns.fits_column_airmass.extend(fits_column_airmass_repeat)
-        # updated_large_table_columns.X_rounded.extend(round(matched_stars.img_star_airmass, 1))
     elif num_stars == 1:
-        split_string = re.split(
-            '[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
+        split_string = re.split('[^a-zA-Z0-9]', str(matched_stars.ref_star[name_key]))
         if len(split_string) > 1:
-            updated_large_table_columns.field.append(
-                ' '.join(split_string[:-1]))
+            updated_large_table_columns.field.append(' '.join(split_string[:-1]))
         elif len(split_string) == 1:
             updated_large_table_columns.field.append(split_string[0])
         else:
             print('Could not find the name of the field.')
-        updated_large_table_columns.ref_star_name.append(
-            matched_stars.ref_star[name_key])
+        updated_large_table_columns.ref_star_name.append(matched_stars.ref_star[name_key])
         updated_large_table_columns.flux_table.append(matched_stars.flux)
-        updated_large_table_columns.flux_unc_table.append(
-            matched_stars.flux_unc)
+        updated_large_table_columns.flux_unc_table.append(matched_stars.flux_unc)
         time = Time(hdr['DATE-OBS'], format='fits')
         updated_large_table_columns.times.append(time.jd)
         updated_large_table_columns.exposure.append(exptime)
-        updated_large_table_columns.ref_star_RA.append(
-            matched_stars.ref_star_loc.ra.to(u.hourangle))
-        updated_large_table_columns.ref_star_dec.append(
-            matched_stars.ref_star_loc.dec)
-        updated_large_table_columns.img_star_RA.append(
-            matched_stars.img_star_loc.ra.to(u.hourangle))
-        updated_large_table_columns.img_star_dec.append(
-            matched_stars.img_star_loc.dec)
-        updated_large_table_columns.angular_separation.append(
-            matched_stars.ang_separation.to(u.arcsec))
-        updated_large_table_columns.img_star_mag.append(
-            matched_stars.img_instr_mag)
-        updated_large_table_columns.img_star_mag_sigma.append(
-            matched_stars.img_instr_mag_sigma)
+        updated_large_table_columns.ref_star_RA.append(matched_stars.ref_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.ref_star_dec.append(matched_stars.ref_star_loc.dec)
+        updated_large_table_columns.img_star_RA.append(matched_stars.img_star_loc.ra.to(u.hourangle))
+        updated_large_table_columns.img_star_dec.append(matched_stars.img_star_loc.dec)
+        updated_large_table_columns.angular_separation.append(matched_stars.ang_separation.to(u.arcsec))
+        updated_large_table_columns.img_star_mag.append(matched_stars.img_instr_mag)
+        updated_large_table_columns.img_star_mag_sigma.append(matched_stars.img_instr_mag_sigma)
         updated_large_table_columns.SNR.append(matched_stars.SNR)
         updated_large_table_columns.filters.append(hdr['FILTER'][0])
         updated_large_table_columns.img_name.append(filename)
-        updated_large_table_columns.V_apparents.append(
-            matched_stars.ref_star['V_ref'])
+        updated_large_table_columns.V_apparents.append(matched_stars.ref_star['V_ref'])
         try:
-            updated_large_table_columns.B_V_apparents.append(
-                matched_stars.ref_star['(B-V)'])
-            updated_large_table_columns.U_B_apparents.append(
-                matched_stars.ref_star['(U-B)'])
-            updated_large_table_columns.V_R_apparents.append(
-                matched_stars.ref_star['(V-R)'])
-            updated_large_table_columns.V_I_apparents.append(
-                matched_stars.ref_star['(V-I)'])
-            updated_large_table_columns.V_sigma_apparents.append(
-                matched_stars.ref_star['V_sigma'])
-            updated_large_table_columns.B_V_sigma_apparents.append(
-                matched_stars.ref_star['(B-V)_sigma'])
-            updated_large_table_columns.U_B_sigma_apparents.append(
-                matched_stars.ref_star['(U-B)_sigma'])
-            updated_large_table_columns.V_R_sigma_apparents.append(
-                matched_stars.ref_star['(V-R)_sigma'])
-            updated_large_table_columns.V_I_sigma_apparents.append(
-                matched_stars.ref_star['(V-I)_sigma'])
+            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['B-V'])
+            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['U-B'])
+            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['V-R'])
+            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['V-I'])
+            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['e_V'])
+            updated_large_table_columns.B_V_sigma_apparents.append(matched_stars.ref_star['e_B-V'])
+            updated_large_table_columns.U_B_sigma_apparents.append(matched_stars.ref_star['e_U-B'])
+            updated_large_table_columns.V_R_sigma_apparents.append(matched_stars.ref_star['e_V-R'])
+            updated_large_table_columns.V_I_sigma_apparents.append(matched_stars.ref_star['e_V-I'])
         except KeyError:
-            updated_large_table_columns.B_V_apparents.append(
-                matched_stars.ref_star['B-V'])
-            updated_large_table_columns.U_B_apparents.append(
-                matched_stars.ref_star['U-B'])
-            updated_large_table_columns.V_R_apparents.append(
-                matched_stars.ref_star['V-R'])
-            updated_large_table_columns.V_I_apparents.append(
-                matched_stars.ref_star['V-I'])
-            updated_large_table_columns.V_sigma_apparents.append(
-                matched_stars.ref_star['e_V'])
-            updated_large_table_columns.B_V_sigma_apparents.append(
-                matched_stars.ref_star['e_B-V'])
-            updated_large_table_columns.U_B_sigma_apparents.append(
-                matched_stars.ref_star['e_U-B'])
-            updated_large_table_columns.V_R_sigma_apparents.append(
-                matched_stars.ref_star['e_V-R'])
-            updated_large_table_columns.V_I_sigma_apparents.append(
-                matched_stars.ref_star['e_V-I'])
+            updated_large_table_columns.B_V_apparents.append(matched_stars.ref_star['(B-V)'])
+            updated_large_table_columns.U_B_apparents.append(matched_stars.ref_star['(U-B)'])
+            updated_large_table_columns.V_R_apparents.append(matched_stars.ref_star['(V-R)'])
+            updated_large_table_columns.V_I_apparents.append(matched_stars.ref_star['(V-I)'])
+            updated_large_table_columns.V_sigma_apparents.append(matched_stars.ref_star['V_sigma'])
+            updated_large_table_columns.B_V_sigma_apparents.append(matched_stars.ref_star['(B-V)_sigma'])
+            updated_large_table_columns.U_B_sigma_apparents.append(matched_stars.ref_star['(U-B)_sigma'])
+            updated_large_table_columns.V_R_sigma_apparents.append(matched_stars.ref_star['(V-R)_sigma'])
+            updated_large_table_columns.V_I_sigma_apparents.append(matched_stars.ref_star['(V-I)_sigma'])
         updated_large_table_columns.num_stars.append(num_stars)
         if not ground_based:
             return updated_large_table_columns
-        updated_large_table_columns.img_star_airmass.append(
-            matched_stars.img_star_airmass)
+        updated_large_table_columns.img_star_airmass.append(matched_stars.img_star_airmass)
         # updated_large_table_columns.fits_column_airmass.append(matched_stars.fits_column_airmass)
-        # updated_large_table_columns.X_rounded.append(round(matched_stars.img_star_airmass, 1))
     else:
         return
     return updated_large_table_columns
@@ -1704,8 +1498,7 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     large_table_columns : namedtuple
         Attributes:
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference staris in (e.g. Landolt field "108").
             ref_star_name : string list
                 Name/unique identifier of the reference star.
             times : numpy.float64
@@ -1715,26 +1508,19 @@ def create_large_stars_table(large_table_columns, ground_based=False):
             exposure : numpy.float64
                 Exposure time of the image.
             ref_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in
-                unit hourangle.
+                Right ascension of the reference star(s) from the file in unit hourangle.
             ref_star_dec : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
+                Declination of the reference star(s) from the file in unit degree.
             img_star_RA : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in the image in
-                unit hourangle.
+                Right ascension of the reference star(s) found in the image in unit hourangle.
             img_star_dec : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) found in the image in
-                unit degree.
+                Declination of the reference star(s) found in the image in unit degree.
             angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             img_star_mag : numpy.float64
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             img_star_mag_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filters : string list
                 Filter used during for the image.
             V_apparents : numpy.float64
@@ -1748,50 +1534,40 @@ def create_large_stars_table(large_table_columns, ground_based=False):
             V_I_apparents : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma_apparents : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             img_star_airmass : numpy.float64
                 Sec(z) of the reference star(s) found in the image.
     ground_based : bool, optional
-        Whether or not the image is from a ground-based sensor.
-        The default is False.
+        Whether or not the image is from a ground-based sensor. The default is False.
 
     Returns
     -------
     large_stars_table : astropy.table.table.QTable
         Table containing all information on the detected stars. Has columns:
             Field : string
-                Unique identifier of the star field that the reference star is
-                in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             Time (JD) : numpy.float64
                 Time of the observation.
             RA_ref : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in
-                unit hourangle.
+                Right ascension of the reference star(s) from the file in unit hourangle.
             dec_ref : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
+                Declination of the reference star(s) from the file in unit degree.
             RA_img : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in the image in
-                unit hourangle.
+                Right ascension of the reference star(s) found in the image in unit hourangle.
             dec_img : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) found in the image in
-                unit degree.
+                Declination of the reference star(s) found in the image in unit degree.
             angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             flux : numpy.float64
                 Flux of the source.
             exposure : numpy.float64
                 Exposure time of the image.
             mag_instrumental : numpy.float64
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             mag_instrumental_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filter : string
                 Filter used during for the image.
             V : numpy.float64
@@ -1805,13 +1581,12 @@ def create_large_stars_table(large_table_columns, ground_based=False):
             (V-I) : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             X : numpy.float64
-                Sec(z) of the reference star(s) found in the image.
-                Only output if ground_based is True.
+                Sec(z) of the reference star(s) found in the image. Only output if ground_based is True.
 
     """
+    #TODO: Look into airmass as given in fits header.s
     if ground_based:
         large_stars_table = QTable(
             data=[
@@ -1844,7 +1619,6 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 # large_table_columns.fits_column_airmass,
                 large_table_columns.num_stars,
                 large_table_columns.img_name
-                # large_table_columns.X_rounded
             ],
             names=[
                 'Field',
@@ -1876,7 +1650,6 @@ def create_large_stars_table(large_table_columns, ground_based=False):
                 # 'X_from_FITS_hdr',
                 'Num_stars',
                 'img_name'
-                # 'X_rounded'
             ]
         )
     else:
@@ -1942,21 +1715,21 @@ def create_large_stars_table(large_table_columns, ground_based=False):
     return large_stars_table
 
 
-# class Delta:
-#     def __init__(self, delta):
-#         self.last = None
-#         self.delta = delta
-#         self.key = 1
-#     def __call__(self, value):
-#         if self.last is not None and abs(self.last - value[1]) > self.delta:
-#             # Compare with the last value (`self.last`)
-#             # If difference is larger than 20, advance to next project
-#             self.key += 1
-#         self.last = value[1]  # Remeber the last value.
-#         return self.key
-
-
 def Delta(delta):
+    """
+    Create function for the difference between airmasses used to group stars from ground-based observations.
+
+    Parameters
+    ----------
+    delta : float
+        Maximum difference between airmasses.
+    
+    Returns
+    -------
+    keyfunc : function
+        TODO: remember out what this does.
+
+    """
     last = None
     key = 1
 
@@ -1979,37 +1752,29 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     large_stars_table : astropy.table.table.QTable
         Table containing all information on the detected stars. Has columns:
             Field : string
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             Time (JD) : numpy.float64
                 Time of the observation.
             RA_ref : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in
-                unit hourangle.
+                Right ascension of the reference star(s) from the file in unit hourangle.
             dec_ref : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
+                Declination of the reference star(s) from the file in unit degree.
             RA_img : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in
-                the image in unit hourangle.
+                Right ascension of the reference star(s) found in the image in unit hourangle.
             dec_img : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) found in the image in
-                unit degree.
+                Declination of the reference star(s) found in the image in unit degree.
             angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
             flux : numpy.float64
                 Flux of the source.
             exposure : numpy.float64
                 Exposure time of the image.
             mag_instrumental : numpy.float64
-                Instrumental magnitude of the reference star(s) found in
-                the image.
+                Instrumental magnitude of the reference star(s) found in the image.
             mag_instrumental_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
             filter : string
                 Filter used during for the image.
             V : numpy.float64
@@ -2023,13 +1788,9 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             (V-I) : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             X : numpy.float64
                 Sec(z) of the reference star(s) found in the image.
-    ground_based : bool, optional
-        Whether or not the image is from a ground-based sensor.
-        The default is False.
     keys : string, optional
         Table column(s) to use to group the different reference stars.
         The default is 'Name'.
@@ -2040,8 +1801,7 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         Table containing the mean of the important information for each star.
         Has columns:
             Field : string
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             Name : string
                 Name/unique identifier of the reference star.
             V : numpy.float64
@@ -2055,27 +1815,19 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             (V-I) : numpy.float64
                 Apparent V-I colour index from the reference file.
             V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from
-                the reference file.
+                Standard deviation of the apparent V magnitude from the reference file.
             <filter> : numpy.float64
-                Mean instrumental magnitude of all detections of the star in
-                <filter>. There is a different column for
+                Mean instrumental magnitude of all detections of the star in <filter>. There is a different column for
                 each different filter used across the images.
             <filter>_sigma : numpy.float64
-                Standard deviation of the instrumental magnitudes of all
-                detections of the star in <filter>.
-                There is a different column for each different filter
-                used across the images.
+                Standard deviation of the instrumental magnitudes of all detections of the star in <filter>.
+                There is a different column for each different filter used across the images.
             X_<filter> : numpy.float64
-                Mean airmass of all detections of the star in <filter>.
-                There is a different column for each different
-                filter used across the images. Only output if ground_based
-                is True.
+                Mean airmass of all detections of the star in <filter>. There is a different column for each different
+                filter used across the images. Only output if ground_based is True.
             X_<filter>_sigma : numpy.float64
-                Standard deviation of the airmasses of all detections of
-                the star in <filter>. There is a different
-                column for each different filter used across the images.
-                Only output if ground_based is True.
+                Standard deviation of the airmasses of all detections of the star in <filter>. There is a different
+                column for each different filter used across the images. Only output if ground_based is True.
         different_filter_list: list
             Different Filters 
 
@@ -2121,17 +1873,14 @@ def group_each_star_GB(large_stars_table, keys='Name'):
         multiple_filters = False
     else:
         multiple_filters = True
-    different_filter_list = [different_filter.lower()
-                             for different_filter in different_filter_list]
+    different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
     different_filter_data.fill(np.nan)
     filter_sigma_list = []
     for different_filter in different_filter_list:
         filter_sigma_list.append(f"{different_filter}_sigma")
-    different_filter_table = Table(
-        data=different_filter_data, names=different_filter_list)
-    different_filter_sigma_table = Table(
-        data=different_filter_data, names=filter_sigma_list)
+    different_filter_table = Table(data=different_filter_data, names=different_filter_list)
+    different_filter_sigma_table = Table(data=different_filter_data, names=filter_sigma_list)
     filter_X_list = []
     for different_filter in different_filter_list:
         filter_X_list.append(f"X_{different_filter}")
@@ -2139,15 +1888,11 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     for different_filter in different_filter_list:
         filter_X_sigma_list.append(f"X_{different_filter}_sigma")
     filter_X_table = Table(data=different_filter_data, names=filter_X_list)
-    filter_X_sigma_table = Table(
-        data=different_filter_data, names=filter_X_sigma_list)
-    all_indices, all_indices_formatted = get_all_indicies_combinations(
-        different_filter_list, len(different_filter_list),
-        multiple_filters)
-    data_instr_index_table = [
-        nan_array for different_index in all_indices_formatted]
-    instr_index_table = Table(
-        names=all_indices_formatted, data=data_instr_index_table)
+    filter_X_sigma_table = Table(data=different_filter_data, names=filter_X_sigma_list)
+    _, all_indices_formatted = get_all_indicies_combinations(different_filter_list, 
+                                                                       len(different_filter_list), multiple_filters)
+    data_instr_index_table = [nan_array for _ in all_indices_formatted]
+    instr_index_table = Table(names=all_indices_formatted, data=data_instr_index_table)
     stars_table = table.hstack([apparent_mags_table,
                                 different_filter_table,
                                 different_filter_sigma_table,
@@ -2158,47 +1903,12 @@ def group_each_star_GB(large_stars_table, keys='Name'):
     num_columns = len(stars_table.columns)
     stars_table_nan_array = np.empty(num_columns)
     stars_table_nan_array.fill(np.nan)
-    # else:
-    #     stars_table = table.hstack([apparent_mags_table,
-    #                                 different_filter_table,
-    #                                 different_filter_sigma_table],
-    #                                join_type='exact')
-    # stars_table['Field'] = unique_stars['Field']
-    # stars_table['V_ref'] = unique_stars['V_ref']
-    # stars_table['(B-V)'] = unique_stars['(B-V)']
-    # stars_table['(U-B)'] = unique_stars['(U-B)']
-    # stars_table['(V-R)'] = unique_stars['(V-R)']
-    # stars_table['(V-I)'] = unique_stars['(V-I)']
-    # stars_table['V_sigma'] = unique_stars['V_sigma']
     i = 0
     for star in unique_stars['Name']:
         mask = large_stars_table['Name'] == star
         current_star_table = large_stars_table[mask]
         current_star_table.sort('X')
-        # current_star_table.pprint(max_lines=-1, max_width=300)
-        # data = np.array(current_star_table['X'])
-        # gaps = [y - x for x, y in zip(data[:-1], data[1:])]
-        # # have python calculate the standard deviation for the gaps
-        # sd = np.std(gaps)
-
-        # # create a list of lists, put the first value of the source data in
-        # the first
-        # lists = [[data[0]]]
-        # for x in data[1:]:
-        #     # if the gap from the current item to the previous is more than
-        # 1 SD
-        #     # Note: the previous item is the last item in the last list
-        #     # Note: the '> 1' is the part you'd modify to make it stricter
-        # or more relaxed
-        #     if (x - lists[-1][-1]) / sd > 3:
-        #         # then start a new list
-        #         lists.append([])
-        #     # add the current item to the last list in the list
-        #     lists[-1].append(x)
-
-        # print(lists)
-        # if len(current_star_table) > 1:
-        for k, g in groupby(np.array(current_star_table['X']), key=Delta(0.1)):
+        for _, g in groupby(np.array(current_star_table['X']), key=Delta(0.1)):
             stars_table.add_row(stars_table_nan_array)
             stars_table['Field'][i] = current_star_table['Field'][0]
             stars_table['V_ref'][i] = current_star_table['V_ref'][0]
@@ -2214,37 +1924,20 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             stars_table['Name'][i] = star
             list_of_airmasses = list(g)
             mask = np.in1d(current_star_table['X'], list_of_airmasses)
-            # print(mask)
             current_star_airmass_table = current_star_table[mask]
-            # print(current_star_airmass_table)
-            # print(np.array(current_star_table['X']))
-            # print(list_of_airmasses)
-            unique_filters = table.unique(
-                current_star_airmass_table, keys='filter')
+            unique_filters = table.unique(current_star_airmass_table, keys='filter')
             for unique_filter in unique_filters['filter']:
-                mask = (
-                    (current_star_airmass_table['filter'] == unique_filter))
+                mask = ((current_star_airmass_table['filter'] == unique_filter))
                 current_star_filter_table = current_star_airmass_table[mask]
-                mags_numpy = np.array(
-                    current_star_filter_table['mag_instrumental'])
-                mags_std_numpy = np.array(
-                    current_star_filter_table['mag_instrumental_sigma'])
+                mags_numpy = np.array(current_star_filter_table['mag_instrumental'])
+                mags_std_numpy = np.array(current_star_filter_table['mag_instrumental_sigma'])
                 mags_weights = 1 / (mags_std_numpy ** 2)
-                # mean_mag = mags_numpy.mean()
                 masked_mags = sigma_clip(mags_numpy)
                 sig_clip_mask = np.ma.getmask(masked_mags)
-                # print(sig_clip_mask)
-                # if len(mags_numpy) != len(masked_mags):
-                #     print(mags_numpy)
-                #     print(masked_mags)
                 if np.all(sig_clip_mask):
                     continue
-                mean_mag = np.average(
-                    mags_numpy[~sig_clip_mask],
-                    weights=mags_weights[~sig_clip_mask])
+                mean_mag = np.average(mags_numpy[~sig_clip_mask], weights=mags_weights[~sig_clip_mask])
                 std_mag = mags_numpy[~sig_clip_mask].std()
-                # mean_mag = np.average(mags_numpy, weights=mags_weights)
-                # std_mag = mags_numpy.std()
                 filter_column = unique_filter.lower()
                 sigma_column = f'{filter_column}_sigma'
                 stars_table[filter_column][i] = mean_mag
@@ -2252,16 +1945,11 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 X_numpy = np.array(current_star_filter_table['X'])
                 mean_X = X_numpy[~sig_clip_mask].mean()
                 std_X = X_numpy[~sig_clip_mask].std()
-                # mean_X = X_numpy.mean()
-                # std_X = X_numpy.std()
                 X_column = f'X_{filter_column}'
                 X_std_column = f'X_{filter_column}_sigma'
                 stars_table[X_column][i] = mean_X
                 stars_table[X_std_column][i] = std_X
 
-            # for i, unique_star in enumerate(multiple_stars):
-            # star_mask = stars_table['Name'] == unique_star
-            # current_star = stars_table[star_mask]
             for instr_index_name in all_indices_formatted:
                 first_mag = stars_table[instr_index_name[0]][i]
                 second_mag = stars_table[instr_index_name[-1]][i]
@@ -2269,166 +1957,8 @@ def group_each_star_GB(large_stars_table, keys='Name'):
                 stars_table[instr_index_name][i] = instr_index
             i += 1
     stars_table.remove_row(-1)
-    # print(different_filter_list)
     return stars_table, different_filter_list
-
-
-def create_reformatted_large_table(large_stars_table, keys='Name'):
-    unique_stars = table.unique(large_stars_table, keys=keys)
-    N = len(large_stars_table)
-    nan_array = np.empty(N)
-    nan_array.fill(np.nan)
-    apparent_mags_table = Table(
-        names=[
-            'Field',
-            'Name',
-            'V_ref',
-            'B-V',
-            'U-B',
-            'V-R',
-            'V-I',
-            'V_sigma',
-            'e_B-V',
-            'e_U-B',
-            'e_V-R',
-            'e_V-I',
-        ],
-        data=[
-            np.empty(N, dtype=object),
-            np.empty(N, dtype=object),
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array,
-            nan_array
-        ]
-    )
-    different_filters = table.unique(large_stars_table, keys='filter')
-    different_filter_list = list(different_filters['filter'])
-    if len(different_filter_list) == 1:
-        multiple_filters = False
-    else:
-        multiple_filters = True
-    different_filter_list = [different_filter.lower()
-                             for different_filter in different_filter_list]
-    different_filter_data = np.empty((N, len(different_filter_list)))
-    different_filter_data.fill(np.nan)
-    filter_sigma_list = []
-    for different_filter in different_filter_list:
-        filter_sigma_list.append(f"{different_filter}_sigma")
-    different_filter_table = Table(
-        data=different_filter_data, names=different_filter_list)
-    different_filter_sigma_table = Table(
-        data=different_filter_data, names=filter_sigma_list)
-    filter_X_list = []
-    for different_filter in different_filter_list:
-        filter_X_list.append(f"X_{different_filter}")
-    filter_X_sigma_list = []
-    for different_filter in different_filter_list:
-        filter_X_sigma_list.append(f"X_{different_filter}_sigma")
-    filter_X_table = Table(data=different_filter_data, names=filter_X_list)
-    filter_X_sigma_table = Table(
-        data=different_filter_data, names=filter_X_sigma_list)
-    all_indices, all_indices_formatted = get_all_indicies_combinations(
-        different_filter_list, len(different_filter_list),
-        multiple_filters)
-    data_instr_index_table = [
-        nan_array for different_index in all_indices_formatted]
-    instr_index_table = Table(
-        names=all_indices_formatted, data=data_instr_index_table)
-    reformatted_large_stars_table = table.hstack([apparent_mags_table,
-                                                  different_filter_table,
-                                                  different_filter_sigma_table,
-                                                  filter_X_table,
-                                                  filter_X_sigma_table,
-                                                  instr_index_table],
-                                                 join_type='outer')
-    num_columns = len(reformatted_large_stars_table.columns)
-    stars_table_nan_array = np.empty(num_columns)
-    stars_table_nan_array.fill(np.nan)
-    # else:
-    #     stars_table = table.hstack([apparent_mags_table,
-    #                                 different_filter_table,
-    #                                 different_filter_sigma_table],
-    #                                join_type='exact')
-    # stars_table['Field'] = unique_stars['Field']
-    # stars_table['V_ref'] = unique_stars['V_ref']
-    # stars_table['(B-V)'] = unique_stars['(B-V)']
-    # stars_table['(U-B)'] = unique_stars['(U-B)']
-    # stars_table['(V-R)'] = unique_stars['(V-R)']
-    # stars_table['(V-I)'] = unique_stars['(V-I)']
-    # stars_table['V_sigma'] = unique_stars['V_sigma']
-    i = 0
-    for current_star_table in large_stars_table:
-        # mask = large_stars_table['Name'] == star
-        # current_star_table = large_stars_table[mask]
-        reformatted_large_stars_table['Field'][i] = current_star_table['Field']
-        reformatted_large_stars_table['V_ref'][i] = current_star_table['V_ref']
-        reformatted_large_stars_table['B-V'][i] = current_star_table['B-V']
-        reformatted_large_stars_table['U-B'][i] = current_star_table['U-B']
-        reformatted_large_stars_table['V-R'][i] = current_star_table['V-R']
-        reformatted_large_stars_table['V-I'][i] = current_star_table['V-I']
-        reformatted_large_stars_table['V_sigma'][i] =\
-            current_star_table['V_sigma']
-        reformatted_large_stars_table['e_B-V'][i] = current_star_table['e_B-V']
-        reformatted_large_stars_table['e_U-B'][i] = current_star_table['e_U-B']
-        reformatted_large_stars_table['e_V-R'][i] = current_star_table['e_V-R']
-        reformatted_large_stars_table['e_V-I'][i] = current_star_table['e_V-I']
-        reformatted_large_stars_table['Name'][i] = current_star_table['Name']
-        unique_filter = current_star_table['filter']
-        # mags_numpy = np.array(current_star_table['mag_instrumental'])
-        # mags_std_numpy = np.array(current_star_table\
-        # ['mag_instrumental_sigma'])
-        # mags_weights = 1 / (mags_std_numpy ** 2)
-        # # mean_mag = mags_numpy.mean()
-        # masked_mags = sigma_clip(mags_numpy)
-        # sig_clip_mask = np.ma.getmask(masked_mags)
-        # # print(sig_clip_mask)
-        # # if len(mags_numpy) != len(masked_mags):
-        # #     print(mags_numpy)
-        # #     print(masked_mags)
-        # if np.all(sig_clip_mask):
-        #     continue
-        # mean_mag = np.average(mags_numpy[~sig_clip_mask],
-        # weights=mags_weights[~sig_clip_mask])
-        # std_mag = mags_numpy[~sig_clip_mask].std()
-        mean_mag = current_star_table['mag_instrumental']
-        std_mag = current_star_table['mag_instrumental_sigma']
-        # mean_mag = np.average(mags_numpy, weights=mags_weights)
-        # std_mag = mags_numpy.std()
-        filter_column = unique_filter.lower()
-        sigma_column = f'{filter_column}_sigma'
-        reformatted_large_stars_table[filter_column][i] = mean_mag
-        reformatted_large_stars_table[sigma_column][i] = std_mag
-        # X_numpy = np.array(current_star_table['X'])
-        # mean_X = X_numpy[~sig_clip_mask].mean()
-        # std_X = X_numpy[~sig_clip_mask].std()
-        # # mean_X = X_numpy.mean()
-        # # std_X = X_numpy.std()
-        mean_X = current_star_table['X']
-        std_X = np.nan
-        X_column = f'X_{filter_column}'
-        X_std_column = f'X_{filter_column}_sigma'
-        reformatted_large_stars_table[X_column][i] = mean_X
-        reformatted_large_stars_table[X_std_column][i] = std_X
-
-        # for i, unique_star in enumerate(multiple_stars):
-        # star_mask = stars_table['Name'] == unique_star
-        # current_star = stars_table[star_mask]
-        for instr_index_name in all_indices_formatted:
-            first_mag = reformatted_large_stars_table[instr_index_name[0]][i]
-            second_mag = reformatted_large_stars_table[instr_index_name[-1]][i]
-            instr_index = first_mag - second_mag
-            reformatted_large_stars_table[instr_index_name][i] = instr_index
-        i += 1
-    # print(different_filter_list)
-    return reformatted_large_stars_table
-
+#TODO: Stop point.
 
 def get_app_mag_and_index_AVG(stars_table, instr_filter):
     if instr_filter == 'b' or instr_filter == 'u':
