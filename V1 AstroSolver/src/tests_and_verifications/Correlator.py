@@ -17,16 +17,18 @@ import matplotlib.pyplot as plt
 import datetime
 
 #inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
-inbox = f'D:\Transfer to mac\Solved Stars\Tycho 4966_1321_Post\LIGHT\R'
+inbox = f'D:\\trm-stars-images'
 
 f = win32com.client.Dispatch("Pinpoint.plate")
 catloc = 'D:\squid\\USNOA20-All';
-refstars_doc = f'D:\Astro2\Reference Star Files\Reference_stars_2022_02_17.txt'
-refstars = pd.read_csv(refstars_doc,delim_whitespace=True)
+refstars_doc1 = f'D:\Astro2\Reference Star Files\Reference_stars_2022_02_17.txt'
+refstars_doc = f'D:\Reference_stars.xlsx'
+#refstars1 = pd.read_csv(refstars_doc,delim_whitespace=True)
+refstars = pd.read_excel(refstars_doc)
 refstars.head()
 HIP= refstars["HIP"]
-erad = refstars["RA"]
-edec= refstars["DEC"]
+erad = refstars["erad"]
+edec= refstars["edec"]
 vref= refstars["V"]
 bvindex=refstars["(B-V)"]
 vrindex=refstars["(V-R)"]
@@ -52,13 +54,13 @@ for i in c:
     filepathall.append(filepath2)
     o=o+1;
 
-for i in range(len(erad)):
-    tmp=erad[i].split(" ")
-    rad=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
-    tmp=edec[i].split(" ")
-    dec=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
-    edecNew.append(dec)
-    eradNew.append(rad)
+# for i in range(len(erad)):
+#     tmp=erad[i].split(" ")
+#     rad=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
+#     tmp=edec[i].split(" ")
+#     dec=(tmp[0]+(tmp[1]/60)+(tmp[2]/3600))
+#     edecNew.append(dec)
+#     eradNew.append(rad)
 
 
 for i in filepathall:
@@ -85,7 +87,8 @@ for i in filepathall:
         f.MaxSolveTime = 60; 
         f.MaxMatchResidual = 1.5; 
         flag = 0;
-        f.solve()
+        f.Solve()
+        f.CacheImageStars
         nmstars = f.MatchedStars.Count
         mstars = f.MatchedStars
         print("Reference Stars Located:"+ str(nmstars))
