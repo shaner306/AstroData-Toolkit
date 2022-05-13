@@ -132,6 +132,12 @@ def plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique
     field_star_loc = SkyCoord(ra=field_stars['RA'], dec=field_stars['Dec'], 
                                   unit=(u.hourangle, u.deg))
     ref_star_x, ref_star_y = wcs.world_to_pixel(field_star_loc)
+    mask_y = ((ref_star_y >= 0) & (ref_star_y <= np.shape(imgdata)[0]))
+    mask_x = ((ref_star_x >= 0) & (ref_star_x <= np.shape(imgdata)[1]))
+    mask_outside_fov = (mask_x & mask_y)
+    ref_star_x = ref_star_x[mask_outside_fov]
+    ref_star_y = ref_star_y[mask_outside_fov]
+    field_stars = field_stars[mask_outside_fov]
     try:
         num_img_stars = len(matched_stars.img_instr_mag)
     except TypeError:
@@ -160,10 +166,10 @@ def plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique
     # ref_name = reference_stars[HIP_title][possible_ref_star_index]
     ax.set_ylabel('Declination (J2000)')
     ax.set_xlabel('Right Ascension (J2000)')
-    plt.title(unique_id)
+    plt.title(f"{field_in_img}: {unique_id}")
     plt.legend()
     if save_plots:
         plt.savefig(os.path.join(save_loc, f"{unique_id}.png"))
     plt.show()
     plt.close()  
-    return
+    return num_img_stars, num_field_stars
