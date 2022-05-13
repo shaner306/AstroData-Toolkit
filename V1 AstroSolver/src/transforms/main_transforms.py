@@ -96,6 +96,15 @@ def _main_gb_transform_calc(directory,
         f.write('\t')
         f.write('Reason')
         f.write('\n')
+    with open(os.path.join(save_loc, 'DetectedStars.txt'), 'a') as f:
+        f.write('File')
+        f.write('\t')
+        f.write('Field')
+        f.write('\t')
+        f.write('num_img_stars')
+        f.write('\t')
+        f.write('num_ref_stars')
+        f.write('\n')
 
     "Create an array of all .fits files in the directory (including subfolders)."
     excluded_files = 0
@@ -212,17 +221,36 @@ def _main_gb_transform_calc(directory,
                 f.write('\n')
                 excluded_files += 1
             continue
-
+        
+        field = astro.get_field_name(matched_stars, name_key=name_key)
         filename = filepath.split('\\')[-1]
         unique_id = filename
-        plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique_id, save_loc, save_plots=save_plots, name_key=name_key)
-
+        try:
+            num_img_stars, num_field_stars = plot_match_confirmation(wcs, 
+                                                                    imgdata, 
+                                                                    matched_stars, 
+                                                                    reference_stars, 
+                                                                    unique_id, 
+                                                                    save_loc, 
+                                                                    save_plots=save_plots, 
+                                                                    name_key=name_key)
+        except TypeError:
+            num_img_stars = None
+            num_field_stars = None
+        if num_field_stars is not None:
+            with open(os.path.join(save_loc, 'DetectedStars.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write(f'{field}')
+                f.write('\t')
+                f.write(f'{num_img_stars}')
+                f.write('\t')
+                f.write(f'{num_field_stars}')
+                f.write('\n')
         instr_filter = astro.get_instr_filter_name(hdr)
         colour_indices = astro.get_all_colour_indices(instr_filter)
         # print("match")
         for colour_index in colour_indices:
-
-            field = astro.get_field_name(matched_stars, name_key=name_key)
 
             try:
                 len(matched_stars.img_instr_mag)
