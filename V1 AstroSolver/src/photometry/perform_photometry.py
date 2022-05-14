@@ -502,7 +502,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
         mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'),overwrite=True)
         hdr['IMAGETYP']='RESIDUAL'
         residual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
-        #residual_image.meta['IMAGETYPE']='RESIDUAL'
+
         residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'),overwrite=True)
 
     return photometry_result

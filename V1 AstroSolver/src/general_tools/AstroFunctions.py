@@ -4267,6 +4267,7 @@ def change_sat_positions(filenames,
         ax = fig.add_subplot()
         ax.imshow(imgdata, cmap='gray', norm=LogNorm(
             vmin=1), interpolation='nearest')
+
         # TODO: move this into a separate function?
         cmap = plt.get_cmap(cmap_set)
         colours = [cmap(i) for i in range(0, sat_information.num_sats)]

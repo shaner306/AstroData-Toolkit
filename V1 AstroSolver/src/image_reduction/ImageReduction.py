@@ -458,6 +458,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             for dark_time in dark_times:
                 
                 ### Dark Image Masking ###
+                '''
+                # TODO: Create Comments explaining this
+                '''
                 
                 
                 

@@ -1050,13 +1050,26 @@ def _main_gb_new_boyd_method(
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
-# =============================================================================
-#         predicted_airmass = 1 / \
-#             np.cos(np.deg2rad(
-#                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
-# =============================================================================
+
         
-        predicted_airmass=float(hdr['AIRMASS'])
+        try:
+            predicted_airmass=float(hdr['AIRMASS'])
+        except KeyError:
+            # AIRMASS header not found, attempt to estimate from WCS Data
+            wcs = WCS(hdr)
+            altazpositions = astro.convert_ra_dec_to_alt_az((
+                wcs.pixel_to_world(wcs.pixel_shape[0] / 2, wcs.pixel_shape[1] / 2)),hdr)
+            predicted_airmass = altazpositions.secz.value
+
+            # Other Method for predicting airmass
+            # =============================================================================
+            #         predicted_airmass = 1 / \
+            #             np.cos(np.deg2rad(
+            #                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
+            # =============================================================================
+
+
+
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
         #if hdr['CENTALT']<30:
@@ -1181,7 +1194,7 @@ def _main_gb_new_boyd_method(
             # TODO: Write code that handles high variability airmasses (i.e airmass>2)
         #    continue
         #else:
-            # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data
+
 
         try:
             Boyde_Table = boyde_aux.calculate_boyde_slopes(

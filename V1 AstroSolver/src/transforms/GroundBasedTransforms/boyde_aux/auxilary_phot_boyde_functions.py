@@ -28,6 +28,7 @@ from astropy.table import Table
 
 import AstroFunctions as astro
 from astropy.io import ascii
+from astropy.wcs import WCS
 
 def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav_loc,stars_table):
     '''
@@ -92,8 +93,17 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
     '''
     hdr, imgdata = astro.read_fits_file(filepath)
 
-    #TODO: Add Try catch for
-    predicted_airmass = float(hdr['AIRMASS'])
+    #TODO: Add Keyword Editor to except multiple
+
+    try:
+        predicted_airmass = float(hdr['AIRMASS'])
+    except KeyError:
+        # AIRMASS header not found, attempt to estimate from WCS data
+        wcs = WCS(hdr)
+        altazpositions = astro.convert_ra_dec_to_alt_az((
+            wcs.pixel_to_world(wcs.pixel_shape[0] / 2, wcs.pixel_shape[1] / 2)), hdr)
+        predicted_airmass = altazpositions.secz.value
+
     img_filter=str(hdr['FILTER'])
     
     airmass_std=np.sqrt(sum((matched_stars.img_star_airmass-predicted_airmass)**2)/(np.count_nonzero(matched_stars.img_star_airmass)-1))
