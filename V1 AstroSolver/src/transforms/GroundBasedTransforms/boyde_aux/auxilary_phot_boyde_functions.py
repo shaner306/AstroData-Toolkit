@@ -192,6 +192,8 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
                 y_data_e.append(diff_mag_error+mag_unc)
                 labels.append(star_name)
                 x_data.append(matched_stars.ref_star[row][colour_index])
+            else:
+                continue
 
         # Implement Linear Regression Model
 

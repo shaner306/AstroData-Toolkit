@@ -172,4 +172,4 @@ def plot_match_confirmation(wcs, imgdata, matched_stars, reference_stars, unique
         plt.savefig(os.path.join(save_loc, f"{unique_id}.png"))
     plt.show()
     plt.close()  
-    return
+    return num_img_stars, num_field_stars
