@@ -11,6 +11,29 @@ import AstroFunctions as astro
 def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                    max_solve_time, cat, space_based_bool, use_sextractor,
                    all_sky_solve,pinpoint=True):
+    #TODO: Docstring
+    '''
+
+    Parameters
+    ----------
+
+    inbox
+    catloc
+    max_mag
+    sigma
+    catexp
+    match_residual
+    max_solve_time
+    cat
+    space_based_bool
+    use_sextractor
+    all_sky_solve
+    pinpoint
+
+    Returns
+    -------
+
+    '''
 
     file_suffix = (".fits", ".fit", ".fts")
 
@@ -29,6 +52,7 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                 imagehdularray, date, exposure_Time, imagesizeX, imagesizeY,\
                     fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs = \
                     astro.fits_header_import(filepath, space_based_bool)
+                    # FIXME:
 
                 """Pinpoint Solve"""
                 # FIXME: Why is pinpont variable here when always TRUE?

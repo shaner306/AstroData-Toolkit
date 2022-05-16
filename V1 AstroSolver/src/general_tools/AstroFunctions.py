@@ -5794,7 +5794,7 @@ def getFileList(inbox):
     return filepathall
     # o=0;
 
-
+# FIXME: Add space_based_bool to fits_header_import
 def fits_header_import(filepath, filter_key='FILTER'):
     imagehdularray = fits.open(filepath)
     header = imagehdularray[0].header
