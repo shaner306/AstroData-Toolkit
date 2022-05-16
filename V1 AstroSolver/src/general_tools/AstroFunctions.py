@@ -104,7 +104,7 @@ def init_linear_fitting(niter=3, sigma=3.0, slope=1.0, intercept=0.0):
         An instance of an Astropy Linear1D.
 
     """
-
+    # TODO: Change to a linear fitter.
     fit = LevMarLSQFitter(calc_uncertainties=True)
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=niter, sigma=sigma)
     line_init = Linear1D(slope=slope, intercept=intercept)
@@ -1958,119 +1958,14 @@ def group_each_star_GB(large_stars_table, keys='Name'):
             i += 1
     stars_table.remove_row(-1)
     return stars_table, different_filter_list
-#TODO: Stop point.
+
 
 def get_app_mag_and_index_AVG(stars_table, instr_filter):
-    if instr_filter == 'b' or instr_filter == 'u':
-        colour_index = 'B-V'
-        app_filter = 'B'
-        app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
-        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
-                                      nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(
-                stars_table[f'e_{colour_index}']))
-        # app_mag_sigma =\
-        # np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
-    elif instr_filter == 'v' or instr_filter == 'g':
-        colour_index = 'B-V'
-        app_filter = 'V'
-        app_mag = np.array(stars_table['V_ref'])
-        app_mag_sigma = np.nan_to_num(
-            stars_table['V_sigma'], nan=max(stars_table['V_sigma']))
-        # app_mag_sigma = np.array(ref_star['e_V'])
-    elif instr_filter == 'r':
-        colour_index = 'V-R'
-        app_filter = 'R'
-        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
-        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
-                                      nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(
-                stars_table[f'e_{colour_index}']))
-        # app_mag_sigma = np.array(ref_star['e_V'] + ref_star[f'e_{colour_index}'])
-    elif instr_filter == 'i':
-        colour_index = 'V-I'
-        app_filter = 'I'
-        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
-        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
-                                      nan=max(stars_table['V_sigma'])) + \
-            np.nan_to_num(stars_table[f'e_{colour_index}'], nan=max(
-                stars_table[f'e_{colour_index}']))
-        # app_mag_sigma = np.array(ref_star['e_V'] + \
-        # ref_star[f'e_{colour_index}'])
-    else:
-        colour_index = None
-        app_filter = None
-        app_mag = None
-        app_mag_sigma = None
-    return app_mag, app_mag_sigma, app_filter, colour_index
-
-
-def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     """
-    Group all detections of unique reference stars together.
+    Get the name of the apparent magnitude in BVRI of the desired instrumental magnitude filter.
 
     Parameters
     ----------
-    large_stars_table : astropy.table.table.QTable
-        Table containing all information on the detected stars. Has columns:
-            Field : string
-                Unique identifier of the star field that the reference star is
-                in (e.g. Landolt field "108").
-            Name : string
-                Name/unique identifier of the reference star.
-            Time (JD) : numpy.float64
-                Time of the observation.
-            RA_ref : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) from the file in unit
-                hourangle.
-            dec_ref : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) from the file in
-                unit degree.
-            RA_img : astropy.coordinates.angles.Longitude
-                Right ascension of the reference star(s) found in the 
-                image in unit hourangle.
-            dec_img : astropy.coordinates.angles.Latitude
-                Declination of the reference star(s) found in the image
-                in unit degree.
-            angular_separation : astropy.coordinates.angles.Angle
-                Angular distance between the matched star(s) detected in
-                the image and ref_stars_file.
-            flux : numpy.float64
-                Flux of the source.
-            exposure : numpy.float64
-                Exposure time of the image.
-            mag_instrumental : numpy.float64
-                Instrumental magnitude of the reference star(s) found
-                in the image.
-            mag_instrumental_sigma : numpy.float64
-                Standard deviation of the instrumental magnitude of the
-                reference star(s) found in the image.
-            filter : string
-                Filter used during for the image.
-            V : numpy.float64
-                Apparent V magnitude from the reference file.
-            (B-V) : numpy.float64
-                Apparent B-V colour index from the reference file.
-            (U-B) : numpy.float64
-                Apparent U-B colour index from the reference file.
-            (V-R) : numpy.float64
-                Apparent V-R colour index from the reference file.
-            (V-I) : numpy.float64
-                Apparent V-I colour index from the reference file.
-            V_sigma : numpy.float64
-                Standard deviation of the apparent V magnitude from the
-                reference file.
-            X : numpy.float64
-                Sec(z) of the reference star(s) found in the image.
-    ground_based : bool, optional
-        Whether or not the image is from a ground-based sensor.
-        The default is False.
-    keys : string, optional
-        Table column(s) to use to group the different reference stars.
-        The default is 'Name'.
-
-    Returns
-    -------
     stars_table : astropy.table.table.Table
         Table containing the mean of the important information for each star.
         Has columns:
@@ -2111,6 +2006,141 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
                 the star in <filter>. There is a different 
                 column for each different filter used across the images. 
                 Only output if ground_based is True.
+    instr_filter : string
+        Instrumental filter band of the image.
+    
+    Returns
+    -------
+    app_mag : array-like
+        Apparent magnitude of the stars in stars_table for the corresponding app_filter.
+    app_mag_signa : array-like
+        Standard deviation of the apparent magnitude of the stars in stars_table for the corresponding app_filter.
+    app_filter : string
+        Name of the apparent magnitude filter for instr_filter (e.g. V for v or g).
+    colour_index : string
+        Colour index to use to calculate app_mag for the corresponding app_filter.
+    """
+    if instr_filter == 'b' or instr_filter == 'u':
+        colour_index = 'B-V'
+        app_filter = 'B'
+        app_mag = np.array(stars_table['V_ref'] + stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
+                                      nan=max(stars_table['V_sigma'])) + np.nan_to_num(stars_table[f'e_{colour_index}'],
+                                      nan=max(stars_table[f'e_{colour_index}']))
+    elif instr_filter == 'v' or instr_filter == 'g':
+        colour_index = 'B-V'
+        app_filter = 'V'
+        app_mag = np.array(stars_table['V_ref'])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
+                                      nan=max(stars_table['V_sigma']))
+    elif instr_filter == 'r':
+        colour_index = 'V-R'
+        app_filter = 'R'
+        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
+                                      nan=max(stars_table['V_sigma'])) + np.nan_to_num(stars_table[f'e_{colour_index}'],
+                                      nan=max(stars_table[f'e_{colour_index}']))
+    elif instr_filter == 'i':
+        colour_index = 'V-I'
+        app_filter = 'I'
+        app_mag = np.array(stars_table['V_ref'] - stars_table[colour_index])
+        app_mag_sigma = np.nan_to_num(stars_table['V_sigma'],
+                                      nan=max(stars_table['V_sigma'])) + np.nan_to_num(stars_table[f'e_{colour_index}'],
+                                      nan=max(stars_table[f'e_{colour_index}']))
+    else:
+        colour_index = None
+        app_filter = None
+        app_mag = None
+        app_mag_sigma = None
+    return app_mag, app_mag_sigma, app_filter, colour_index
+
+
+def group_each_star(large_stars_table, ground_based=False, keys='Name'):
+    """
+    Group all detections of unique reference stars together.
+
+    Parameters
+    ----------
+    large_stars_table : astropy.table.table.QTable
+        Table containing all information on the detected stars. Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            Name : string
+                Name/unique identifier of the reference star.
+            Time (JD) : numpy.float64
+                Time of the observation.
+            RA_ref : astropy.coordinates.angles.Longitude
+                Right ascension of the reference star(s) from the file in unit hourangle.
+            dec_ref : astropy.coordinates.angles.Latitude
+                Declination of the reference star(s) from the file in unit degree.
+            RA_img : astropy.coordinates.angles.Longitude
+                Right ascension of the reference star(s) found in the image in unit hourangle.
+            dec_img : astropy.coordinates.angles.Latitude
+                Declination of the reference star(s) found in the image in unit degree.
+            angular_separation : astropy.coordinates.angles.Angle
+                Angular distance between the matched star(s) detected in the image and ref_stars_file.
+            flux : numpy.float64
+                Flux of the source.
+            exposure : numpy.float64
+                Exposure time of the image.
+            mag_instrumental : numpy.float64
+                Instrumental magnitude of the reference star(s) found in the image.
+            mag_instrumental_sigma : numpy.float64
+                Standard deviation of the instrumental magnitude of the reference star(s) found in the image.
+            filter : string
+                Filter used during for the image.
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from the reference file.
+            X : numpy.float64
+                Sec(z) of the reference star(s) found in the image.
+    ground_based : bool, optional
+        Whether or not the image is from a ground-based sensor. The default is False.
+    keys : string, optional
+        Table column(s) to use to group the different reference stars. The default is 'Name'.
+
+    Returns
+    -------
+    stars_table : astropy.table.table.Table
+        Table containing the mean of the important information for each star.
+        Has columns:
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            Name : string
+                Name/unique identifier of the reference star.
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from the reference file.
+            <filter> : numpy.float64
+                Mean instrumental magnitude of all detections of the star in <filter>. There is a different column for 
+                each different filter used across the images.
+            <filter>_sigma : numpy.float64
+                Standard deviation of the instrumental magnitudes of all detections of the star in <filter>. 
+                There is a different column for each different filter used across the images.
+            X_<filter> : numpy.float64
+                Mean airmass of all detections of the star in <filter>. There is a different column for each different 
+                filter used across the images. Only output if ground_based is True.
+            X_<filter>_sigma : numpy.float64
+                Standard deviation of the airmasses of all detections of the star in <filter>. There is a different 
+                column for each different filter used across the images. Only output if ground_based is True.
 
     """
     unique_stars = table.unique(large_stars_table, keys=keys)
@@ -2141,17 +2171,14 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
     )
     different_filters = table.unique(large_stars_table, keys='filter')
     different_filter_list = list(different_filters['filter'])
-    different_filter_list = [different_filter.lower()
-                             for different_filter in different_filter_list]
+    different_filter_list = [different_filter.lower() for different_filter in different_filter_list]
     different_filter_data = np.empty((N, len(different_filter_list)))
     different_filter_data.fill(np.nan)
     filter_sigma_list = []
     for different_filter in different_filter_list:
         filter_sigma_list.append(f"{different_filter}_sigma")
-    different_filter_table = Table(
-        data=different_filter_data, names=different_filter_list)
-    different_filter_sigma_table = Table(
-        data=different_filter_data, names=filter_sigma_list)
+    different_filter_table = Table(data=different_filter_data, names=different_filter_list)
+    different_filter_sigma_table = Table(data=different_filter_data, names=filter_sigma_list)
     if ground_based:
         filter_X_list = []
         for different_filter in different_filter_list:
@@ -2160,8 +2187,7 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
         for different_filter in different_filter_list:
             filter_X_sigma_list.append(f"X_{different_filter}_sigma")
         filter_X_table = Table(data=different_filter_data, names=filter_X_list)
-        filter_X_sigma_table = Table(
-            data=different_filter_data, names=filter_X_sigma_list)
+        filter_X_sigma_table = Table(data=different_filter_data, names=filter_X_sigma_list)
         stars_table = table.hstack([apparent_mags_table,
                                     different_filter_table,
                                     different_filter_sigma_table,
@@ -2190,12 +2216,9 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             for unique_filter in unique_filters['filter']:
                 mask = ((current_star_table['filter'] == unique_filter))
                 current_star_filter_table = current_star_table[mask]
-                mags_numpy = np.array(
-                    current_star_filter_table['mag_instrumental'])
-                mags_std_numpy = np.array(
-                    current_star_filter_table['mag_instrumental_sigma'])
+                mags_numpy = np.array(current_star_filter_table['mag_instrumental'])
+                mags_std_numpy = np.array(current_star_filter_table['mag_instrumental_sigma'])
                 mags_weights = 1 / (mags_std_numpy ** 2)
-                # mean_mag = mags_numpy.mean()
                 mean_mag = np.average(mags_numpy, weights=mags_weights)
                 std_mag = mags_numpy.std()
                 filter_column = unique_filter.lower()
@@ -2208,50 +2231,20 @@ def group_each_star(large_stars_table, ground_based=False, keys='Name'):
             mask = large_stars_table['Name'] == star
             current_star_table = large_stars_table[mask]
             current_star_table.sort('X')
-            # current_star_table.pprint(max_lines=-1, max_width=300)
-            # data = np.array(current_star_table['X'])
-            # gaps = [y - x for x, y in zip(data[:-1], data[1:])]
-            # # have python calculate the standard deviation for the gaps
-            # sd = np.std(gaps)
-
-            # # create a list of lists, put the first value of the source data
-            # in the first
-            # lists = [[data[0]]]
-            # for x in data[1:]:
-            #     # if the gap from the current item to the previous is more
-            # than 1 SD
-            #     # Note: the previous item is the last item in the last list
-            #     # Note: the '> 1' is the part you'd modify to make it
-            # stricter or more relaxed
-            #     if (x - lists[-1][-1]) / sd > 3:
-            #         # then start a new list
-            #         lists.append([])
-            #     # add the current item to the last list in the list
-            #     lists[-1].append(x)
-
-            # print(lists)
-            # if len(current_star_table) > 1:
-            for k, g in groupby(np.array(current_star_table['X']),
-                                key=Delta(0.1)):
+            for k, g in groupby(np.array(current_star_table['X']), key=Delta(0.1)):
                 stars_table['Name'][i] = star
                 list_of_airmasses = list(g)
                 mask = np.in1d(current_star_table['X'], list_of_airmasses)
-                # print(mask)
                 current_star_airmass_table = current_star_table[mask]
                 print(current_star_airmass_table)
-                # print(np.array(current_star_table['X']))
                 print(list_of_airmasses)
-                unique_filters = table.unique(
-                    current_star_table, keys='filter')
+                unique_filters = table.unique(current_star_table, keys='filter')
                 for unique_filter in unique_filters['filter']:
                     mask = ((current_star_table['filter'] == unique_filter))
                     current_star_filter_table = current_star_table[mask]
-                    mags_numpy = np.array(
-                        current_star_filter_table['mag_instrumental'])
-                    mags_std_numpy = np.array(
-                        current_star_filter_table['mag_instrumental_sigma'])
+                    mags_numpy = np.array(current_star_filter_table['mag_instrumental'])
+                    mags_std_numpy = np.array(current_star_filter_table['mag_instrumental_sigma'])
                     mags_weights = 1 / (mags_std_numpy ** 2)
-                    # mean_mag = mags_numpy.mean()
                     mean_mag = np.average(mags_numpy, weights=mags_weights)
                     std_mag = mags_numpy.std()
                     filter_column = unique_filter.lower()
@@ -2281,8 +2274,7 @@ def write_table_to_latex(table, output_file, formats=None):
     output_file : string
         File location to write the table to.
     formats : dict, optional
-        Dictionary of format specifiers or formatting general_tools.
-        The default is None.
+        Dictionary of format specifiers or formatting general_tools. The default is None.
 
     Returns
     -------
@@ -2317,21 +2309,20 @@ def get_avg_airmass(altazpositions):
 
 def init_gb_transform_table_columns():
     """
-    Initialize the columns that will create the table used for the
-    ground-based transforms.
+    Initialize the columns that will create the table used for the ground-based transforms.
 
     Returns
     -------
     gb_transform_table_columns : namedtuple
         Attributes:
+            filename : empty list
+                Name of the file the transforms were calculated for.
             field : empty list
-                Unique identifier of the star field that the reference
-                star is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : empty list
                 C coefficient for filter f with colour index ci.
             c_fci_sigma : empty list
-                Standard deviation of the C coefficient for filter f
-                with colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             zprime_f : empty list
                 Z' coefficient for filter f.
             zprime_f_sigma : empty list
@@ -2385,21 +2376,20 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
                                       colour_index,
                                       altazpositions):
     """
-    Update columns to be used for the transform table based on information
-    from the current image.
+    Update columns to be used for the transform table based on information from the current image.
 
     Parameters
     ----------
     gb_transform_table_columns : namedtuple
         Attributes:
+            filename : string list
+                Name of the file the transforms were calculated for.
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
             c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with
-                colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
             zprime_f_sigma : numpy.float64
@@ -2410,15 +2400,14 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
                 Name of the colour index used to calculate c_fci and zprime_f.
             airmass : numpy.float64
                 The mean airmass for all sources in the image.
-
+    filename : sring
+        Name of the file the transforms were calculated for.
     field : string
-        Unique identifier of the star field that the reference star is in
-        (e.g. Landolt field "108").
+        Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
     c_fci : float
         C coefficient for filter f with colour index ci.
     c_fci_sigma : float
-        Standard deviation of the C coefficient for filter f with colour
-        index ci.
+        Standard deviation of the C coefficient for filter f with colour index ci.
     zprime_f : float
         Z' coefficient for filter f.
     zprime_f_sigma : float
@@ -2434,14 +2423,14 @@ def update_gb_transform_table_columns(gb_transform_table_columns,
     -------
     updated_gb_transform_table_columns : namedtuple
         Attributes:
+            filename : string list
+                Name of the file the transforms were calculated for.
             field : string list
-                Unique identifier of the star field that the reference
-                star is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
             c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f
-                with colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
             zprime_f_sigma : numpy.float64
@@ -2476,14 +2465,14 @@ def create_gb_transform_table(gb_transform_table_columns):
     ----------
     gb_transform_table_columns : namedtuple
         Attributes:
+            filename : string list
+                Name of the file the transforms were calculated for.
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             c_fci : np.float64
                 C coefficient for filter f with colour index ci.
             c_fci_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with
-                colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             zprime_f : numpy.float64
                 Z' coefficient for filter f.
             zprime_f_sigma : numpy.float64
@@ -2498,16 +2487,15 @@ def create_gb_transform_table(gb_transform_table_columns):
     Returns
     -------
     gb_transform_table : astropy.table.Table
-        Table containing the results from the intermediary step in
-        calculating the transforms. Has columns:
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
+            filename : string list
+                Name of the file the transforms were calculated for.
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             C_fCI : np.float64
                 C coefficient for filter f with colour index ci.
             C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with
-                colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             Zprime_f : numpy.float64
                 Z' coefficient for filter f.
             Zprime_f_sigma : numpy.float64
@@ -2551,8 +2539,7 @@ def get_app_mag_and_index(ref_star, instr_filter):
     
     # FIXME: Create Dynamic version of this. See Boyde Calculations
     """
-    Get the desired apparent magnitude and colour filter for the
-    particular instr_filter.
+    Get the desired apparent magnitude and colour filter for the particular instr_filter.
 
     Parameters
     ----------
@@ -2564,14 +2551,11 @@ def get_app_mag_and_index(ref_star, instr_filter):
     Returns
     -------
     app_mag : numpy.float64
-        Apparent magnitude of the reference star(s) in the desired filter
-        (e.g. B for b, V for v, etc.).
+        Apparent magnitude of the reference star(s) in the desired filter (e.g. B for b, V for v, etc.).
     app_mag_sigma : numpy.float64
-        Standard deviation of the apparent magnitude of the reference star(s)
-        in the same filter as app_mag.
+        Standard deviation of the apparent magnitude of the reference star(s) in the same filter as app_mag.
     colour_index : string
-        Name of the colour index to use when calculating the transform
-        (e.g. B-V for b, V-R for r).
+        Name of the colour index to use when calculating the transform (e.g. B-V for b, V-R for r).
 
     """
     if instr_filter == 'b' or instr_filter == 'u':
@@ -2579,38 +2563,27 @@ def get_app_mag_and_index(ref_star, instr_filter):
         app_filter = 'B'
         app_mag = np.array(ref_star['V_ref'] + ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'],
-                                      nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(
-                ref_star[f'e_{colour_index}']))
-        # app_mag_sigma = np.array(ref_star['e_V'] + \
-        # ref_star[f'e_{colour_index}'])
+                                      nan=max(ref_star['e_V'])) + np.nan_to_num(ref_star[f'e_{colour_index}'],
+                                      nan=max(ref_star[f'e_{colour_index}']))
     elif instr_filter == 'v' or instr_filter == 'g':
         colour_index = 'B-V'
         app_filter = 'V'
         app_mag = np.array(ref_star['V_ref'])
-        app_mag_sigma = np.nan_to_num(
-            ref_star['e_V'], nan=max(ref_star['e_V']))
-        # app_mag_sigma = np.array(ref_star['e_V'])
+        app_mag_sigma = np.nan_to_num(ref_star['e_V'], nan=max(ref_star['e_V']))
     elif instr_filter == 'r':
         colour_index = 'V-R'
         app_filter = 'R'
         app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'],
-                                      nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(
-                ref_star[f'e_{colour_index}']))
-        # app_mag_sigma = np.array(ref_star['e_V'] +\
-        # ref_star[f'e_{colour_index}'])
+                                      nan=max(ref_star['e_V'])) + np.nan_to_num(ref_star[f'e_{colour_index}'],
+                                      nan=max(ref_star[f'e_{colour_index}']))
     elif instr_filter == 'i':
         colour_index = 'V-I'
         app_filter = 'I'
         app_mag = np.array(ref_star['V_ref'] - ref_star[colour_index])
         app_mag_sigma = np.nan_to_num(ref_star['e_V'],
-                                      nan=max(ref_star['e_V'])) + \
-            np.nan_to_num(ref_star[f'e_{colour_index}'], nan=max(
-                ref_star[f'e_{colour_index}']))
-        # app_mag_sigma = np.array(ref_star['e_V'] + \
-        # ref_star[f'e_{colour_index}'])
+                                      nan=max(ref_star['e_V'])) + np.nan_to_num(ref_star[f'e_{colour_index}'],
+                                      nan=max(ref_star[f'e_{colour_index}']))
     else:
         colour_index = None
         app_filter = None
@@ -2619,16 +2592,15 @@ def get_app_mag_and_index(ref_star, instr_filter):
     return app_mag, app_mag_sigma, app_filter, colour_index
 
 
-def ground_based_first_order_transforms(matched_stars, instr_filter,
-                                        colour_index, field=None,
-                                        plot_results=False,
-                                        save_plots=False, **kwargs):
+def ground_based_first_order_transforms(matched_stars, instr_filter, colour_index, plot_results=False, save_plots=False,
+                                        **kwargs):
 
     """
     Perform the intermediary step to calculating the ground based transforms.
 
     Parameters
     ----------
+    TODO: Update matched_stars.
     matched_stars : namedtuple
         Attributes:
             ref_star_index : array-like or int
@@ -2666,30 +2638,33 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
     colour_index : string
         The colour index to calculate the transforms for.
     plot_results : bool, optional
-        Controls whether or not to plot the results from the transforms.
-        The default is False.
-    field : string, optional
-        Unique identifier of the star field that the reference star is in
-        (e.g. Landolt field "108"). 
-        The default is None.
+        Controls whether or not to plot the results from the transforms. The default is False.
+    save_plots : bool, optional
+        Controls whether or not to save the results from the transforms. The defualt is False.
+    save_loc : string, optional
+        Path in which to save plots. Required if save_plots is True.
+    unique_id : string, optional
+        String to add to the end of plot filename to avoid overwriting plots. Required if save_plots is True.
 
     Returns
     -------
     c_fci : float
         C coefficient for filter f with colour index ci.
-    zprime_fci : TYPE
+    c_fci_sigma : float
+        Standard deviation of the C coefficient for filter f with colour index ci.
+    zprime_f : float
         Z' coefficient for filter f.
+    zprime_f_sigma : float
+        Standard deviation of the Z' coefficient for filter f.
 
     """
     try:
         len(matched_stars.img_instr_mag)
     except TypeError:
         return
-    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(
-        matched_stars.ref_star, instr_filter)
+    app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
-    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma,
-                                            nan=max_instr_filter_sigma)
+    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma, nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     x = matched_stars.ref_star[colour_index]
@@ -2710,24 +2685,16 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
         zprime_f_sigma = sqrt(cov[1][1])
     if plot_results:
         index_plot = np.arange(start=min(matched_stars.ref_star[colour_index]),
-                               stop=max(
-                                   matched_stars.ref_star[colour_index]) + 0.01,
+                               stop=max(matched_stars.ref_star[colour_index]) + 0.01,
                                step=0.01)
-        plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o',
-                     fillstyle='none', capsize=2, label="Clipped Data")
+        plt.errorbar(x, y, yerr=err_sum, color='#1f77b4', fmt='o', fillstyle='none', capsize=2, label="Clipped Data")
         plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
         plt.plot(index_plot, fitted_line(index_plot), '-', color='#ff7f0e',
                  label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
-        # plt.plot(index_plot, c_fci * index_plot + zprime_f,
-        #          label=f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         plt.ylabel(f"{app_filter}-{instr_filter}")
         plt.xlabel(f"{colour_index}")
         plt.legend()
         plt.title(f"C and Z' Coefficient Calculations for {colour_index}")
-        # if not field:
-        #     plt.title(f"({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
-        # else:
-        #     plt.title(f"{field}: ({app_filter}-{instr_filter}) = {c_fci:.3f} * {colour_index} + {zprime_f:.3f}")
         if save_plots:
             unique_id = kwargs.get('unique_id')
             save_loc = f"{os.path.join(kwargs.get('save_loc'), f'CZprime{colour_index}_{unique_id}')}.png"
@@ -2739,8 +2706,7 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
 
 def get_all_colour_indices(instr_filter):
     """
-    Get all of the colour indices to calculate the transforms with the
-    instrumental mag filter.
+    Get all of the colour indices to calculate the transforms with the instrumental mag filter.
 
     Parameters
     ----------
@@ -2750,8 +2716,7 @@ def get_all_colour_indices(instr_filter):
     Returns
     -------
     colour_indices : string list
-        List of all of the colour indices to use when calculating the
-        transforms.
+        List of all of the colour indices to use when calculating the transforms.
 
     """
     if instr_filter == 'b' or instr_filter == 'u':
@@ -2773,25 +2738,37 @@ def remove_large_airmass(gb_transform_table, max_airmass=2.0):
 
     Parameters
     ----------
-    gb_transform_table : TYPE
-        DESCRIPTION.
+    gb_transform_table : astropy.table.Table
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
+            field : string list
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            C_fCI : np.float64
+                C coefficient for filter f with colour index ci.
+            C_fCI_sigma : np.float64
+                Standard deviation of the C coefficient for filter f with colour index ci.
+            Zprime_f : numpy.float64
+                Z' coefficient for filter f.
+            Zprime_f_sigma : numpy.float64
+                Standard deviation of the Z' coefficient for filter f.
+            filter : string list
+                Instrumental filter band to calculate the transform for.
+            CI : string list
+                Name of the colour index used to calculate c_fci and zprime_f.
+            X : numpy.float64
+                The mean airmass for all sources in the image.
     max_airmass : float, optional
-        Airmass value for which to remove all observations greater than.
-        The default is 2.0.
+        Airmass value for which to remove all observations greater than. The default is 2.0.
 
     Returns
     -------
     gb_transform_table : astropy.table.Table
-        Table containing the results from the intermediary step in
-        calculating the transforms. Has columns:
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             C_fCI : np.float64
                 C coefficient for filter f with colour index ci.
             C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with
-                colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             Zprime_f : numpy.float64
                 Z' coefficient for filter f.
             Zprime_f_sigma : numpy.float64
@@ -2804,32 +2781,24 @@ def remove_large_airmass(gb_transform_table, max_airmass=2.0):
                 The mean airmass for all sources in the image.
 
     """
-    gb_transform_table\
-        = gb_transform_table[gb_transform_table['X'] <= max_airmass]
+    gb_transform_table = gb_transform_table[gb_transform_table['X'] <= max_airmass]
     return gb_transform_table
 
 
-def ground_based_second_order_transforms(gb_transform_table,
-                                         plot_results=False,
-                                         save_plots=False,
-                                         **kwargs):
+def ground_based_second_order_transforms(gb_transform_table, plot_results=False, save_plots=False, **kwargs):
     """
-    Perform the final step in calculating the transforms for a ground-based
-    observatory.
+    Perform the final step in calculating the transforms for a ground-based observatory.
 
     Parameters
     ----------
     gb_transform_table : astropy.table.Table
-        Table containing the results from the intermediary step in calculating
-        the transforms. Has columns:
+        Table containing the results from the intermediary step in calculating the transforms. Has columns:
             field : string list
-                Unique identifier of the star field that the reference star
-                is in (e.g. Landolt field "108").
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
             C_fCI : np.float64
                 C coefficient for filter f with colour index ci.
             C_fCI_sigma : np.float64
-                Standard deviation of the C coefficient for filter f with
-                colour index ci.
+                Standard deviation of the C coefficient for filter f with colour index ci.
             Zprime_f : numpy.float64
                 Z' coefficient for filter f.
             Zprime_f_sigma : numpy.float64
@@ -2841,8 +2810,11 @@ def ground_based_second_order_transforms(gb_transform_table,
             X : numpy.float64
                 The mean airmass for all sources in the image.
     plot_results : bool, optional
-        Controls whether or not to plot the results from the transforms.
-        The default is False.
+        Controls whether or not to plot the results from the transforms. The default is False.
+    save_plots : bool, optional
+        Controls whether or not to save the results from the transforms. The defualt is False.
+    save_loc : string, optional
+        Path in which to save plots. Required if save_plots is True.
 
     Returns
     -------
@@ -2851,32 +2823,24 @@ def ground_based_second_order_transforms(gb_transform_table,
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric
-                extinction coefficient for filter f using the 
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
                 colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f
-                using the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             T_fCI_sigma : float
-                The standard deviation of the instrumental transform
-                coefficient for filter f using the colour index CI.
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient
-                for filter f.
+                The first order atmospheric extinction coefficient for filter f.
             k'_f_sigma : float
-                The standard deviation of the first order atmospheric
-                extinction coefficient for filter f.
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
             Z_f_sigma : float
-                The standard deviation of the zero point magnitude for
-                filter f.
+                The standard deviation of the zero point magnitude for filter f.
 
     """
     gb_final_transforms = Table()
@@ -2915,17 +2879,14 @@ def ground_based_second_order_transforms(gb_transform_table,
         current_index = unique_filter_row['CI']
         gb_final_transforms['filter'][unique_filter_index] = unique_filter
         gb_final_transforms['CI'][unique_filter_index] = current_index
-        mask = ((gb_transform_table['filter'] == unique_filter) & (
-            gb_transform_table['CI'] == current_index))
+        mask = ((gb_transform_table['filter'] == unique_filter) & (gb_transform_table['CI'] == current_index))
         current_filter = gb_transform_table[mask]
         x = current_filter['X']
         y = current_filter['C_fCI']
         max_c_fci_sigma = max(current_filter['C_fCI_sigma'])
-        sigma = np.nan_to_num(
-            current_filter['C_fCI_sigma'], nan=max_c_fci_sigma)
+        sigma = np.nan_to_num(current_filter['C_fCI_sigma'], nan=max_c_fci_sigma)
         sigma = np.array(sigma)
         sigma[sigma == 0] = max(sigma)
-        # sigma = current_filter['C_fCI_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         if np.sum(np.abs(sigma)) == 0:
             fitted_line_c, mask = or_fit(line_init, x, y)
@@ -2937,28 +2898,17 @@ def ground_based_second_order_transforms(gb_transform_table,
         kprimeprime_fci = -fitted_line_c.slope.value
         t_fci = fitted_line_c.intercept.value
         cov_c = fit.fit_info['param_cov']
-        # c_fci_sigma = cov[0][0]
-        # zprime_f_sigma = cov[1][1]
-        # a_fit_c, cov_c = curve_fit(linear_func, current_filter['X'],
-        # current_filter['C_fCI'],
-        #                            sigma=current_filter['C_fCI_sigma'])
-        # kprimeprime_fci = a_fit_c[0]
-        # t_fci = a_fit_c[1]
         if cov_c is None:
             kprimeprime_fci_sigma = np.nan
             t_fci_sigma = np.nan
         else:
             kprimeprime_fci_sigma = sqrt(cov_c[0][0])
             t_fci_sigma = sqrt(cov_c[1][1])
-        # kprimeprime_fci, t_fci = np.polyfit(current_filter['X'],
-        # current_filter['C_fCI'], 1)
         y = current_filter['Zprime_f']
         max_zprime_f_sigma = max(current_filter['Zprime_f_sigma'])
-        sigma = np.nan_to_num(
-            current_filter['Zprime_f_sigma'], nan=max_zprime_f_sigma)
+        sigma = np.nan_to_num(current_filter['Zprime_f_sigma'], nan=max_zprime_f_sigma)
         sigma = np.array(sigma)
         sigma[sigma == 0] = max(sigma)
-        # sigma = current_filter['Zprime_f_sigma']
         fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
         if np.sum(np.abs(sigma)) == 0:
             fitted_line_z, mask = or_fit(line_init, x, y)
@@ -2968,57 +2918,32 @@ def ground_based_second_order_transforms(gb_transform_table,
         kprime_f = -fitted_line_z.slope.value
         zprime_f = fitted_line_z.intercept.value
         cov_z = fit.fit_info['param_cov']
-        # a_fit_z, cov_z = curve_fit(linear_func, current_filter['X'],
-        # current_filter['Zprime_f'],
-        #                            sigma=current_filter['Zprime_f_sigma'])
-        # kprime_f = a_fit_z[0]
-        # zprime_f = a_fit_z[1]
         if cov_z is None:
             kprime_f_sigma = np.nan
             zprime_f_sigma = np.nan
         else:
             kprime_f_sigma = sqrt(cov_z[0][0])
             zprime_f_sigma = sqrt(cov_z[1][1])
-        # kprime_f, zprime_f = np.polyfit(current_filter['X'],
-        # current_filter['Zprime_f'], 1)
-        gb_final_transforms['k\'\'_fCI'][unique_filter_index] =\
-            kprimeprime_fci
-        gb_final_transforms['k\'\'_fCI_sigma'][unique_filter_index] =\
-            kprimeprime_fci_sigma
+        gb_final_transforms['k\'\'_fCI'][unique_filter_index] = kprimeprime_fci
+        gb_final_transforms['k\'\'_fCI_sigma'][unique_filter_index] = kprimeprime_fci_sigma
         gb_final_transforms['T_fCI'][unique_filter_index] = t_fci
-        gb_final_transforms['T_fCI_sigma'][unique_filter_index] =\
-            t_fci_sigma
-        gb_final_transforms['k\'_f'][unique_filter_index] =\
-            kprime_f
-        gb_final_transforms['k\'_f_sigma'][unique_filter_index] =\
-            kprime_f_sigma
-        gb_final_transforms['Z_f'][unique_filter_index] =\
-            zprime_f
-        gb_final_transforms['Z_f_sigma'][unique_filter_index] =\
-            zprime_f_sigma
+        gb_final_transforms['T_fCI_sigma'][unique_filter_index] = t_fci_sigma
+        gb_final_transforms['k\'_f'][unique_filter_index] = kprime_f
+        gb_final_transforms['k\'_f_sigma'][unique_filter_index] = kprime_f_sigma
+        gb_final_transforms['Z_f'][unique_filter_index] = zprime_f
+        gb_final_transforms['Z_f_sigma'][unique_filter_index] = zprime_f_sigma
         if plot_results:
-            X_plot = np.arange(start=min(current_filter['X']), stop=max(
-                current_filter['X']) + 0.01, step=0.01)
+            X_plot = np.arange(start=min(current_filter['X']), stop=max(current_filter['X']) + 0.01, step=0.01)
             ci_plot = re.sub('[^a-zA-Z]+', '', current_index)
             ci_plot = ci_plot.lower()
-            plt.errorbar(x, current_filter['C_fCI'],
-                         yerr=current_filter['C_fCI_sigma'],
-                         color='#1f77b4',
-                         fmt='o',
-                         fillstyle='none',
-                         capsize=2, label="Clipped Data")
-            plt.plot(x, filtered_data_c,
-                     'o',
-                     color='#1f77b4',
-                     label="Fitted Data")
-            plt.plot(X_plot, fitted_line_c(X_plot),
-                     '-',
-                     color='#ff7f0e',
+            #TODO: Change colour map to viridis.
+            plt.errorbar(x, current_filter['C_fCI'], yerr=current_filter['C_fCI_sigma'], color='#1f77b4', fmt='o',
+                         fillstyle='none', capsize=2, label="Clipped Data")
+            plt.plot(x, filtered_data_c, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(X_plot, fitted_line_c(X_plot), '-', color='#ff7f0e',
                      label=f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
             plt.legend()
-            plt.title(
-                f"k''_{unique_filter}{ci_plot} and T_{unique_filter}{ci_plot} Coefficient calculations")
-            # plt.title(f'C_{unique_filter}{ci_plot} = {kprimeprime_fci:.3f} * X + {t_fci:.3f}')
+            plt.title(f"k''_{unique_filter}{ci_plot} and T_{unique_filter}{ci_plot} Coefficient calculations")
             plt.ylabel(f'C_{unique_filter}{ci_plot}')
             plt.xlabel('X')
             if save_plots:
@@ -3026,24 +2951,13 @@ def ground_based_second_order_transforms(gb_transform_table,
                 plt.savefig(save_loc)
             plt.show()
             plt.close()
-            plt.errorbar(x, current_filter['Zprime_f'],
-                         yerr=current_filter['Zprime_f_sigma'],
-                         color='#1f77b4',
-                         fmt='o',
-                         fillstyle='none',
-                         capsize=2,
-                         label="Clipped Data")
-            plt.plot(x, filtered_data_z, 'o',
-                     color='#1f77b4',
-                     label="Fitted Data")
-            plt.plot(X_plot, fitted_line_z(X_plot),
-                     '-',
-                     color='#ff7f0e',
+            plt.errorbar(x, current_filter['Zprime_f'], yerr=current_filter['Zprime_f_sigma'], color='#1f77b4', fmt='o',
+                         fillstyle='none', capsize=2, label="Clipped Data")
+            plt.plot(x, filtered_data_z, 'o', color='#1f77b4', label="Fitted Data")
+            plt.plot(X_plot, fitted_line_z(X_plot), '-', color='#ff7f0e',
                      label=f'Z\'_{unique_filter} = {kprime_f:.3f} * X + {zprime_f:.3f}')
             plt.legend()
-            plt.title(
-                f"Z_{unique_filter} and k'_{unique_filter} Coefficient Calculations")
-            # plt.title(f'Z\'_{unique_filter} = {kprime_f:.3f} * X + {zprime_f:.3f}')
+            plt.title(f"Z_{unique_filter} and k'_{unique_filter} Coefficient Calculations")
             plt.ylabel(f'Z\'_{unique_filter}')
             plt.xlabel('X')
             if save_plots:
@@ -3087,59 +3001,6 @@ def get_colour_index_lower(instr_filter):
     return colour_index, ci
 
 
-# def init_unknown_object_table_columns():
-#     """
-#     Initialize the columns that will create the unknown object table.
-
-#     Returns
-#     -------
-#     TYPE
-#         DESCRIPTION.
-
-#     """
-#     instr_filter = []
-#     name = []
-#     instr_mag = []
-
-#     unknown_object_table_columns = namedtuple('unknown_object_table_columns',
-#                                               ['instr_filter',
-#                                               'name',
-#                                               'instr_mag'])
-#     return unknown_object_table_columns(instr_filter,
-#                                         name,
-#                                         instr_mag)
-
-
-# def update_unknown_table_columns(unknown_object_table_columns, hdr, instr_mag, filter_key='FILTER'):
-#     """
-#     Update the columns tha will create the unknown object table.
-
-#     Parameters
-#     ----------
-#     unknown_object_table_columns : TYPE
-#         DESCRIPTION.
-#     hdr : TYPE
-#         DESCRIPTION.
-#     instr_mag : TYPE
-#         DESCRIPTION.
-#     filter_key : TYPE, optional
-#         DESCRIPTION. The default is 'FILTER'.
-
-#     Returns
-#     -------
-#     updated_unknown_object_table_columns : TYPE
-#         DESCRIPTION.
-
-#     """
-#     updated_unknown_object_table_columns = unknown_object_table_columns
-#     instr_filter = get_instr_filter_name(hdr=hdr, filter_key=filter_key)
-#     name = hdr['OBJECT']
-#     updated_unknown_object_table_columns.instr_filter.append(instr_filter)
-#     updated_unknown_object_table_columns.name.append(name)
-#     updated_unknown_object_table_columns.instr_mag.append(instr_mag)
-#     return updated_unknown_object_table_columns
-
-
 def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
     """
     Calculate the C coefficient to use when calculating the C' coefficient when applying the transforms.
@@ -3151,32 +3012,24 @@ def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform 
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for 
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric 
-                extinction coefficient for filter f using the 
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
                 colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f using
-                the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             T_fCI_sigma : float
-                The standard deviation of the instrumental transform
-                coefficient for filter f using the colour index CI.
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient for
-                filter f.
+                The first order atmospheric extinction coefficient for filter f.
             k'_f_sigma : float
-                The standard deviation of the first order atmospheric
-                extinction coefficient for filter f.
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
             Z_f_sigma : float
-                The standard deviation of the zero point magnitude for
-                filter f.
+                The standard deviation of the zero point magnitude for filter f.
     instr_filter : string
         The instrumental filter to use to calculate C_fCI.
     airmass : float
@@ -3190,27 +3043,23 @@ def calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index):
         C coefficient to use when calculating C'.
 
     """
-    mask = ((gb_final_transforms['filter'] == instr_filter) & (
-        gb_final_transforms['CI'] == colour_index))
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
     row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'v':
         instr_filter = 'g'
-        mask = ((gb_final_transforms['filter'] == instr_filter) & (
-            gb_final_transforms['CI'] == colour_index))
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'b':
         instr_filter = 'u'
-        mask = ((gb_final_transforms['filter'] == instr_filter) & (
-            gb_final_transforms['CI'] == colour_index))
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
-    c_fci = float(row_of_transforms['T_fCI']) - \
-        (float(row_of_transforms["k''_fCI"]) * airmass)
+    c_fci = float(row_of_transforms['T_fCI']) - (float(row_of_transforms["k''_fCI"]) * airmass)
     return c_fci
 
 
 def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
     """
-    Calculate the C' coefficient to use when applying the transforms.
+    Calculate the C' coefficient to use when applying the transforms using the Boyd method.
 
     Parameters
     ----------
@@ -3219,34 +3068,28 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric
-                extinction coefficient for filter f using the 
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
                 colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f using
-                the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             T_fCI_sigma : float
-                The standard deviation of the instrumental transform
-                coefficient for filter f using the colour index CI.
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient for
-                filter f.
+                The first order atmospheric extinction coefficient for filter f.
             k'_f_sigma : float
-                The standard deviation of the first order atmospheric
-                extinction coefficient for filter f.
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
             Z_f_sigma : float
-                The standard deviation of the zero point magnitude
-                for filter f.
+                The standard deviation of the zero point magnitude for filter f.
     instr_filter : string
         The instrumental filter used to calculate C'.
+    airmass : float
+        Average airmass of the image.
 
     Returns
     -------
@@ -3256,20 +3099,14 @@ def calculate_c_prime(gb_final_transforms, instr_filter, airmass):
 
     """
     colour_index, ci = get_colour_index_lower(instr_filter)
-    c_numerator = calculate_c_fci(
-        gb_final_transforms, instr_filter, airmass, colour_index)
-    c_negative = calculate_c_fci(
-        gb_final_transforms, ci[0], airmass, colour_index)
-    c_positive = calculate_c_fci(
-        gb_final_transforms, ci[1], airmass, colour_index)
+    c_numerator = calculate_c_fci(gb_final_transforms, instr_filter, airmass, colour_index)
+    c_negative = calculate_c_fci(gb_final_transforms, ci[0], airmass, colour_index)
+    c_positive = calculate_c_fci(gb_final_transforms, ci[1], airmass, colour_index)
     c_prime_fci = c_numerator / (1 - c_negative + c_positive)
     return c_prime_fci
 
 
-def calculate_z_prime_f(gb_final_transforms,
-                        instr_filter,
-                        airmass,
-                        colour_index):
+def calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index):
     """
     Calculate the Z' coefficient to use when applying the transforms.
 
@@ -3280,32 +3117,24 @@ def calculate_z_prime_f(gb_final_transforms,
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric
-                extinction coefficient for filter f using the 
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
                 colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f using
-                the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             T_fCI_sigma : float
-                The standard deviation of the instrumental transform
-                coefficient for filter f using the colour index CI.
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient
-                for filter f.
+                The first order atmospheric extinction coefficient for filter f.
             k'_f_sigma : float
-                The standard deviation of the first order atmospheric
-                extinction coefficient for filter f.
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
             Z_f_sigma : float
-                The standard deviation of the zero point magnitude
-                for filter f.
+                The standard deviation of the zero point magnitude for filter f.
     instr_filter : string
         The instrumental filter to use to calculate Z'_f.
     airmass : float
@@ -3319,28 +3148,21 @@ def calculate_z_prime_f(gb_final_transforms,
         Z' coefficient to use when calculating z.
 
     """
-    mask = ((gb_final_transforms['filter'] == instr_filter) & (
-        gb_final_transforms['CI'] == colour_index))
+    mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
     row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'v':
         instr_filter = 'g'
-        mask = ((gb_final_transforms['filter'] == instr_filter) & (
-            gb_final_transforms['CI'] == colour_index))
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
     if len(row_of_transforms) == 0 and instr_filter == 'b':
         instr_filter = 'u'
-        mask = ((gb_final_transforms['filter'] == instr_filter) & (
-            gb_final_transforms['CI'] == colour_index))
+        mask = ((gb_final_transforms['filter'] == instr_filter) & (gb_final_transforms['CI'] == colour_index))
         row_of_transforms = gb_final_transforms[mask]
-    z_prime_f = float(row_of_transforms['Z_f']) - \
-        (float(row_of_transforms["k'_f"]) * airmass)
+    z_prime_f = float(row_of_transforms['Z_f']) - (float(row_of_transforms["k'_f"]) * airmass)
     return z_prime_f
 
 
-def calculate_lower_z_f(gb_final_transforms,
-                        c_prime_fci,
-                        instr_filter,
-                        airmass):
+def calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass):
     """
     Calculate the z_f coeffient to use when applying the transforms.
 
@@ -3351,35 +3173,26 @@ def calculate_lower_z_f(gb_final_transforms,
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             k''_fCI_sigma : float
-                The standard deviation of the second order atmospheric
-                extinction coefficient for filter f using the 
+                The standard deviation of the second order atmospheric extinction coefficient for filter f using the 
                 colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f
-                using the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             T_fCI_sigma : float
-                The standard deviation of the instrumental transform
-                coefficient for filter f using the colour index CI.
+                The standard deviation of the instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient for
-                filter f.
+                The first order atmospheric extinction coefficient for filter f.
             k'_f_sigma : float
-                The standard deviation of the first order atmospheric
-                extinction coefficient for filter f.
+                The standard deviation of the first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
             Z_f_sigma : float
-                The standard deviation of the zero point magnitude for
-                filter f.
+                The standard deviation of the zero point magnitude for filter f.
     c_prime_fci : float
-        The C' coefficient for filter instr_filter to use when applying
-        the transforms.
+        The C' coefficient for filter instr_filter to use when applying the transforms.
     instr_filter : string
         The instrumental filter to use to calculate z_f.
     airmass : float
@@ -3388,26 +3201,19 @@ def calculate_lower_z_f(gb_final_transforms,
     Returns
     -------
     lower_z_f : float
-        The z coefficient for filter instr_filter to use when applying
-        the transforms.
+        The z coefficient for filter instr_filter to use when applying the transforms.
 
     """
     colour_index, ci = get_colour_index_lower(instr_filter)
     c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
-    z_prime_positive = calculate_z_prime_f(
-        gb_final_transforms, ci[0], airmass, colour_index)
-    z_prime_negative = calculate_z_prime_f(
-        gb_final_transforms, ci[1], airmass, colour_index)
-    z_prime_no_brackets = calculate_z_prime_f(
-        gb_final_transforms, instr_filter, airmass, colour_index)
-    lower_z_f = c_prime_fci * \
-        (z_prime_positive - z_prime_negative) + z_prime_no_brackets
+    z_prime_positive = calculate_z_prime_f(gb_final_transforms, ci[0], airmass, colour_index)
+    z_prime_negative = calculate_z_prime_f(gb_final_transforms, ci[1], airmass, colour_index)
+    z_prime_no_brackets = calculate_z_prime_f(gb_final_transforms, instr_filter, airmass, colour_index)
+    lower_z_f = c_prime_fci * (z_prime_positive - z_prime_negative) + z_prime_no_brackets
     return lower_z_f
 
 
-def apply_gb_transforms_VERIFICATION(gb_final_transforms,
-                                     stars_table,
-                                     instr_filter):
+def apply_gb_transforms_VERIFICATION(gb_final_transforms, stars_table, instr_filter):
     """
     Apply the transforms to a source with an unknown standard magnitude.
 
@@ -3418,32 +3224,52 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms,
             filter : string
                 Instrumental filter band used to calculate the transform.
             CI : string
-                Name of the colour index used to calculate the transform
-                (e.g. B-V for b, V-R for r).
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
             k''_fCI : float
-                The second order atmospheric extinction coefficient for
-                filter f using the colour index CI.
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
             T_fCI : float
-                The instrumental transform coefficient for filter f using
-                the colour index CI.
+                The instrumental transform coefficient for filter f using the colour index CI.
             k'_f : float
-                The first order atmospheric extinction coefficient for
-                filter f.
+                The first order atmospheric extinction coefficient for filter f.
             Z_f : float
                 The zero point magnitude for filter f.
-    unknown_object_table : astropy.table.Table
-        Table containing the stars to calculate the apparent magnitudes for.
+    stars_table : astropy.table.table.Table
+        Table containing the mean of the important information for each star.
         Has columns:
-            filter : string
-                Instrumental filter band used to take the image.
-            name : string
-                Unique identifier of the source to apply the transform to.
-            instrumental mag : float
-                Instrumental magnitude of the source.
-                : Change this so that it accepts multiple sources somehow.
+            Field : string
+                Unique identifier of the star field that the reference star is in (e.g. Landolt field "108").
+            Name : string
+                Name/unique identifier of the reference star.
+            V : numpy.float64
+                Apparent V magnitude from the reference file.
+            (B-V) : numpy.float64
+                Apparent B-V colour index from the reference file.
+            (U-B) : numpy.float64
+                Apparent U-B colour index from the reference file.
+            (V-R) : numpy.float64
+                Apparent V-R colour index from the reference file.
+            (V-I) : numpy.float64
+                Apparent V-I colour index from the reference file.
+            V_sigma : numpy.float64
+                Standard deviation of the apparent V magnitude from the reference file.
+            <filter> : numpy.float64
+                Mean instrumental magnitude of all detections of the star in <filter>. There is a different column for 
+                each different filter used across the images.
+            <filter>_sigma : numpy.float64
+                Standard deviation of the instrumental magnitudes of all detections of the star in <filter>. 
+                There is a different column for each different filter used across the images.
+            X_<filter> : numpy.float64
+                Mean airmass of all detections of the star in <filter>. There is a different column for each different 
+                filter used across the images. Only output if ground_based is True.
+            X_<filter>_sigma : numpy.float64
+                Standard deviation of the airmasses of all detections of the star in <filter>. There is a different 
+                column for each different filter used across the images. Only output if ground_based is True.
+    instr_filter : string
+        The instrumental filter to apply the transforms to.
 
     Returns
     -------
+    TODO: Change the columns of app_mag_table
     app_mag_table : astropy.table.Table
         Table containing the apparent magnitudes of the object after applying
         the transforms. Has columns:
@@ -3465,7 +3291,7 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms,
                     'V-R',
                     'V-I',
                     'V_sigma'])
-    colour_index, ci = get_colour_index_lower(instr_filter)
+    _, ci = get_colour_index_lower(instr_filter)
     instr_mag = stars_table[instr_filter]
     airmass = stars_table[f'X_{instr_filter}']
     c_prime_fci = calculate_c_prime(gb_final_transforms, instr_filter, airmass)
@@ -3476,25 +3302,18 @@ def apply_gb_transforms_VERIFICATION(gb_final_transforms,
         table_ci = ci.replace('v', 'g')
         positive_instr_mag = stars_table[table_ci[0]]
         negative_instr_mag = stars_table[table_ci[1]]
-    lower_z_f = calculate_lower_z_f(
-        gb_final_transforms, c_prime_fci, instr_filter, airmass)
-    app_mag_list = instr_mag + c_prime_fci * \
-        (positive_instr_mag - negative_instr_mag) + lower_z_f
+    lower_z_f = calculate_lower_z_f(gb_final_transforms, c_prime_fci, instr_filter, airmass)
+    app_mag_list = instr_mag + c_prime_fci * (positive_instr_mag - negative_instr_mag) + lower_z_f
     app_mag_filter = instr_filter.upper()
     instr_filter_sigma = f"{instr_filter}_sigma"
     app_filter_sigma = f"{app_mag_filter}_sigma"
     app_mag_column = Table(names=[app_mag_filter], data=[app_mag_list])
-    app_mag_sigma_column = Table(names=[app_filter_sigma], data=[
-                                 stars_table[instr_filter_sigma]])
-    app_mag_table = table.hstack(
-        [app_mag_first_columns, app_mag_column, app_mag_sigma_column])
+    app_mag_sigma_column = Table(names=[app_filter_sigma], data=[stars_table[instr_filter_sigma]])
+    app_mag_table = table.hstack([app_mag_first_columns, app_mag_column, app_mag_sigma_column])
     return app_mag_table
 
 
-def apply_gb_timeseries_transforms(gb_final_transforms,
-                                   sat_dict,
-                                   sat_auxiliary_table,
-                                   unique_filters):
+def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_table, unique_filters):
     """
     Apply the transforms to a timeseries of observations.
 
