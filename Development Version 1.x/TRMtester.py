@@ -33,10 +33,12 @@ from numpy import mean
 import numpy
 import scipy
 from scipy import ndimage
+import numpy
 import pandas as pd
-import win32com
+
+#import win32com
 import os
-import pywin32_system32
+#import pywin32_system32
 import math
 import numpy as np
 import matplotlib
@@ -50,23 +52,10 @@ from astropy.stats import SigmaClip
 from photutils.background import SExtractorBackground
 from photutils.background import MeanBackground
 from photutils.background import Background2D
-from photutils.datasets import make_100gaussians_image
-from photutils.segmentation import detect_threshold
-from astropy.convolution import Gaussian2DKernel, convolve
-from astropy.stats import gaussian_fwhm_to_sigma
-from photutils.segmentation import detect_sources
 import skimage
 from scipy import ndimage
 from skimage import measure
 from skimage import filters
-from astropy.visualization import SqrtStretch
-from astropy.visualization.mpl_normalize import ImageNormalize
-from photutils.segmentation import SourceCatalog
-from photutils.segmentation import deblend_sources
-from astropy.visualization import simple_norm
-
-
-
 
 def BackgroundIteration(image, tolerance):       
     old_mean = 1e9
@@ -179,11 +168,11 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     return x_centroid, x_rms, y_centroid, y_rms
 
 streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
-streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018675.BREEZE-M_R_B_#38746U.FIT'
-streak1= r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
+streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018674.BREEZE-M_R_B_#38746U.FIT'
+streak1= r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173159frame.fits'
 streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
-STARS = open(streak+'.stars', "w")
-imagehdularray = fits.open(streak)
+STARS = open("CAN_OTT.00018670.BREEZE-M_R_B_#38746U.FIT.stars", "w")
+imagehdularray = fits.open(streak1)
 
 streak_array = []         
 sigma_clip = 2.5           
@@ -202,13 +191,9 @@ exposuretime=imagehdularray[0].header['EXPTIME']
 imagesizeX=imagehdularray[0].header['NAXIS1']
 imagesizeY=imagehdularray[0].header['NAXIS2']
 fitsdata =  imagehdularray[0].data
-
 sigma_clip = SigmaClip(sigma=2.5)
 bkg = SExtractorBackground(sigma_clip)
 bkg_value = bkg.calc_background(fitsdata)
-
-
-
 
 #print(bkg_value)
 bkg = MeanBackground(sigma_clip)
@@ -218,56 +203,9 @@ bkg_estimator2 = SExtractorBackground()
 #bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
 bkg = Background2D(fitsdata, (50,50), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
 bg_rem = fitsdata - bkg.background
-threshold = detect_threshold(fitsdata, nsigma=2.5)
-sigma_clip = SigmaClip(sigma=2.5)
-bkg = SExtractorBackground(sigma_clip)
-bkg_value = bkg.calc_background(fitsdata)
 
+print(mean(bkg.background))
 
-sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
-kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
-convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
-segm = detect_sources(convolved_data, threshold, npixels=5)
-segm_deblend = deblend_sources(convolved_data, segm, npixels=5,
-
-                               nlevels=32, contrast=0.001)
-
-norm = ImageNormalize(stretch=SqrtStretch())
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12.5))
-ax1.imshow(fitsdata, origin='lower', cmap='Greys_r', norm=norm)
-ax1.set_title('Data')
-cmap = segm.make_cmap(seed=123)
-ax2.imshow(segm, origin='lower', cmap=cmap, interpolation='nearest')
-ax2.set_title('Segmentation Image')
-
-cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
-tbl = cat.to_table()
-tbl['xcentroid'].info.format = '.2f'  # optional format
-tbl['ycentroid'].info.format = '.2f'
-tbl['kron_flux'].info.format = '.2f'
-print(tbl)
-
-norm = simple_norm(fitsdata, 'sqrt')
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12.5))
-ax1.imshow(fitsdata, origin='lower', cmap='Greys_r', norm=norm)
-ax1.set_title('FitsData')
-cmap = segm_deblend.make_cmap(seed=123)
-ax2.imshow(segm_deblend, origin='lower', cmap=cmap,
-           interpolation='nearest')
-ax2.set_title('Segmentation Image')
-cat.plot_kron_apertures((2.5, 1.0), axes=ax1, color='white', lw=1.5)
-cat.plot_kron_apertures((2.5, 1.0), axes=ax2, color='white', lw=1.5)
-
-newCenY=list(tbl['ycentroid'])
-newCenX=list(tbl['xcentroid'])
-newflux=list(tbl['segment_flux'])
-
-for i in range(len(newCenY)):
-    
-    streak_line='{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]),  newflux[i])
-    STARS.write(streak_line+"\n")
-
-STARS.close()
 bg_rem[1:edge_protect,1:edge_protect] = 0
 bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
 bg_rem[:, 1:edge_protect] = 0
@@ -458,10 +396,6 @@ ymin = edge_protect
 ymax = imagesizeY - edge_protect
 streaksize = streaks.size
 
-
-
-
-
 for k in range(streaksize):
     
     real_star_num = streaks[0,k]  
@@ -492,11 +426,11 @@ for k in range(streaksize):
                 STARS.write(streak_line+"\n")
                 streak_array.append(new_element)
 
-#avg_pix_frac = pix_frac/star_count
-#moffat_avg = moffat_avg/count
-#gauss_avg = gauss_avg/count
-#FWHM= 2*gauss_avg*0.7664
-#print("FWMM: " + str(FWHM))
+avg_pix_frac = pix_frac/star_count
+moffat_avg = moffat_avg/count
+gauss_avg = gauss_avg/count
+FWHM= 2*gauss_avg*0.7664
+print("FWMM: " + str(FWHM))
 STARS.close()
 
 

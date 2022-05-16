@@ -27,11 +27,6 @@ import ImageReduction as IR
 import SBDarkSub
 import utils
 
-import main_transforms as transforms
-import pinpoint
-
-
-
 """
 ---------------------
 AstroSolver
@@ -219,6 +214,8 @@ def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
         return
 
 # Read Reference Star File and Extract Data
+
+
 def ref_star_folder_read(refstars_doc):
     refstars = pd.read_excel(refstars_doc)
     refstars.head()
@@ -419,7 +416,97 @@ image_reduce = False  # Reduce Images before Solving
 # Function #1: Pinpoint Solving
 
 
+def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
+                   max_solve_time, cat, space_based_bool, use_sextractor,
+                   all_sky_solve):
 
+    file_suffix = (".fits", ".fit", ".fts")
+
+    for dirpath, dirnames, filenames in os.walk(inbox):
+        for filename in filenames:
+            if (filename.endswith(file_suffix)):
+
+                filepath = os.path.join(dirpath, filename)
+                # Creates an instance of a plate object
+                f = win32com.client.Dispatch("Pinpoint.plate")
+
+                print("Processing Image: " + filepath)
+
+                "Import Data from FITS Image"
+                header = 0
+                imagehdularray, date, exposure_Time, imagesizeX, imagesizeY,\
+                    fitsdata, filt, header, XPIXSZ, YPIXSZ, wcs = \
+                    fits_header_import(filepath, space_based_bool)
+
+                """Pinpoint Solve"""
+                # FIXME: Why is pinpont variable here when always TRUE?
+                if pinpoint:
+                    try:
+                        # Attaches FITS image to the created Plate
+                        f.AttachFITS(filepath)
+# We set the declination of the image to the target object's declination
+                        f.Declination = f.targetDeclination
+                        f.RightAscension = f.targetRightAscension
+
+                        x_arcsecperpixel, y_arcsecperpixel =\
+                            calc_ArcsecPerPixel(header)
+                        # yBin = 4.33562092816E-004*3600;
+                        # xBin =  4.33131246330E-004*3600;
+                        # f.ArcsecperPixelHoriz  = 4.556
+                        # f.ArcsecperPixelVert =  4.556
+                        # if space_based_bool==1:
+                        #     yBin = 4.33562092816E-004*3600*2
+# %Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
+                        #     xBin =\
+# 4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec /
+# Obtained from FITS Header and converted from deg
+                        # else:
+                        #     yBin = 4.33562092816E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        #     xBin =  4.33131246330E-004*3600
+                        # %Image Specific Pixel Size in arcsec /
+                        # Obtained from FITS Header and converted from deg
+                        # f.ArcsecperPixelHoriz  = xBin
+                        # %CCD Pixel scale on CD
+                        # f.ArcsecperPixelVert = yBin
+                        f.ArcsecperPixelHoriz = x_arcsecperpixel
+                        # %CCD Pixel scale on CD
+                        f.ArcsecperPixelVert = y_arcsecperpixel
+
+                        "Pinpoint Solve Inputs"
+                        # TODO Add Inputs for pinpoint solving to GUI
+                        f.Catalog = 11
+                        f.CatalogPath = catloc
+                        f.UseSExtractor = use_sextractor
+                        f.CatalogMaximumMagnitude = max_mag
+                        # print(f.CatalogMaximumMagnitude)
+                        f.CatalogExpansion = catexp
+                        f.MaxSolveTime = max_solve_time
+                        f.MaxMatchResidual = match_residual
+                        f.SigmaAboveMean = sigma
+                        f.RemoveHotPixels()
+
+                        "Pinpoint Solving"
+
+                        # FIXME f.Solve intronsicly calls Find Catalog Stars and Image Stars
+                        # f.FindCatalogStars()
+                        # print(f.CatalogStars.Count)
+                        # f.FindImageStars()
+                        # print(f.ImageStars.Count)
+                        f.Solve()
+                        f.UpdateFITS()
+                        # print( f.MatchedStars.count)
+                        # f.FindImageStars()
+                        # print(f.ImageStars)
+
+                        f.DetachFITS()
+                        f = None
+                        print("Pinpoint Solved")
+                    except:
+                        print("Could Not Solve")
+                        continue
 
 # Calculate Ground-Based Transforms
 
@@ -448,7 +535,7 @@ def Ground_based_transforms(directory, ref_stars_file):
         os.makedirs(save_loc)
     gb_final_transforms, \
         auxiliary_data_table = \
-        transforms._main_gb_transform_calc(directory,
+        astro._main_gb_transform_calc(directory,
                                       ref_stars_file,
                                       plot_results=plot_results,
                                       save_plots=save_plots,
@@ -484,7 +571,7 @@ def space_based_transform(directory, ref_stars_file):
         os.makedirs(save_loc)
 
     sb_final_transform_table =\
-        transforms._main_sb_transform_calc(directory,
+        astro._main_sb_transform_calc(directory,
                                       ref_stars_file,
                                       plot_results=plot_results,
                                       save_plots=save_plots,
@@ -514,7 +601,7 @@ def trm_photometry(directory):
     sats_table, \
         uncertainty_table,\
         sat_fwhm_table =\
-        transforms._main_sc_lightcurve(directory,
+        astro._main_sc_lightcurve(directory,
                                   temp_dir=temp_dir,
                                   max_distance_from_sat=max_distance_from_sat,
                                   size=size,
