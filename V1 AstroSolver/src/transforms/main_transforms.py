@@ -871,38 +871,47 @@ def _main_gb_new_boyd_method(
         name_key='Name',
         photometry_method='aperture',
         aperture_estimation_mode='mean',
+        matched_stars_min=4,
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
     calculating the colour transforms to convert instrumental magntiude to standard magntiude
 
-    $ TODO: Docstring
+    $ TODO: Docstring, Figure out remove-large_airmass_bool
     Parameters
     ----------
-    directory : TYPE
-        describes the parent directory which holds 
-    ref_stars_file : TYPE
-        DESCRIPTION.
-    plot_results : TYPE, optional
+    directory : list of strings
+        Describes the parent directory which holds the directories to be walked through.
+    ref_stars_file : string
+        string which points to the directory of the reference star file
+    plot_results : boolean, optional
         DESCRIPTION. The default is False.
-    save_plots : TYPE, optional
-        DESCRIPTION. The default is False.
+    save_plots : bool, optional
+        DESCRIPTION. The default is True. If True the Boyd graphs will be saved
     remove_large_airmass_bool : TYPE, optional
         DESCRIPTION. The default is False.
+
     file_suffix : TYPE, optional
         DESCRIPTION. The default is (".fits", ".fit", ".fts").
-    exposure_key : TYPE, optional
-        DESCRIPTION. The default is 'EXPTIME'.
-    lat_key : TYPE, optional
-        DESCRIPTION. The default is 'SITELAT'.
-    lon_key : TYPE, optional
-        DESCRIPTION. The default is 'SITELONG'.
-    elev_key : TYPE, optional
-        DESCRIPTION. The default is 'SITEELEV'.
+    exposure_key : string, optional
+        Exposure key describes the .fits keyword to be queired for looking up the exposure time. The default is 'EXPTIME'.
+    lat_key : str, optional
+        Fits header keyword for Geodectic Latitude. The default is 'SITELAT'.
+    lon_key : str, optional
+        Fits header keyword for quiering Geodetic Longtitude. The default is 'SITELONG'.
+    elev_key : str, optional
+        Fits headers keyword for Geodectic Elevation. The default is 'SITEELEV'.
     name_key : TYPE, optional
         DESCRIPTION. The default is 'Name'.
-    photometry_method : TYPE, optional
-        DESCRIPTION. The default is 'psf'.
+    photometry_method : string,
+        A string  which defines the method to be used for photometry. The default is 'aperture'.Options are either 'psf' or 'aperture'
+    aperture_estimation_mode: str,
+        A string which defines the apertures estimation mode to be used in Aperture photometry. aperture_estimaiton_mode
+        is only used when 'aperture' is chosen for the photometry_method. Default is 'mean'. Options are 'mean' or 'dynamic'.
+        'dyanamic' mode changes the aperture size according to the FWHM resulting in lesser error but greater computaiton time
+    matched_stars_min: str
+        describes the minimum number of sources extracted in Boyd Step 1 to pass into Step 2.
+        Lower matched_stars_min increases uncertainty and may skew data.
     **kwargs : TYPE
         DESCRIPTION.
 
@@ -1203,7 +1212,7 @@ def _main_gb_new_boyd_method(
 
         
     ### Start Boyd Transformation ###
-        # Create Boyde Table
+    # Create Boyde Table
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
@@ -1234,7 +1243,7 @@ def _main_gb_new_boyd_method(
             continue
 
 
-    # Calculating Second Step of Boyd Method
+
     try:
         ascii.write(Boyde_Table, os.path.join(
             save_loc, 'Boyde_Table1.csv'), format='csv')
@@ -1244,12 +1253,12 @@ def _main_gb_new_boyd_method(
     
     
     
-    # Calculate Step 2
-    match_stars_lim=4
 
+
+    # Calculating Second Step of Boyd Method
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
-            Boyde_Table, save_loc,match_stars_lim,save_plots)
+            Boyde_Table, save_loc,matched_stars_min,save_plots)
 
         date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
 
