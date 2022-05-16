@@ -37,13 +37,9 @@ import time
 # run_master_flat = 1
 # correct_light_frames = 1
 
-# # The highest directoy of the .fits files to process
+# # The highest directory of the .fits files to process
 # # topdir = 'C:\\Astro_Data\\'
 
-# topdir = 'D:\Image Reduction Test Images'
-
-# if os.path.isdir(topdir) == False:
-#     raise RuntimeError('WARNING -- Directory of .fits files does not exist')
 
 # # Create output directory for master files
 # if create_master_dir == True:

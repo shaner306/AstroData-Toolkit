@@ -8,9 +8,9 @@ import win32com.client
 import AstroFunctions as astro
 
 
-def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
-                   max_solve_time, space_based_bool, use_sextractor,
-                   all_sky_solve):
+def pinpoint_solve(inbox, catloc, max_mag=13, sigma=2.5, catexp=0.8, match_residual=0,
+                   max_solve_time=300, space_based_bool=False, use_sextractor=False,
+                   all_sky_solve=False):
 
     file_suffix = (".fits", ".fit", ".fts")
 
@@ -55,13 +55,12 @@ def pinpoint_solve(inbox, catloc, max_mag, sigma, catexp, match_residual,
                     f.RemoveHotPixels()
                     f.Solve()
                     f.UpdateFITS()
-                    f.DetachFITS()
-                    f = None
+
                     print("Pinpoint Solved")
                 except:
                     print("Could Not Solve")
                     continue
-
+    return f
 def pinpoint_init():
     f = win32com.client.Dispatch("Pinpoint.plate")
     return f
