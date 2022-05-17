@@ -48,7 +48,7 @@ def get_matched_stars(image_dir,catloc,max_mag,sigma, catexp, match_residual,max
         QTable which describes the fluxes of all the matched stars in the images
 
     '''
-    matched_star_dictionary={}
+    matched_star_dictionary = {}
     file_suffix=(".fits",".fit",".fts")
     for dirpath,dirnames,filenames in os.walk(image_dir):
         for filename in filenames:
@@ -143,7 +143,10 @@ def get_matched_stars(image_dir,catloc,max_mag,sigma, catexp, match_residual,max
                             matched_star_dictionary[star.MatchedCatalogStar.Identification] = ([
                                 f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count])
                             iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
-                    f=None
+                    f.DetachFITS()
+
+                    f = None
+
                 except:
                     print('Could Not Identify ')
     return matched_star_dictionary
@@ -188,19 +191,106 @@ def plot_measure_flux(matched_star_dictionary,save_loc):
         x_data=[*range(0,len(y_data))]
         plt.plot(x_data,y_data,'--')
 
-        if i==100:
+        if i==30:
             break
 
     plt.title('Flux Variations/Frame in the Matched Stars as Detected by Pinpoint')
     plt.xlabel('Frame')
     plt.ylabel('Flux (in counts)')
     plt.savefig(save_loc)
+    plt.clf()
+    plt.close()
 
 
 
-## Example of GC 279 B Filter
-image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16\GD 279\LIGHT\B"
-catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 13, 3, 0.8, 1.5, 60, 11, False, 12, 24)
-statistics_of_matched_stars(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16\GD 279\LIGHT\B\flux_calculations.txt")
-plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16\GD 279\LIGHT\B\fluxplots.png")
+## Singular Request
+
+
+# image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B"
+# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
+# matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 13, 3, 0.8, 1.5, 60, 11, False, 12, 24)
+# statistics_of_matched_stars(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B\flux_calculations.txt")
+# plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B\fluxplots.png")
+#
+# # Reset the Variables when complete
+# matched_star_dictionary={}
+
+## Mutliple Requests
+dataset_folder = r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
+catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+
+# Pinpoint Solve Parameters
+max_mag = 13
+sigma = 3
+max_solve_time = 60  # Seconds
+match_residual = 1.5
+catalog = 11
+catalog_exp = 0.8
+use_sextractor = False
+all_sky_solve = False
+space_based_bool = False
+photometry_method = 'aperture'
+aperture_estimation_mode = 'mean'
+
+image_path = dataset_folder
+
+list_subfolders_with_paths = [folder.path for folder in os.scandir(image_path) if folder.is_dir()]
+
+target_dirs=[]
+
+#TODO : Clean up Code
+for subfolder in list_subfolders_with_paths:
+    try:
+        for subfolder2 in (os.scandir(subfolder)):
+            try:
+                for subfolder3 in (os.scandir(subfolder2)):
+                    if subfolder3.is_dir():
+                        target_dirs.append(subfolder3.path)
+                    else:
+                        continue
+            except:
+                continue
+    except:
+        continue
+
+
+
+
+
+
+
+
+for dirs in target_dirs:
+
+
+
+    matched_star_dictionary_result=get_matched_stars(dirs,
+                                            catalog_dir,
+                                            max_mag,
+                                            sigma,
+                                            catalog_exp,
+                                            match_residual,
+                                            max_solve_time,
+                                            catalog,
+                                            space_based_bool,
+                                            use_sextractor,
+                                            )
+    statistics_of_matched_stars(matched_star_dictionary_result,
+                                dirs+"/flux_calculations.txt")
+    plot_measure_flux(matched_star_dictionary_result,
+                     dirs+"/fluxplots.png")
+
+    matched_star_dictionary_result={}
+
+
+
+
+# for dirpath,dirname,filename in os.walk()
+# image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16"
+# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
+# matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 13, 3, 0.8, 1.5, 60, 11, False, 12, 24)
+#statistics_of_matched_stars(matched_star_dictionary,)
+
+
+
