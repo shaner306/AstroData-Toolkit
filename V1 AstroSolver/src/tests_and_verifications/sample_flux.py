@@ -21,7 +21,14 @@ import matplotlib.pyplot as plt
 
 
 ##
-def get_matched_stars(image_dir,catloc,max_mag,sigma, catexp, match_residual,max_solve_time,catalog,use_sextractor,inner_ap=12,outer_ap=24):
+def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
+                      sigma: float, catexp: float,
+                      match_residual: float,
+                      max_solve_time: float,
+                      catalog: int,
+                      use_sextractor: bool,
+                      inner_ap: object = 12,
+                      outer_ap: object = 24) -> object:
     '''
     A similar function to that of pinpoint_solve. This version is built specifically for sampling the flux of matched
     stars detected by Pinpoint
@@ -32,12 +39,25 @@ def get_matched_stars(image_dir,catloc,max_mag,sigma, catexp, match_residual,max
         describes the path to the images
     catloc: str
         str describing the path to the catalogue
-    max_mag:
+    max_mag: float
+        float denoting the maximum magntitude for selection of stars from
+        the reference catalogue. Default is 20
     sigma
-    match_reisudal
-    max_solve_time
-    catalog
-    use_sextractor
+    match_reisudal: float
+        max match residual. The maximum positional error (in arc-seconds)
+        for matching image and catalog stars
+    max_solve_time:float
+        the maximum solve time Pinpoint will spend on a given image
+
+    catalog: int
+        catalog number deifining which catalog to use. Default is 11 (UCAC4)
+        - UCAC4: 11
+        - ATLAS: 12
+        - USNOA2.0: 5
+        - USNO_B: 7
+
+    use_sextractor: bool
+        option to call and use source extractor
     inner_ap:
         inner aperture in arcseconds
     outer_ap:
@@ -153,32 +173,50 @@ def get_matched_stars(image_dir,catloc,max_mag,sigma, catexp, match_residual,max
 
 
 ##
-def statistics_of_matched_stars(matched_star_dictionary,save_loc):
+def statistics_of_matched_stars(matched_star_dictionary,save_loc,
+                                pass_threshold=0.1):
     '''
-    Calculates the Mean and Standard Deviations of the
+    Calculates the Mean and Standard Deviations of the matched stars.
+
+
     Parameters
     ----------
     flux_table
     save_loc: str
         Respresents the save location of the pass/fail file
+    pass_threshold: float
+        the percentage that is multiplied by the mean of the star's flux
+        value to trigger the FAIL condition. FAIL conditions show that the
+        flux deviates largely from it's average value
+
+
 
     Returns
     -------
+
+    Outputs
+    -------
+
 
     '''
     if os.path.exists(save_loc):
         with open(save_loc,'r+') as f:
             f.truncate(0) # clear prexisitng file
+    with open(save_loc, 'a') as file:
+        file.write(f"Matched Stars: {len(matched_star_dictionary)},"
+                   f"Pass Threshold: {pass_threshold} * star mean  \n")
+        for i,matched_star in enumerate(matched_star_dictionary):
+            array_of_match_star_items=[matched_star_item.value for matched_star_item in matched_star_dictionary[matched_star]]
+            standard_dev=np.std(array_of_match_star_items)
+            mean=np.mean(array_of_match_star_items)
+            pass_fail_str='PASS'
+            if standard_dev > pass_threshold*mean:
+                pass_fail_str='FAIL'
 
-    for i,matched_star in enumerate(matched_star_dictionary):
-        array_of_match_star_items=[matched_star_item.value for matched_star_item in matched_star_dictionary[matched_star]]
-        standard_dev=np.std(array_of_match_star_items)
-        mean=np.mean(array_of_match_star_items)
-        pass_fail_str='PASS'
-        if standard_dev > 0.10*mean:
-            pass_fail_str='FAIL'
-        with open(save_loc,'a') as file:
-            file.write(f"{matched_star} : {mean} +/- {standard_dev} -- {pass_fail_str} \n ")
+
+            file.write(f"{matched_star:18} : {mean:.2f} +/-"
+                       f" {standard_dev:.2f} --"
+                       f" {pass_fail_str} \n ")
 
 ##
 def plot_measure_flux(matched_star_dictionary,save_loc):
@@ -205,20 +243,25 @@ def plot_measure_flux(matched_star_dictionary,save_loc):
 
 ## Singular Request
 
-
-# image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B"
-# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-# matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 13, 3, 0.8, 1.5, 60, 11, False, 12, 24)
-# statistics_of_matched_stars(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B\flux_calculations.txt")
-# plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy\GD 279\LIGHT\B\fluxplots.png")
+#
+# image_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\Automated Pointing Runs 009-014\Automated Pointing Run 009"
+# catalogue_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+# matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 10 ,3, \
+#                         0.8, 1.5, 60, 11, False, 12, 24)
+# statistics_of_matched_stars(matched_star_dictionary,
+#                             r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-26\Automated Pointing Runs 009-014\Automated Pointing Run 009\flux_calculations.txt")
+# plot_measure_flux(matched_star_dictionary,r"C:\Users\mstew\Documents\School "
+#                                           r"and Work\Winter "
+#                                           r"2022\Work\2021-10-26\Automated Pointing Runs 009-014\Automated Pointing Run 009\fluxplots.png")
 #
 # # Reset the Variables when complete
 # matched_star_dictionary={}
 
+#%%
 ## Mutliple Requests
-dataset_folder = r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
-catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+dataset_folder = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode -Reduced"
+catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 # Pinpoint Solve Parameters
 max_mag = 13

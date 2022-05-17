@@ -80,7 +80,7 @@ def batch_reduced_images(create_master_dark,
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
-image_path= r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode"
+image_path= r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode -Reduced\2021-04-25 - Reduced"
 
 create_master_dark=False
 create_master_flat=False
@@ -104,7 +104,7 @@ correct_outliers_params = {'Outlier Boolean': False,
 create_master_dir=False
 
 use_existing_masters=True
-exisiting_masters_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\master_frame_data"
+exisiting_masters_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\master_frame_data"
 
 
 scalable_dark_bool=True
