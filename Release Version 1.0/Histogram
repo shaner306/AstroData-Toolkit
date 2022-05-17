@@ -1,0 +1,37 @@
+# This is a sample Python script.
+
+# Press ⌃R to execute it or replace it with your code.
+# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+f=open("/Users/home/Downloads/Data Product.txt","r")
+
+result=[]
+residuals=[]
+for x in f:
+    result.append(x.split())
+
+for x in range(0,len(result)):
+    if x >= 7:
+        if result[x][7]=="Right":
+            residuals.append(result[x][9])
+        else:
+            residuals.append(result[x][8])
+print(residuals)
+
+
+# An "interface" to matplotlib.axes.Axes.hist() method
+n, bins, patches = plt.hist(x=d, bins='auto', color='#0504aa',
+                            alpha=0.7, rwidth=0.85)
+plt.grid(axis='y', alpha=0.75)
+plt.xlabel('Value')
+plt.ylabel('Frequency')
+plt.title('My Very Own Histogram')
+plt.text(23, 45, r'$\mu=15, b=3$')
+maxfreq = n.max()
+# Set a clean upper y-axis limit.
+plt.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
+
+f.close()
