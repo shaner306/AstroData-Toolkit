@@ -16,6 +16,36 @@ Find:
     Pinpoint Astrometry Solve
     Print Docs
     Astro Reducer Method
+    
+    
+    
+This GUI Programs controls the high level processes for the Image Processor.
+
+
+┌───────────┐  ┌─────────────┐
+│           ├──┤Image Reduce │
+│           │  └─────────────┘
+│           │         ▼
+│           │  ┌────────────┐  ┌─────────────┐
+│    GUI    ├──┤Plate Solve ├─►│Pinpoint     │
+│           │  └────────────┘  └─────────────┘
+│           │         ▼
+│           │  ┌────────────────┐
+│           ├──┤Calc Transforms │
+└───────────┘  └───────┬────────┘
+                       │
+                       │     ┌───────────────┐
+                       ├────►│Buchhiem Method│
+                       │     └───────────────┘
+                       │
+                       │     ┌───────────────┐
+                       ├────►│Warner Method  │
+                       │     └───────────────┘
+                       │
+                       │     ┌───────────────┐
+                       └────►│Boyd Method    │
+                             └───────────────┘    
+
 """
 
 import os

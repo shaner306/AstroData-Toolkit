@@ -10,8 +10,29 @@ Created on Mon Mar 21 11:48:29 2022
 '''
 Batch Reduced Image Script
 
-Bathc_solves purpose is to enable the user to solve multiple catalogs of data.
+Batch_solves purpose is to enable the user to solve multiple catalogs of data.
 Each module is broken down into sections which may be operated individual or the script can be run as a whole
+
+The Current Structure of a dataset is as follows:
+
+
+March 16 2022
+      │
+      ├──SA 23
+      │    │
+      │    ├───B
+      │    │    ───fits files
+      │    ├───G
+      │    │   ────fits files
+      │    └───R
+      │        ────fits files
+      ├──SA 32
+      │    ────...
+      └──...
+
+Batch_Solve Allows the user to input the directory for 'March 16 2022' :
+    the main directory of the dataset, containing the star fields and subsequent
+    filtered images 
 
 '''
 
