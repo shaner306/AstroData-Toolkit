@@ -3,6 +3,65 @@
 Created on Thu Jun  3 16:22:33 2021
 
 @author: shane
+
+Image Reudction Module includes all classical Astronomy methods for 
+image reduction. 
+
+
+Creation of Master Frames (with Dark Scaling):
+
+┌───────────┐    ┌───────┐   ┌─────────────────┐
+│Bias Frames├───►│Combine├──►│Master Bias Frame├────────────────────────────────────┐
+└───────────┘    └───────┘   └─────────────────┘                                    │
+                                      ▼                                             │
+┌────────────┐               ┌─────────────────┐  ┌───────┐  ┌─────────────────┐    │
+│Dark Frames ├──────────────►│Sub M. Bias Frame├─►│Combine├─►│Master Dark Frame│    │
+└────────────┘               └─────────────────┘  └───────┘  └─────────┬───────┘    │
+                                                                       │            │
+                                      ┌────────────────────────────────┘            │
+                                      ▼                                             │
+┌────────────┐               ┌─────────────────┐  ┌─────────────────┐               │
+│Flat Frames ├──────────────►│Sub M. Dark Frame├─►│Sub M. Bias Frame│◄──────────────┘
+└────────────┘               └─────────────────┘  └─────────────────┘
+                                                            ▼
+                                                        ┌───────┐     ┌──────────────────┐
+                                                        │Combine├────►│Master Flat Frame │
+                                                        └───────┘     └──────────────────┘
+                                                        
+
+Creation of Master Frames (without Dark Scaling):
+
+┌────────────┐               ┌───────┐  ┌─────────────────┐
+│Dark Frames ├──────────────►│Combine├─►│Master Dark Frame│
+└────────────┘               └───────┘  └────────┬────────┘
+                                                 │
+                                      ┌──────────┘
+                                      ▼
+┌────────────┐               ┌─────────────────┐    ┌───────┐   ┌──────────────────┐
+│Flat Frames ├──────────────►│Sub M. Dark Frame├───►│Combine├──►│Master Flat Frame │
+└────────────┘               └─────────────────┘    └───────┘   └──────────────────┘
+
+
+
+The Master Frames are then used to calibrate the images
+
+             *┌──────┐  ┌──────┐  ┌──────┐
+              │M.    │  │M.    │  │M.    │
+              │ Bias │  │ Dark │  │ Flat │
+              │ Frame│  │ Frame│  │ Frame│
+┌──────────┐  └──────┘  └──────┘  └──────┘  ┌─────────┐
+│          │      ▼         ▼         ▼     │         │
+│          │  ┌──────┐  ┌──────┐  ┌──────┐  │ Calib.  │
+│  Light   │  │Sub M.│  │Sub M.│  │Div M.│  │  Light  │
+│   Frames ├─►│ Bias ├─►│ Dark ├─►│ Flat ├─►│  Frames │
+│          │  └──────┘  └──────┘  └──────┘  │         │
+└──────────┘                                └─────────┘
+             
+              * M. Bias Frame Sub only with Scaling
+              
+
+See AstroPy ccdproc
+
 """
 from pathlib import Path
 import matplotlib as mpl
@@ -94,6 +153,8 @@ def create_master_bias(all_fits, master_dir):
     -------
 
     Nil
+    
+    Outputs
 
     """
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
@@ -713,30 +774,35 @@ def flat_image_masking(flat_imgtypes_concatenateded,
     ----------
     flat_imgtypes_concatenateded : String
         A concatenated String 
-    lights_to_correct : List
+    lights_to_correct : List of strings
         List of directory names that define the lights to be corrected
     dark_times : list
         A list of the dark times in the master darks files
     example_light : astropy CCDData
         A sample light image
-    master_bias : TYPE
-        DESCRIPTION.
-    master_darks : TYPE
-        DESCRIPTION.
-    scalable_dark_bool : TYPE
-        DESCRIPTION.
-    correct_outliers_params : TYPE
-        DESCRIPTION.
-    frame_filter : TYPE
-        DESCRIPTION.
-    master_dir : TYPE
-        DESCRIPTION.
-    corrected_light_dir : TYPE
-        DESCRIPTION.
-    all_fits : TYPE
-        DESCRIPTION.
-    binning : TYPE
-        DESCRIPTION.
+    master_bias : CCDATA object
+        CCDATA of the master bias frame that has previously been generated
+    master_darks : CCDATA object(s)
+        CCDATA describing the master dark frame at various exposure times
+    scalable_dark_bool : bool
+        when true the dark frames are scaled to match the exposure time of 
+        the ligth (science) frames
+    correct_outliers_params : dict
+        correct_outlier_params is a dictionary object which tells the program whether
+        or not to calcualte 
+    frame_filter : str
+        string describing the filter for the image
+    master_dir : str
+        string defining the path for the directory contianing master frames
+    corrected_light_dir : str
+        string defining the path for the corrected light frames
+    all_fits : Astropy.CCDProc.ImageFileCollection object
+        This object contains all .fits files in the directory and sub-directories
+        in 'topdir' given by the user in the initialization section.
+        
+    binning : string
+        defines the binnning of the images. Binning must be the same in both dimensions
+        i.e. 3x3 
 
     Returns
     -------
