@@ -10,8 +10,10 @@ Created on Mon Mar 21 11:48:29 2022
 '''
 Batch Reduced Image Script
 
-Bathc_solves purpose is to enable the user to solve multiple catalogs of data.
-Each module is broken down into sections which may be operated individual or the script can be run as a whole
+Batch_solves purpose is to enable the user to solve multiple catalogs of data.
+Each module is broken down into sections which may be operated individual or
+ the script can be run as a whole if the whole image processing pipeline is 
+ needed.
 
 '''
 
@@ -30,10 +32,12 @@ import pinpoint
 ##
 
 # Manually set the image Reduction Parameters
+# User must already have prebuilt master files in order to avaoid repeatititon
+# of master_frame creation. Developement of master frames can be done using
+# the GUI and only inputting Bias, Dark and Flat Frames
 
 '''
  Steps: Create Master frame data manually using the GUI
-
 ____
 image_path: string
  must contain only light images
@@ -53,9 +57,8 @@ def batch_reduced_images(create_master_dark,
                          use_existing_masters,
                          exisiting_masters_dir,
                          scalable_dark_bool,
-
-
                          ):
+
     list_subfolders_with_paths = [f.path for f in os.scandir(image_path) if f.is_dir()]
 
     for dirs in list_subfolders_with_paths:
@@ -74,13 +77,17 @@ def batch_reduced_images(create_master_dark,
                           sav_loc
                           )
 
+#%% Call the Image Reduciton Module
+##
 
-
+# Define the Science image Path and image Path
 
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
 image_path= r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-04-25\Siderial Stare Mode -Reduced\2021-04-25 - Reduced"
+
+# Set Parameters
 
 create_master_dark=False
 create_master_flat=False
@@ -124,7 +131,7 @@ list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir(
 
 
 for dirs in list_subfolders_with_paths:
-    sav_loc = Path(str(dirs) + '_Outlier_Corrected')
+    sav_loc = Path(str(dirs) + '_Corrected')
     sav_loc.mkdir(exist_ok=True)
     if use_existing_masters:
         reduced_dirs=[dirs,exisiting_masters_dir]
@@ -162,6 +169,24 @@ for dirs in list_subfolders_with_paths:
 # %% Batch Solve
 ## Batch Solve
 #
+'''
+Batch Solving is built to iterate through the Starfields in a certain dataset 
+instead of only iterating through a singular starfield
+
+Current Example Structure:
+
+Mar 16 2022
+    |
+    ---> SA23
+           |
+           ---> B
+                |
+                ---> *.fits
+           |
+           ---> G
+           ````
+    
+'''
 
 dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
 catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"

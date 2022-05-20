@@ -6,6 +6,30 @@ Created on Thu Apr 28 15:05:05 2022
 
 This file stores code used for photometry general_tools
 
+Breakdown of this module:
+
+┌───────────┐        ┌────────────────────────────────┐    ┌────────────────┐
+│  Inputs   │        │  Phot. Methods:                │    │ Phot Results   │
+├───────────┤        │ ┌────────────┐                 │    ├────────────────┤
+├───────────┤        │ │PSF Fitting │                 │    ├────────────────┤
+│           │        │ └────────────┘                 │    │                │
+│Source     │        │ OR                             │    │X,Y pix location│
+│  Estimates│        │ ┌────────────┐                 │    │                │
+│           │        │ │Aperture    │                 │    │flux            │
+│FWHM       │        │ └─────┬──────┘                 │    │                │
+│           │        │       │                        │    │flux error      │
+│imgdata    ├───────►│       │       ┌─────────────┐  ├───►│  (1 sigma)     │
+│           │        │       ├──────►│Mean Aperture│  │    │                │
+│bkg        │        │       │       └─────────────┘  │    │                │
+│           │        │       │ OR                     │    │                │
+│filepath   │        │       │       ┌─────────────┐  │    │                │
+│           │        │       └──────►│Dynamic      │  │    │                │
+│fits. hdr  │        │               └─────────────┘  │    │                │
+│           │        │                                │    │                │
+└───────────┘        └────────────────────────────────┘    └────────────────┘
+
+
+
 """
 import numpy as np
 from astropy.io import fits

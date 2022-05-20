@@ -1,4 +1,11 @@
+'''
+Module Contains all functions pertaining to using Visual Pinpoint
 
+
+
+
+
+'''
 
 import os
 
