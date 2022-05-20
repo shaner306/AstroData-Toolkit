@@ -22,6 +22,51 @@ import matplotlib.pyplot as plt
 
 
 ##
+class stars:
+    '''
+    list_of_stars: list of strings
+    A list of star string names
+
+    '''
+    list_of_stars=[]
+
+    def __init__(self,name):
+        self.name=name
+        self.list_of_stars.append(name)
+
+        self.counts=[]
+        self.xs=[]
+        self.ys=[]
+        self.ras=[]
+        self.decs=[]
+
+
+    def update(self,flux,x,y,ra,dec):
+        '''
+
+        Parameters
+        ----------
+        flux: value of the fluxes
+        x
+        y
+        ra
+        dec
+
+        Returns
+        -------
+
+        '''
+        self.counts.append(flux)
+        self.xs.append(x)
+        self.ys.append(y)
+        self.ras.append(ra)
+        self.decs.append(dec)
+
+
+
+
+
+##
 def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                       sigma: float, catexp: float,
                       match_residual: float,
@@ -69,7 +114,8 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
         QTable which describes the fluxes of all the matched stars in the images
 
     '''
-    matched_star_dictionary = {}
+    matched_star_dictionary={}
+    matched_star_collection={}
     file_suffix=(".fits",".fit",".fts")
     for dirpath,dirnames,filenames in os.walk(image_dir):
         for filename in filenames:
@@ -95,10 +141,11 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                     f.RightAscension = f.targetRightAscension
 
                     #focal_length = header['FOCALLEN']
-                    #x_arcsecperpixel, y_arcsecperpixel = \
-                    #    astro.calc_ArcsecPerPixel(XPIXSZ,YPIXSZ,focal_length)
-                    x_arcsecperpixel=2.5
-                    y_arcsecperpixel=2.5
+                    x_arcsecperpixel, y_arcsecperpixel = \
+                        astro.calc_ArcsecPerPixel(header)
+                    #x_arcsecperpixel=2.5
+                    #y_arcsecperpixel=2.5
+
 
                     # yBin = 4.33562092816E-004*3600;
                     # xBin =  4.33131246330E-004*3600;
@@ -153,23 +200,42 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                     for i,star in enumerate(matched_stars):
 
                         try:
+                            if star.MatchedCatalogStar.Identification in list(matched_star_dictionary.keys()):
 
-                            if star.MatchedCatalogStar.Identification in iterative_exclusion_list:
-                                continue
+                                if star.MatchedCatalogStar.Identification in iterative_exclusion_list:
+                                    continue
+                                else:
+                                    # FIXME: Greedy Algorithm
+                                    measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
+                                    #simple_matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
+                                    #    measured_flux)
+
+
+                                    matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
+                                        measured_flux)
+                                    iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
+
+                                    # Extract matched class from dictionary object
+                                    star_instance=[]
+                                    for i in matched_star_collection:
+                                        if i == star.MatchedCatalogStar.Identification:
+                                            star_instance.append(matched_star_collection[i])
+                                    star_instance=star_instance[0]
+                                    star_instance.update(measured_flux,star.X,star.Y,f.RightAscension,f.Declination)
                             else:
-
-                                # FIXME: Greedy Algorithm
-
-
-                                matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
-                                    f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count)
+                                # First Instance of the star
+                                measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
+                                matched_star_dictionary[star.MatchedCatalogStar.Identification] = ([
+                                    measured_flux])
                                 iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
+                                star_instance=stars(star.MatchedCatalogStar.Identification)
+                                star_instance.update(measured_flux,star.X,star.Y,f.RightAscension,f.Declination)
+                                matched_star_collection[star_instance.name]=star_instance # Add Star to Collection
+                        except Exception as e:
+                            raise (e)
+                            break
 
-                        except:
-                            # First Instance of the star
-                            matched_star_dictionary[star.MatchedCatalogStar.Identification] = ([
-                                f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count])
-                            iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
+
                     f.DetachFITS()
 
                     f = None
@@ -180,7 +246,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                     print(e)
                     continue
 
-    return matched_star_dictionary
+    return matched_star_dictionary,matched_star_collection
 
 
 ##
@@ -237,7 +303,7 @@ def statistics_of_matched_stars(matched_star_dictionary, save_loc,
 
 
 
-            if standard_dev > np.mean(array_of_match_star_items)*std_pass_threshold:
+            if standard_dev > np.mean(array_of_match_star_items)*std_pass_threshold or standard_dev==0:
                 pass_fail_str='FAIL'
             else:
                 passed_matched_stars[matched_star]=matched_star_dictionary[
@@ -299,6 +365,7 @@ def plot_measure_flux(matched_star_dictionary,save_loc,
 ##
 from astroquery.simbad import Simbad
 def query_stars(passed_matched_stars):
+
     passed_matched_stars_list=passed_matched_stars.keys()
     repacked_passed_matched_star_list = [
         (passed_matched_stars_list_item.split('-')[
@@ -306,7 +373,18 @@ def query_stars(passed_matched_stars):
                   '' + passed_matched_stars_list_item.split('-')[1] + '-' +
          passed_matched_stars_list_item.split('-')[2]) for
         passed_matched_stars_list_item in passed_matched_stars_list]
-    result_table=Simbad.query_objectids(repacked_passed_matched_star_list)
+    for i,passed_matched_star in enumerate(repacked_passed_matched_star_list):
+        try:
+            if 'result_table' in locals():
+                result_table.add_row(Simbad.query_object(passed_matched_star))
+            else:
+                result_table = Simbad.query_object(passed_matched_star)
+        except Exception as e:
+            print(e)
+            continue
+
+
+
 
 
 
@@ -321,17 +399,15 @@ def query_stars(passed_matched_stars):
 inner_rad=32
 outer_rad=48
 
-image_dir=r"C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 26"
-catalogue_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
-matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 18 ,2, \
-                        0.8, 0, 60, 11, False, 32, 48)
+image_dir=r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B"
+catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
+matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3, \
+                        0.8, 2, 60, 11, False, 32, 48)
 passed_matched_stars=statistics_of_matched_stars(matched_star_dictionary,
-                            r"C:\Users\mstew\Documents\School and "
-                            r"Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 26\flux_calculations.txt",
+                            r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\flux_calculations.txt",
                             inner_rad,outer_rad)
-plot_measure_flux(matched_star_dictionary,r"C:\Users\mstew\Documents\School "
-                                          r"and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 26\fluxplots.png",
-                  passed_matched_stars,r"C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 26\passed_stars_fluxplots.png"
+plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\fluxplots.png",
+                  passed_matched_stars,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\passed_stars_fluxplots.png"
 
                                         )
 
@@ -341,9 +417,9 @@ matched_star_dictionary={}
 #%%
 ## Mutliple Requests
 
-image_path = r"C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 26"
-catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+image_path = r"D:\School\Work - Winter 2022\Work\2021-03-21"
+catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 
 
@@ -352,6 +428,7 @@ outer_rad=48
 list_subfolders_with_paths = [folder.path for folder in os.scandir(image_path) if folder.is_dir()]
 
 target_dirs=[]
+
 
 #TODO : Clean up Code
 for subfolder in list_subfolders_with_paths:
@@ -370,19 +447,19 @@ for subfolder in list_subfolders_with_paths:
         continue
 for dirs in target_dirs:
 
-    matched_star_dictionary_result=get_matched_stars(dirs, catalog_dir, 15 ,
-                                                     2, 0.8, 0, 60, 11,
-                                                     False, inner_rad, outer_rad)
+    matched_star_dictionary,matched_star_collection=get_matched_stars(dirs, catalog_dir, 15,
+                                                     3, 0.8, 2, 60, 11,
+                                                     False, inner_rad, outer_rad,)
 
     passed_matched_stars=statistics_of_matched_stars(
-        matched_star_dictionary_result,
+        matched_star_dictionary,
                                 dirs+r"\flux_calculations.txt",inner_rad,
         outer_rad)
-    plot_measure_flux(matched_star_dictionary_result,
+    plot_measure_flux(matched_star_dictionary,
                      dirs+r"\allfluxplots.png",passed_matched_stars,
                       dirs+r"\passed_stars_fluxplots.png")
 
-    matched_star_dictionary_result={}
+    #matched_star_dictionary_result={}
 
 # for dirpath,dirname,filename in os.walk()
 # image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16"
@@ -391,4 +468,4 @@ for dirs in target_dirs:
 #statistics_of_matched_stars(matched_star_dictionary,)
 
 
-
+##
