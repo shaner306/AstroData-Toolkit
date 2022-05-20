@@ -5821,7 +5821,10 @@ def fits_header_import(filepath, filter_key='FILTER'):
         wcs
 
 
+
 def calc_ArcsecPerPixel(header):
+    # TODO: Add only required headers information into this funciton instead
+    #  of the whole header
     '''
     #TODO: Add Docstring
     Parameters
