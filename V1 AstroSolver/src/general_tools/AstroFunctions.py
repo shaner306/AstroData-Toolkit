@@ -3364,7 +3364,7 @@ def apply_gb_timeseries_transforms(gb_final_transforms, sat_dict, sat_auxiliary_
 
     Returns
     -------
-    sat_dict : dict of {str : astropy.table.Table}
+    app_sat_dict : dict of {str : astropy.table.Table}
         Dictionary containing interpolated apparent magnitudes and uncertainties for each satellite of interest.
 
     """
@@ -3719,6 +3719,14 @@ def determine_if_change_sat_positions(sat_information, filenum, change_sat_posit
     max_num_nan : int, optional
         Maximum number of consecutive rows that can have a numpy.nan value for the magnitude before requiring the
         satellite positions be changed. The default is 5.
+    
+    Returns
+    -------
+    change_sat_position_bool : bool
+        Controls whether or not the satellite positions need to be updated.
+    num_nan : int
+        Number of consecutive images with a nan for a satellite's magnitude. This number of images will be re-processed
+        with the new satellite positions if change_sat_position_bool is true.
     """
     sat_mags = np.array(list(sat_information.sats_table[filenum]))
     mask = np.isnan(sat_mags[2:].astype(float))
@@ -3738,15 +3746,128 @@ def change_sat_positions(filenames,
                          change_sat_positions_bool,
                          gb_final_transforms=None,
                          max_distance_from_sat=20,
-                         size=25,
                          temp_dir='tmp',
-                         cmap_set='Set1',
-                         plot_results=0):
+                         cmap_set='Set1'):
     """
-    TODO: docstring.
+    Update the expected positions of the satellites.
+
+    Parameters
+    ----------
+    filenames : array-like
+        List of the names of the files to process.
+    filenum : int
+        Current row number of the image being processed.
+    num_nan : int
+        Number of consecutive images with a nan for a satellite's magnitude. This number of images will be re-processed
+        with the new satellite positions.
+    sat_information : namedtuple
+        Attributes:
+            sats_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Instrumental magnitudes of the satellite with name <sat_name>.
+            uncertainty_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+            sat_auxiliary_table : astropy.table.Table
+                Table containing additional information about the satellite observations. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    FWHM : numpy.float64
+                        Average FWHM of all point sources detected in the image.
+                    Airmass : numpy.float64
+                        Average airmass of all sources detected in the image.
+                    BSB : numpy.float64
+                        Background sky brightness of the image in mag/arcsec^2.
+            sat_locs : array-like
+                Pixel locations of the desired satellites in the image.
+            num_sats : int
+                Number of desired satellites of interest in the image.
+            num_nans : int
+                Number of consecutive rows that have a numpy.nan value for the magnitude.
+            sat_names : list of str
+                Names of the desired satellites of interest in the image.
+    change_sat_position_bool : bool
+        Controls whether or not the satellite positions need to be updated.
+    gb_final_transforms : astropy.table.Table, optional
+        Table containing the results for the final transforms. Has columns:
+            filter : str
+                Instrumental filter band used to calculate the transform.
+            CI : str
+                Name of the colour index used to calculate the transform (e.g. B-V for b, V-R for r).
+            k''_fCI : float
+                The second order atmospheric extinction coefficient for filter f using the colour index CI.
+            T_fCI : float
+                The instrumental transform coefficient for filter f using the colour index CI.
+            k'_f : float
+                The first order atmospheric extinction coefficient for filter f.
+            Z_f : float
+                The zero point magnitude for filter f.
+    max_distance_from_sat : int, optional
+        Maximum distance between the detected source and desired satellites pixel coordinates to consider the detection
+        successful. This is also the farthest that the satellite can move between detections before requiring user
+        intervention. The default is 20.
+    temp_dir : str, optional
+        Location the files to process are temporarily stored. The default is 'tmp'.
+    cmap_set : str, optional
+        Colourmap to use when plotting bounding boxes around satellites. The default is 'Set1'.
+        TODO: change to viridis.
+    
+    Returns
+    -------
+    change_sat_position_bool : bool
+        Controls whether or not the satellite positions need to be updated.
+    sat_information : namedtuple
+        Attributes:
+            sats_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Instrumental magnitudes of the satellite with name <sat_name>.
+            uncertainty_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+            sat_auxiliary_table : astropy.table.Table
+                Table containing additional information about the satellite observations. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    FWHM : numpy.float64
+                        Average FWHM of all point sources detected in the image.
+                    Airmass : numpy.float64
+                        Average airmass of all sources detected in the image.
+                    BSB : numpy.float64
+                        Background sky brightness of the image in mag/arcsec^2.
+            sat_locs : array-like
+                Pixel locations of the desired satellites in the image.
+            num_sats : int
+                Number of desired satellites of interest in the image.
+            num_nans : int
+                Number of consecutive rows that have a numpy.nan value for the magnitude.
+            sat_names : list of str
+                Names of the desired satellites of interest in the image.
     """
-    # Change the position
-    # Display filenames[filenum - num_nan]
+
     def mbox(title, text, style):
         return ctypes.windll.user32.MessageBoxW(0, text, title, style)
 
@@ -3790,14 +3911,11 @@ def change_sat_positions(filenames,
         cmap = plt.get_cmap(cmap_set)
         colours = [cmap(i) for i in range(0, sat_information.num_sats)]
         for i in range(0, sat_information.num_sats):
-            sat_aperture = RectangularAperture(sat_information.sat_locs[i],
+            sat_aperture = RectangularAperture(sat_information.sat_locs[i], 
                                                w=max_distance_from_sat * 2,
                                                h=max_distance_from_sat * 2)
             sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
-            legend_elements.append(Line2D([0], [0], color='w',
-                                          marker='s',
-                                          markerfacecolor=colours[i],
-                                          markersize=7,
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
                                           label=sat_information.sat_names[i]))
         fig.legend(handles=legend_elements, framealpha=1)
         canvas = FigureCanvasTkAgg(fig, master=img_frame)
@@ -3819,9 +3937,7 @@ def change_sat_positions(filenames,
                                                w=max_distance_from_sat * 2,
                                                h=max_distance_from_sat * 2)
             sat_aperture.plot(axes=ax, color=colours[i], lw=1.5, alpha=0.5)
-            legend_elements.append(Line2D([0], [0], color='w', marker='s',
-                                          markerfacecolor=colours[i],
-                                          markersize=7,
+            legend_elements.append(Line2D([0], [0], color='w', marker='s', markerfacecolor=colours[i], markersize=7,
                                           label=sat_information.sat_names[i]))
         fig.legend(handles=legend_elements, framealpha=1)
         canvas = FigureCanvasTkAgg(fig, master=img_frame)
@@ -3873,7 +3989,6 @@ def change_sat_positions(filenames,
             filepath = f"{temp_dir}/{filenames[filenum - reversing_index]}"
             hdr, imgdata = read_fits_file(filepath)
             print(filenames[filenum - reversing_index])
-            filename = filenames[filenum - reversing_index]
             exptime = hdr['EXPTIME'] * u.s
             try:
                 sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(filepath)
@@ -3905,7 +4020,98 @@ def change_sat_positions(filenames,
 
 
 def add_new_time_and_filter(hdr, sat_information, filenum):
+    """
+    Append the image's time and instrumental filter to the corresponding sats_table.
+
+    Parameters
+    ----------
+    hdr : astropy.io.fits.header.Header
+        Header from the fits file.
+    sat_information : namedtuple
+        Attributes:
+            sats_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Instrumental magnitudes of the satellite with name <sat_name>.
+            uncertainty_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+            sat_auxiliary_table : astropy.table.Table
+                Table containing additional information about the satellite observations. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    FWHM : numpy.float64
+                        Average FWHM of all point sources detected in the image.
+                    Airmass : numpy.float64
+                        Average airmass of all sources detected in the image.
+                    BSB : numpy.float64
+                        Background sky brightness of the image in mag/arcsec^2.
+            sat_locs : array-like
+                Pixel locations of the desired satellites in the image.
+            num_sats : int
+                Number of desired satellites of interest in the image.
+            num_nans : int
+                Number of consecutive rows that have a numpy.nan value for the magnitude.
+            sat_names : list of str
+                Names of the desired satellites of interest in the image.
+    filenum : int
+        Current row number of the image being processed.
+    
+    Returns
+    -------
+    sat_information : namedtuple
+        Attributes:
+            sats_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Instrumental magnitudes of the satellite with name <sat_name>.
+            uncertainty_table : astropy.table.Table
+                Table containing magnitudes of the detected satellites. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    <sat_name> : numpy.float64
+                        Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+            sat_auxiliary_table : astropy.table.Table
+                Table containing additional information about the satellite observations. Has columns:
+                    Time (JD) : numpy.float64
+                        Time of the observation in julian date.
+                    Filter : str
+                        Name of the filter band used to take the image.
+                    FWHM : numpy.float64
+                        Average FWHM of all point sources detected in the image.
+                    Airmass : numpy.float64
+                        Average airmass of all sources detected in the image.
+                    BSB : numpy.float64
+                        Background sky brightness of the image in mag/arcsec^2.
+            sat_locs : array-like
+                Pixel locations of the desired satellites in the image.
+            num_sats : int
+                Number of desired satellites of interest in the image.
+            num_nans : int
+                Number of consecutive rows that have a numpy.nan value for the magnitude.
+            sat_names : list of str
+                Names of the desired satellites of interest in the image.
+    """
     t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
+    # Exception raises when the filter in the FITS header is longer than 1 character. In this case, it is assumed that
+    # the intended filter is clear ('C'), as this problem was commonly seen with filter 'OPEN-A5'.
     sat_information.sats_table['Time (JD)'][filenum] = t.jd
     try:
         sat_information.sats_table['Filter'][filenum] = hdr['FILTER'][0]
@@ -3925,6 +4131,35 @@ def add_new_time_and_filter(hdr, sat_information, filenum):
 
 
 def interpolate_sats(sats_table, uncertainty_table, unique_filters):
+    """
+    Interpolate observations of satellites such that there is a magnitude in each filter for every timestep.
+
+    Parameters
+    ----------
+    sats_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Instrumental magnitudes of the satellite with name <sat_name>.
+    uncertainty_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+    unique_filters : str
+        All of the different filters used for the processed observations.
+    
+    Returns
+    -------
+    sat_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated instrumental magnitudes and uncertainties for each satellite of interest.
+    """
     dict_keys = sats_table.columns[2:]
     unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in unique_filters]
     filter_table_columns = unique_filters + unique_filters_sigma
@@ -3964,62 +4199,30 @@ def interpolate_sats(sats_table, uncertainty_table, unique_filters):
     return sat_dict
 
 
-def interpolate_aux_data(sat_auxiliary_table, unique_filters, aux_key):
-    time_table = sat_auxiliary_table['Time (JD)']
-    times_list = np.array(time_table)
-    interpolated_table_columns = np.empty(
-        (len(sat_auxiliary_table), len(unique_filters)))
-    interpolated_table_columns.fill(np.nan)
-    interpolated_table_data = Table(
-        data=interpolated_table_columns, names=unique_filters)
-    interpolated_table = hstack([time_table, interpolated_table_data])
-    for unique_filter in unique_filters:
-        mask = sat_auxiliary_table['Filter'] == unique_filter
-        filter_all_aux_table = sat_auxiliary_table[mask]
-        filter_interpolated =\
-            np.interp(times_list,
-                      filter_all_aux_table['Time (JD)'][~np.isnan(
-                          filter_all_aux_table[aux_key])],
-                      filter_all_aux_table[aux_key]
-                      [~np.isnan(filter_all_aux_table[aux_key])])
-        filter_interpolated[np.isnan(sat_auxiliary_table[aux_key])] = np.nan
-        interpolated_table[unique_filter] = filter_interpolated
-    return interpolated_table
-
-
-def create_limiting_mag_dict(limiting_mag_table):
-    limiting_mag_dict = {"Limiting Mag": limiting_mag_table}
-    return limiting_mag_dict
-
-
-def remove_dim_sats(app_sat_dict, limiting_mag_table, unique_filters):
-    for sat, sat_table in app_sat_dict.items():
-        for unique_filter in unique_filters:
-            mask = sat_table[unique_filter] > limiting_mag_table[unique_filter]
-            sat_table[unique_filter][mask] = np.nan
-            sat_table[f"{unique_filter}_sigma"][mask] = np.nan
-
-
-def interpolate_bsb(sat_auxiliary_table, filters_to_plot, times_list):
-    bsb_key = "Background Sky Brightness"
-    bsb_table_data = np.empty((len(times_list), len(filters_to_plot)))
-    bsb_table_data.fill(np.nan)
-    bsb_table = Table(names=filters_to_plot, data=bsb_table_data)
-    for unique_filter in filters_to_plot:
-        mask = sat_auxiliary_table['Filter'] == unique_filter
-        filter_all_aux_table = sat_auxiliary_table[mask]
-        filter_interpolated =\
-            np.interp(times_list,
-                      filter_all_aux_table['Time (JD)'][~np.isnan(
-                          filter_all_aux_table[bsb_key])],
-                      filter_all_aux_table[bsb_key]
-                      [~np.isnan(filter_all_aux_table[bsb_key])])
-        filter_interpolated[np.isnan(sat_auxiliary_table[bsb_key])] = np.nan
-        bsb_table[unique_filter] = filter_interpolated
-    return bsb_table
-
-
 def determine_num_filters(sats_table):
+    """
+    Determine the different filters used in the observations of the satellites.
+
+    Parameters
+    ----------
+    sats_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Instrumental magnitudes of the satellite with name <sat_name>.
+    
+    Returns
+    -------
+    unique_filters : str
+        All of the different filters used for the processed observations.
+    num_filters : int
+        Number of different filters used for the processed observations.
+    multiple_filters : bool
+        Whether or not more than 1 filter was used for the observations.
+    """
     unique_filter_table = table.unique(sats_table, keys='Filter')
     unique_filters = list(unique_filter_table['Filter'])
     num_filters = len(unique_filters)
@@ -4029,77 +4232,127 @@ def determine_num_filters(sats_table):
     return unique_filters, num_filters, multiple_filters
 
 
-def get_all_indicies_combinations(unique_filters,
-                                  num_filters,
-                                  multiple_filters=True):
+def get_all_indicies_combinations(unique_filters, multiple_filters=True):
+    """
+    Get all possible combinations of colour indices given the different filters used.
+
+    Paramters
+    ---------
+    unique_filters : str
+        All of the different filters used for the processed observations.
+    multiple_filters : bool, optional
+        Whether or not more than 1 filter was used for the observations. The default is True.
+    
+    Returns
+    -------
+    all_indices : list of str
+        All permutations of the unique filters combined into a string (e.g. ['BV', 'BR',...]).
+    all_indices_formatted : list of str
+        Formatted version of all_indices to be used for plots. Adds a '-' between the first and second filters
+        (e.g. ['B-V', 'B-R',...]).
+    None if multiple_filters is False.
+    """
     if multiple_filters:
         all_indices = list(permutations(unique_filters, 2))
-        all_indices_formatted = [
-            f'{index[0]}-{index[1]}' for index in all_indices]
+        all_indices_formatted = [f'{index[0]}-{index[1]}' for index in all_indices]
         return all_indices, all_indices_formatted
     else:
         return
 
 
 def calculate_timeseries_colour_indices(sat_dict, all_indices):
+    """
+    Calculate the time-resolved colour indices of the satellites.
+
+    Parameters
+    ----------
+    sat_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated instrumental magnitudes and uncertainties for each satellite of interest.
+    all_indices : list of str
+        All permutations of the unique filters combined into a string (e.g. ['BV', 'BR',...]).
+    
+    Returns
+    -------
+    colour_indices_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated colour indices and uncertainties for each satellite of interest.
+    """
     index_column_names = [f"{index[0]}-{index[1]}" for index in all_indices]
-    index_uncertainty_column_names = [
-        f"{index}_sigma" for index in index_column_names]
+    index_uncertainty_column_names = [f"{index}_sigma" for index in index_column_names]
     index_table_columns = index_column_names + index_uncertainty_column_names
     num_columns = len(index_table_columns)
     colour_indices_dict = dict.fromkeys(sat_dict.keys())
-    for sat, sat_table in colour_indices_dict.items():
+    for sat, _ in colour_indices_dict.items():
         time_table = sat_dict[sat]['Time (JD)']
         data = np.empty((len(time_table), num_columns))
         data.fill(np.nan)
         index_table = Table(names=index_table_columns, data=data)
         colour_indices_dict[sat] = hstack([time_table, index_table])
         for index_number, index in enumerate(all_indices):
-            colour_indices_dict[sat][index_column_names[index_number]] =\
-                sat_dict[sat][index[0]] \
-                - sat_dict[sat][index[1]]
-            colour_indices_dict[sat][index_uncertainty_column_names[index_number]] =\
-                sat_dict[sat][f"{index[0]}_sigma"] \
-                + sat_dict[sat][
-                f"{index[1]}_sigma"]
+            colour_indices_dict[sat][index_column_names[index_number]] = \
+                sat_dict[sat][index[0]] - sat_dict[sat][index[1]]
+
+            colour_indices_dict[sat][index_uncertainty_column_names[index_number]] = \
+                sat_dict[sat][f"{index[0]}_sigma"] + sat_dict[sat][f"{index[1]}_sigma"]
     return colour_indices_dict
 
 
-def choose_indices_to_plot(unique_filters,
-                           num_filters,
-                           all_indices_formatted,
-                           sat_auxiliary_table):
+def choose_indices_to_plot(unique_filters, all_indices_formatted, sat_auxiliary_table):
+    """
+    Allow the user to select the data to plot for the light curve using a GUI.
+
+    Parameters
+    ----------
+    unique_filters : str
+        All of the different filters used for the processed observations.
+    all_indices_formatted : list of str
+        Formatted version of all permutations of the unique filters. Adds a '-' between the first and second filters of
+        the colour index (e.g. ['B-V', 'B-R',...]).
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    
+    Returns
+    -------
+    filters_to_plot : list of str
+        Names of filters to include on the lightcurve plot.
+    indices_to_plot : list of str
+        Names of the colour indices to include on the lightcurve plot.
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    """
     rootx = tk.Tk()
     rootx.title("Plot Options")
-    label = tk.Label(
-        rootx, text='Please select the items that you wish to plot.')
+    label = tk.Label(rootx, text='Please select the items that you wish to plot.')
     label.grid(row=0, column=0, columnspan=3)
     label = tk.Label(rootx, text='Filters:')
     label.grid(row=1, column=0)
     filter_checked = []
     for filter_num, unique_filter in enumerate(unique_filters):
         filter_checked.append(tk.IntVar())
-        checkbutton = tk.Checkbutton(
-            rootx, text=unique_filter, variable=filter_checked[filter_num])
+        checkbutton = tk.Checkbutton(rootx, text=unique_filter, variable=filter_checked[filter_num])
         checkbutton.grid(row=filter_num + 2, column=0, sticky=tk.W)
-    # none_filter = tk.IntVar()
-    # checkbutton = tk.Checkbutton(rootx, text="None", variable=none_filter)
-    # checkbutton.grid(row=num_filters+2, column=0, sticky=tk.W)
     label = tk.Label(rootx, text='Colour Indices:')
     label.grid(row=1, column=1)
     index_checked = []
     for index_num, index in enumerate(all_indices_formatted):
         index_checked.append(tk.IntVar())
-        checkbutton = tk.Checkbutton(
-            rootx, text=index, variable=index_checked[index_num])
+        checkbutton = tk.Checkbutton(rootx, text=index, variable=index_checked[index_num])
         checkbutton.grid(row=index_num + 2, column=1, sticky=tk.W)
     label = tk.Label(rootx, text='Auxiliary Data:')
     label.grid(row=1, column=2)
     aux_checked = []
     for aux_num, aux_type in enumerate(sat_auxiliary_table.columns[2:]):
         aux_checked.append(tk.IntVar())
-        checkbutton = tk.Checkbutton(
-            rootx, text=aux_type, variable=aux_checked[aux_num])
+        checkbutton = tk.Checkbutton(rootx, text=aux_type, variable=aux_checked[aux_num])
         checkbutton.grid(row=aux_num + 2, column=2, sticky=tk.W)
     closebutton = tk.Button(rootx, text='OK', command=rootx.destroy)
     closebutton.grid(row=len(all_indices_formatted) + 3, column=1)
@@ -4125,63 +4378,47 @@ def choose_indices_to_plot(unique_filters,
     return filters_to_plot, indices_to_plot, aux_data_to_plot
 
 
-# def remove_light_curve_outliers(app_sat_dict, unique_filters):
-#     unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in\
-# unique_filters]
-#     for sat, sat_table in app_sat_dict.items():
-#         sat_table_pandas = sat_table[unique_filters].to_pandas()
-#         # sat_table_pandas.set_index('Time (JD)')
-#         sat_table_rolling_median = sat_table_pandas.rolling(45).median()
-#         sat_table_rolling_std = sat_table_pandas.rolling(45).std()
-#         points_to_remove = (sat_table_pandas >= sat_table_rolling_median +\
-# (2.5 * sat_table_rolling_std)) | (sat_table_pandas <=\
-# sat_table_rolling_median - (2.5 * sat_table_rolling_std))
-#         points_to_remove_numpy = points_to_remove.to_numpy()
-#         # print(points_to_remove_numpy)
-#         sat_table_numpy = sat_table[unique_filters].to_pandas().to_numpy()
-#         # print(sat_table_numpy)
-#         sat_table_numpy[points_to_remove_numpy] = np.nan
-#         # print(sat_table_numpy)
-#         uncertainty_table_numpy =\
-# sat_table[unique_filters_sigma].to_pandas().to_numpy()
-#         uncertainty_table_numpy[points_to_remove_numpy] = np.nan
-#         # time_numpy = np.array(sat_table['Time (JD)'])
-#         data_table = Table(names=unique_filters, data=sat_table_numpy)
-#         uncertainty_table = Table(names=unique_filters_sigma, data=\
-#         uncertainty_table_numpy)
-#         new_sat_table = hstack([sat_table['Time (JD)'], data_table,
-#         uncertainty_table])
-#         app_sat_dict[sat] = new_sat_table
+def plot_light_curve_multiband(sat_table, sat, colour_indices_dict, sat_auxiliary_table, filters_to_plot,
+                               indices_to_plot, aux_data_to_plot):
+    """
+    Plot satellie light curve for observations taken in multiple filters.
 
-
-# def remove_outliers(app_sat_dict, unique_filters):
-#     # unique_filters_sigma = [f"{unique_filter}_sigma" for unique_filter in\
-# unique_filters]
-#     for sat, sat_table in app_sat_dict.items():
-#         for unique_filter in unique_filters:
-#             q75, q25 = np.percentile(sat_table[unique_filter], [75, 25])
-#             intr_qtr = q75 - q25
-#             upper_bound = q75 + (1.5 * intr_qtr)
-#             lower_bound = q25 - (1.5 * intr_qtr)
-#             # mask = (sat_table[unique_filter] > upper_bound) | \
-# (sat_table[unique_filter] < lower_bound)
-#             sat_table[unique_filter][sat_table[unique_filter] > upper_bound]\
-# = np.nan
-#             sat_table[f"{unique_filter}_sigma"]\
-# [sat_table[unique_filter] > upper_bound] = np.nan
-#             sat_table[unique_filter][sat_table[unique_filter] < lower_bound]\
-# = np.nan
-#             sat_table[f"{unique_filter}_sigma"]\
-# [sat_table[unique_filter] < lower_bound] = np.nan
-
-
-def plot_light_curve_multiband(sat_table,
-                               sat,
-                               colour_indices_dict,
-                               sat_auxiliary_table,
-                               filters_to_plot,
-                               indices_to_plot,
-                               aux_data_to_plot):
+    Parameters
+    ----------
+    sat_table : astropy.table.Table
+        Table of interpolated magnitudes for a single satellite. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            <filter> : numpy.float64
+                Interpolated magnitude for filter <filter>.
+            <filter>_sigma : numpy.float64
+                Interpolated magnitude standard deviation for filter <filter>.
+    colour_indices_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated colour indices and uncertainties for each satellite of interest.
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    filters_to_plot : list of str
+        Names of filters to include on the lightcurve plot.
+    indices_to_plot : list of str
+        Names of the colour indices to include on the lightcurve plot.
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    
+    Returns
+    -------
+    fig, axs : matplotlib.pyplot plots
+        Plot containing light curve and any auxiliary data for the satellite observations.
+    """
     nrows = 2 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
     height_ratios[0] = 3
@@ -4189,9 +4426,8 @@ def plot_light_curve_multiband(sat_table,
     times_list = np.array(sat_table['Time (JD)'])
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
-    fig, axs = plt.subplots(nrows=nrows, sharex=True,
-                            gridspec_kw=gs_kw, figsize=(7.5, 9.5))
-    for filter_num, unique_filter in enumerate(filters_to_plot):
+    fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
+    for unique_filter in filters_to_plot:
         _, _, bars = axs[0].errorbar(times_datetime, sat_table[unique_filter],
                                      yerr=sat_table[f"{unique_filter}_sigma"],
                                      fmt='o',
@@ -4200,7 +4436,7 @@ def plot_light_curve_multiband(sat_table,
                                      elinewidth=0.75,
                                      label=unique_filter)
         [bar.set_alpha(0.3) for bar in bars]
-    for index_num, colour_index in enumerate(indices_to_plot):
+    for colour_index in indices_to_plot:
         _, _, bars = axs[1].errorbar(times_datetime,
                                      colour_indices_dict[sat][colour_index],
                                      yerr=colour_indices_dict[sat]
@@ -4215,14 +4451,13 @@ def plot_light_curve_multiband(sat_table,
         axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         axs[aux_num].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         axs[aux_num].set_ylabel(aux_data)
-        for filter_num, unique_filter in enumerate(filters_to_plot):
+        for unique_filter in filters_to_plot:
             mask = sat_auxiliary_table['Filter'] == unique_filter
             filter_all_aux_table = sat_auxiliary_table[mask]
             aux_times_list = filter_all_aux_table['Time (JD)']
             aux_times_obj = Time(aux_times_list, format='jd', scale='utc')
             aux_times_datetime = aux_times_obj.to_value('datetime')
-            axs[aux_num].plot(
-                aux_times_datetime, filter_all_aux_table[aux_data], 'o', ms=2, label=unique_filter)
+            axs[aux_num].plot(aux_times_datetime, filter_all_aux_table[aux_data], 'o', ms=2, label=unique_filter)
         if len(filters_to_plot) > 1:
             axs[aux_num].legend()
         if aux_data == "BSB":
@@ -4243,18 +4478,39 @@ def plot_light_curve_multiband(sat_table,
 
 
 def choose_aux_data_to_plot(sat_auxiliary_table):
+    """
+    Allow the user to select the auxiliary data to plot for the light curve using a GUI for single-filter observations.
+
+    Parameters
+    ----------
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    
+    Returns
+    -------
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    """
     rootx = tk.Tk()
     rootx.title("Plot Options")
-    label = tk.Label(
-        rootx, text='Please select the items that you wish to plot.')
+    label = tk.Label(rootx, text='Please select the items that you wish to plot.')
     label.grid(row=0, column=0)
     label = tk.Label(rootx, text='Auxiliary Data:')
     label.grid(row=1, column=0)
     aux_checked = []
     for aux_num, aux_type in enumerate(sat_auxiliary_table.columns[2:]):
         aux_checked.append(tk.IntVar())
-        checkbutton = tk.Checkbutton(
-            rootx, text=aux_type, variable=aux_checked[aux_num])
+        checkbutton = tk.Checkbutton(rootx, text=aux_type, variable=aux_checked[aux_num])
         checkbutton.grid(row=aux_num + 2, column=0, sticky=tk.W)
     closebutton = tk.Button(rootx, text='OK', command=rootx.destroy)
     closebutton.grid(row=len(sat_auxiliary_table.columns[2:]) + 2, column=0)
@@ -4268,11 +4524,50 @@ def choose_aux_data_to_plot(sat_auxiliary_table):
     return aux_data_to_plot
 
 
-def plot_light_curve_singleband(sats_table,
-                                sat,
-                                uncertainty_table,
-                                sat_auxiliary_table,
-                                aux_data_to_plot):
+def plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliary_table, aux_data_to_plot):
+    """
+    Plot satellie light curve for observations taken in only one filter.
+
+    Parameters
+    ----------
+    sats_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Instrumental magnitudes of the satellite with name <sat_name>.
+    sat : str
+        Name of satellite for which to plot a lightcurve.
+    uncertainty_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            sat : numpy.float64
+                Uncertainty of the instrumental magnitudes of the satellite with name <sat_name> equal to sat.
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    
+    Returns
+    -------
+    fig, axs : matplotlib.pyplot plots
+        Plot containing light curve and any auxiliary data for the satellite observations.
+    """
     nrows = 1 + len(aux_data_to_plot)
     height_ratios = [1] * nrows
     height_ratios[0] = 3
@@ -4280,10 +4575,7 @@ def plot_light_curve_singleband(sats_table,
     times_obj = Time(times_list, format='jd', scale='utc')
     times_datetime = times_obj.to_value('datetime')
     gs_kw = dict(height_ratios=height_ratios)
-    fig, axs = plt.subplots(nrows=nrows, sharex=True,
-                            gridspec_kw=gs_kw, figsize=(7.5, 9.5))
-    # fig = plt.figure(figsize=(7.5, 9.5))
-    # spec = gridspec.GridSpec(nrows=nrows, ncols=1, height_ratios=height_ratios)
+    fig, axs = plt.subplots(nrows=nrows, sharex=True, gridspec_kw=gs_kw, figsize=(7.5, 9.5))
     if nrows > 1:
         _, _, bars = axs[0].errorbar(times_datetime,
                                      sats_table[sat],
@@ -4294,13 +4586,8 @@ def plot_light_curve_singleband(sats_table,
                                      elinewidth=0.75)
         [bar.set_alpha(0.3) for bar in bars]
         for aux_num, aux_data in enumerate(aux_data_to_plot, start=1):
-            axs[aux_num].plot(
-                times_datetime, sat_auxiliary_table[aux_data],
-                'o',
-                ms=2,
-                label=aux_data)
-            axs[aux_num].xaxis.set_major_formatter(
-                mdates.DateFormatter('%H:%M'))
+            axs[aux_num].plot(times_datetime, sat_auxiliary_table[aux_data], 'o', ms=2, label=aux_data)
+            axs[aux_num].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             axs[aux_num].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
             axs[aux_num].set_ylabel(aux_data)
             if aux_data == "BSB":
@@ -4327,11 +4614,49 @@ def plot_light_curve_singleband(sats_table,
     return fig, axs
 
 
-def axis_limits_singleband_gui(sats_table,
-                               uncertainty_table,
-                               sat_auxiliary_table,
-                               aux_data_to_plot,
-                               save_loc):
+def axis_limits_singleband_gui(sats_table, uncertainty_table, sat_auxiliary_table, aux_data_to_plot, save_loc):
+    """
+    Allow the user to set the y-axis limits for satellite lightcurves using a GUI for observations in a single filter.
+
+    Parameters
+    ----------
+    sats_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Instrumental magnitudes of the satellite with name <sat_name>.
+    uncertainty_table : astropy.table.Table
+        Table containing magnitudes of the detected satellites. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            <sat_name> : numpy.float64
+                Uncertainty of the instrumental magnitudes of the satellite with name <sat_name>.
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    save_loc : str
+        Path in which to save plots.
+    
+    Returns
+    -------
+    None
+    """
     def refresh_plots(canvas):
         fig_list[0], axs = plot_light_curve_singleband(sats_table,
                                                        sat,
@@ -4346,15 +4671,11 @@ def axis_limits_singleband_gui(sats_table,
         canvas.get_tk_widget().delete()
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw()
-        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows,
-                                    sticky=tk.NSEW)
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
 
     def reset_plots(canvas):
-        fig_list[0], axs = plot_light_curve_singleband(sats_table,
-                                                       sat,
-                                                       uncertainty_table,
-                                                       sat_auxiliary_table,
+        fig_list[0], axs = plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliary_table,
                                                        aux_data_to_plot)
         row_num = 1
         for ax in axs:
@@ -4371,8 +4692,7 @@ def axis_limits_singleband_gui(sats_table,
 
     def save_plots(fig):
         fig.set_size_inches(7.5, 9.5)
-        fig.savefig(f"{save_loc}/{sat} Light Curve.pdf",
-                    format='pdf', bbox_inches='tight')
+        fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
 
     try:
@@ -4385,10 +4705,7 @@ def axis_limits_singleband_gui(sats_table,
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat in sats_table.columns[2:]:
         fig_list = [None]
-        fig_list[0], axs = plot_light_curve_singleband(sats_table,
-                                                       sat,
-                                                       uncertainty_table,
-                                                       sat_auxiliary_table,
+        fig_list[0], axs = plot_light_curve_singleband(sats_table, sat, uncertainty_table, sat_auxiliary_table,
                                                        aux_data_to_plot)
 
         root = tk.Tk()
@@ -4401,10 +4718,8 @@ def axis_limits_singleband_gui(sats_table,
         tk.Grid.columnconfigure(root, 0, weight=1)
         toolbarFrame.grid(row=nrows + 1, column=0, sticky=tk.NSEW)
         toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
-        # toolbar = NavigationToolbar2Tk(canvas, root)
         toolbar.update()
-        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows,
-                                    sticky=tk.NSEW)
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         root.update()
         tk.Grid.columnconfigure(root, 1, weight=1)
         label = tk.Label(text="Please set the y axis limits.")
@@ -4414,47 +4729,61 @@ def axis_limits_singleband_gui(sats_table,
         for ax in axs:
             label = tk.Label(root, text=ax.get_ylabel())
             label.grid(column=1, row=row_num, columnspan=2, sticky=tk.N)
-            # entries[row_num-1] = tk.Entry(root, width=10)
             entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
-            entries[row_num - 1].grid(column=1, row=row_num + 1,
-                                      padx=(10, 5), pady=0, sticky=tk.N)
-            # entries[row_num] = tk.Entry(root, width=10)
+            entries[row_num - 1].grid(column=1, row=row_num + 1, padx=(10, 5), pady=0, sticky=tk.N)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
-            entries[row_num].grid(column=2, row=row_num + 1,
-                                  padx=(5, 10), pady=0, sticky=tk.N)
-            # print(ax.get_ylim())
+            entries[row_num].grid(column=2, row=row_num + 1, padx=(5, 10), pady=0, sticky=tk.N)
             row_num += 2
-        button = tk.Button(root, text="Refresh",
-                           command=lambda: refresh_plots(canvas))
+        button = tk.Button(root, text="Refresh", command=lambda: refresh_plots(canvas))
         button.grid(column=1, row=row_num)
-        button = tk.Button(root, text="Reset",
-                           command=lambda: reset_plots(canvas))
+        button = tk.Button(root, text="Reset", command=lambda: reset_plots(canvas))
         button.grid(column=2, row=row_num)
-        button = tk.Button(root, text="Save and Close",
-                           command=lambda: save_plots(fig_list[0]))
+        button = tk.Button(root, text="Save and Close", command=lambda: save_plots(fig_list[0]))
         button.grid(column=1, row=row_num + 1, columnspan=2)
         root.mainloop()
-        # fig.show()
         plt.close()
     return
 
 
-def axis_limits_multiband_gui(app_sat_dict,
-                              colour_indices_dict,
-                              sat_auxiliary_table,
-                              filters_to_plot,
-                              indices_to_plot,
-                              aux_data_to_plot,
-                              save_loc):
+def axis_limits_multiband_gui(app_sat_dict, colour_indices_dict, sat_auxiliary_table, filters_to_plot, indices_to_plot,
+                              aux_data_to_plot, save_loc):
+    """
+    Allow the user to set the y-axis limits for satellite lightcurves using a GUI for observations in multiple filters.
+
+    Parameters
+    ----------
+    app_sat_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated apparent magnitudes and uncertainties for each satellite of interest.
+    colour_indices_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated colour indices and uncertainties for each satellite of interest.
+    sat_auxiliary_table : astropy.table.Table
+        Table containing additional information about the satellite observations. Has columns:
+            Time (JD) : numpy.float64
+                Time of the observation in julian date.
+            Filter : str
+                Name of the filter band used to take the image.
+            FWHM : numpy.float64
+                Average FWHM of all point sources detected in the image.
+            Airmass : numpy.float64
+                Average airmass of all sources detected in the image.
+            BSB : numpy.float64
+                Background sky brightness of the image in mag/arcsec^2.
+    filters_to_plot : list of str
+        Names of filters to include on the lightcurve plot.
+    indices_to_plot : list of str
+        Names of the colour indices to include on the lightcurve plot.
+    aux_data_to_plot : list of str
+        Names of the auxiliary data to include on the lightcurve plot.
+    save_loc : str
+        Path in which to save plots.
+    
+    Returns
+    -------
+    None.
+    """
     def refresh_plots(canvas):
-        # fig.clear()
-        fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                                      sat,
-                                                      colour_indices_dict,
-                                                      sat_auxiliary_table,
-                                                      filters_to_plot,
-                                                      indices_to_plot,
-                                                      aux_data_to_plot)
+        fig_list[0], axs = plot_light_curve_multiband(sat_table, sat, colour_indices_dict, sat_auxiliary_table,
+                                                      filters_to_plot, indices_to_plot, aux_data_to_plot)
         for entry_num, entry in enumerate(entries):
             if entry_num % 2 == 0:
                 axs[entry_num // 2].set_ylim(bottom=float(entry.get()))
@@ -4463,18 +4792,12 @@ def axis_limits_multiband_gui(app_sat_dict,
         canvas.get_tk_widget().delete()
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw()
-        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows,
-                                    sticky=tk.NSEW)
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
 
     def reset_plots(canvas):
-        fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                                      sat,
-                                                      colour_indices_dict,
-                                                      sat_auxiliary_table,
-                                                      filters_to_plot,
-                                                      indices_to_plot,
-                                                      aux_data_to_plot)
+        fig_list[0], axs = plot_light_curve_multiband(sat_table, sat, colour_indices_dict, sat_auxiliary_table,
+                                                      filters_to_plot, indices_to_plot, aux_data_to_plot)
         row_num = 1
         for ax in axs:
             entries[row_num - 1].delete(0, tk.END)
@@ -4485,14 +4808,12 @@ def axis_limits_multiband_gui(app_sat_dict,
         canvas.get_tk_widget().delete()
         canvas = FigureCanvasTkAgg(fig_list[0], master=root)
         canvas.draw()
-        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows,
-                                    sticky=tk.NSEW)
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         plt.close()
 
     def save_plots(fig):
         fig.set_size_inches(7.5, 9.5)
-        fig.savefig(f"{save_loc}/{sat} Light Curve.pdf",
-                    format='pdf', bbox_inches='tight')
+        fig.savefig(f"{save_loc}/{sat} Light Curve.pdf", format='pdf', bbox_inches='tight')
         root.destroy()
 
     try:
@@ -4505,13 +4826,8 @@ def axis_limits_multiband_gui(app_sat_dict,
     nrows = 10 * (2 + len(aux_data_to_plot))
     for sat, sat_table in app_sat_dict.items():
         fig_list = [None]
-        fig_list[0], axs = plot_light_curve_multiband(sat_table,
-                                                      sat,
-                                                      colour_indices_dict,
-                                                      sat_auxiliary_table,
-                                                      filters_to_plot,
-                                                      indices_to_plot,
-                                                      aux_data_to_plot)
+        fig_list[0], axs = plot_light_curve_multiband(sat_table, sat, colour_indices_dict, sat_auxiliary_table,
+                                                      filters_to_plot, indices_to_plot, aux_data_to_plot)
 
         root = tk.Tk()
         for x in range(nrows + 1):
@@ -4523,10 +4839,8 @@ def axis_limits_multiband_gui(app_sat_dict,
         tk.Grid.columnconfigure(root, 0, weight=1)
         toolbarFrame.grid(row=nrows + 1, column=0, sticky=tk.NSEW)
         toolbar = NavigationToolbar2Tk(canvas, toolbarFrame)
-        # toolbar = NavigationToolbar2Tk(canvas, root)
         toolbar.update()
-        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows,
-                                    sticky=tk.NSEW)
+        canvas.get_tk_widget().grid(column=0, row=0, rowspan=nrows, sticky=tk.NSEW)
         root.update()
         tk.Grid.columnconfigure(root, 1, weight=1)
         label = tk.Label(text="Please set the y axis limits.")
@@ -4536,197 +4850,87 @@ def axis_limits_multiband_gui(app_sat_dict,
         for ax in axs:
             label = tk.Label(root, text=ax.get_ylabel())
             label.grid(column=1, row=row_num, columnspan=2, sticky=tk.N)
-            # entries[row_num-1] = tk.Entry(root, width=10)
             entries[row_num - 1].insert(tk.END, f"{ax.get_ylim()[0]:0.3f}")
-            entries[row_num - 1].grid(column=1, row=row_num + 1,
-                                      padx=(10, 5), pady=0, sticky=tk.N)
-            # entries[row_num] = tk.Entry(root, width=10)
+            entries[row_num - 1].grid(column=1, row=row_num + 1, padx=(10, 5), pady=0, sticky=tk.N)
             entries[row_num].insert(tk.END, f"{ax.get_ylim()[1]:0.3f}")
-            entries[row_num].grid(column=2, row=row_num + 1,
-                                  padx=(5, 10), pady=0, sticky=tk.N)
-            # print(ax.get_ylim())
+            entries[row_num].grid(column=2, row=row_num + 1, padx=(5, 10), pady=0, sticky=tk.N)
             row_num += 2
-        button = tk.Button(root, text="Refresh",
-                           command=lambda: refresh_plots(canvas))
+        button = tk.Button(root, text="Refresh", command=lambda: refresh_plots(canvas))
         button.grid(column=1, row=row_num)
-        button = tk.Button(root, text="Reset",
-                           command=lambda: reset_plots(canvas))
+        button = tk.Button(root, text="Reset", command=lambda: reset_plots(canvas))
         button.grid(column=2, row=row_num)
-        button = tk.Button(root, text="Save and Close",
-                           command=lambda: save_plots(fig_list[0]))
+        button = tk.Button(root, text="Save and Close", command=lambda: save_plots(fig_list[0]))
         button.grid(column=1, row=row_num + 1, columnspan=2)
         root.mainloop()
-        # fig.show()
         plt.close()
     return
 
 
 def save_interpolated_light_curve(sat_dict, save_loc, suffix=None):
+    """
+    Save light curve tables to csv files.
+
+    Parameters
+    ----------
+    sat_dict : dict of {str : astropy.table.Table}
+        Dictionary containing interpolated magnitudes and uncertainties for each satellite of interest.
+    save_loc : str
+        Path in which to save plots.
+    suffix : str
+        String to append to the table filename (e.g. the date). The default is None.
+    
+    Returns
+    -------
+    None.
+    """
     if not suffix:
         for sat, sat_table in sat_dict.items():
-            ascii.write(
-                sat_table, output=f"{save_loc}/{sat}_{suffix}.csv",
-                format='csv')
+            ascii.write(sat_table, output=f"{save_loc}/{sat}_{suffix}.csv", format='csv')
     else:
         for sat, sat_table in sat_dict.items():
-            ascii.write(
-                sat_table, output=f"{save_loc}/{sat}.csv",
-                format='csv')
-
-
-
-
-def verify_gb_transforms(directory,
-                         ref_stars_file,
-                         gb_final_transforms,
-                         plot_results=False,
-                         save_plots=False,
-                         file_suffix=(".fits", ".fit", ".fts"),
-                         exposure_key='EXPTIME',
-                         name_key='Name',
-                         **kwargs):
-    # TODO: Docstring.
-    reference_stars, ref_star_positions = read_ref_stars(ref_stars_file)
-    large_table_columns = init_large_table_columns()
-
-    if save_plots:
-        save_loc = kwargs.get('save_loc')
-        unique_id = kwargs.get('unique_id')
-        if not os.path.exists(save_loc):
-            os.mkdir(save_loc)
-
-    for dirpath, dirnames, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith(file_suffix):
-                filepath = os.path.join(dirpath, filename)
-                hdr, imgdata = read_fits_file(filepath)
-                exptime = hdr[exposure_key]
-                bkg, bkg_std = calculate_img_bkg(imgdata)
-                irafsources = detecting_stars(
-                    imgdata, bkg=bkg, bkg_std=bkg_std)
-                if not irafsources:
-                    continue
-                _, fwhm, fwhm_std = calculate_fwhm(irafsources)
-                photometry_result = perform_photometry.perform_PSF_photometry(
-                    irafsources, fwhm, imgdata, bkg=bkg)
-                fluxes = np.array(photometry_result['flux_fit'])
-                fluxes_unc = np.array(photometry_result['flux_unc'])
-                instr_mags = calculate_magnitudes(fluxes, exptime)
-                instr_mags_sigma, snr = calculate_magnitudes_sigma(
-                    fluxes,fluxes_unc, exptime)
-                wcs = WCS(hdr)
-                skypositions = convert_pixel_to_ra_dec(irafsources, wcs)
-                try:
-                    altazpositions = convert_ra_dec_to_alt_az(skypositions,
-                                                              hdr,
-                                                              lat_key='SITELAT',
-                                                              lon_key='SITELONG',
-                                                              elev_key='SITEELEV')
-                except AttributeError as e:
-                    print(e)
-                    continue
-                matched_stars = find_ref_stars(reference_stars,
-                                               ref_star_positions,
-                                               skypositions,
-                                               instr_mags,
-                                               instr_mags_sigma,
-                                               snr,
-                                               fluxes,
-                                               fluxes_unc,
-                                               ground_based=True,
-                                               altazpositions=altazpositions)
-                if not matched_stars:
-                    continue
-
-                large_table_columns =\
-                    update_large_table_columns(large_table_columns,
-                                               filepath,
-                                               matched_stars,
-                                               hdr,
-                                               exptime,
-                                               ground_based=True,
-                                               name_key=name_key)
-    large_stars_table = create_large_stars_table(
-        large_table_columns, ground_based=True)
-    # large_stars_table = remove_large_airmass(large_stars_table, max_airmass=2.0)
-    stars_table, different_filter_list = group_each_star_GB(large_stars_table)
-    stars_table.pprint(max_lines=30, max_width=200)
-
-    # instr_filters = ['b', 'v', 'r', 'i']
-    app_mag_table = Table(stars_table[
-        'Field', 'Name', 'V_ref', 'B-V', 'U-B', 'V-R', 'V-I', 'V_sigma',
-        'e_B-V', 'e_U-B', 'e_V-R', 'e_V-I'])
-    for instr_filter in different_filter_list:
-        app_mag_filter = instr_filter.upper()
-        app_filter_sigma = f"{app_mag_filter}_sigma"
-        app_mag_table_filter = apply_gb_transforms_VERIFICATION(
-            gb_final_transforms, stars_table, instr_filter)
-        app_mag_table = hstack(
-            [app_mag_table,
-             app_mag_table_filter[app_mag_filter, app_filter_sigma]])
-
-    app_mag_table.pprint(max_lines=30, max_width=200)
-
-    import matplotlib.pyplot as plt
-    # import matplotlib
-    # matplotlib.use('TkAgg')
-    for instr_filter in different_filter_list:
-        app_filter = instr_filter.upper()
-        try:
-            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index_AVG(
-                app_mag_table, instr_filter)
-        except KeyError:
-            ref_app_mag, ref_app_mag_sigma, _, _ = get_app_mag_and_index(
-                app_mag_table, instr_filter)
-        app_filter_sigma = f"{app_filter}_sigma"
-        x = ref_app_mag
-        x_err = ref_app_mag_sigma
-        y = app_mag_table[app_filter]
-        # y_err = app_mag_table[app_filter_sigma]
-        max_y_err = max(app_mag_table[app_filter_sigma])
-        print(max_y_err)
-        y_err = np.nan_to_num(app_mag_table[app_filter_sigma], nan=max_y_err)
-        y_err = np.array(y_err)
-        y_err[y_err == 0] = max_y_err
-        fit, or_fit, line_init = init_linear_fitting(sigma=2.5)
-        try:
-            fitted_line, mask = or_fit(line_init, x, y)
-            filtered_data = np.ma.masked_array(y, mask=mask)
-            m = fitted_line.slope.value
-            b = fitted_line.intercept.value
-            # fitted_line, mask = or_fit(line_init, x, y, weights=1.0/y_err)
-            # filtered_data = np.ma.masked_array(y, mask=mask)
-            # m = fitted_line.slope.value
-            # b = fitted_line.intercept.value
-            # if m == 1 and b == 0:
-            #     fitted_line, mask = or_fit(line_init, x, y)
-            #     filtered_data = np.ma.masked_array(y, mask=mask)
-            #     m = fitted_line.slope.value
-            #     b = fitted_line.intercept.value
-        except TypeError:
-            continue
-        plt.errorbar(x, y, yerr=y_err, fmt='o', fillstyle='none',
-                     capsize=0, label="Clipped Data")
-        plt.plot(x, filtered_data, 'o', color='#1f77b4', label="Fitted Data")
-        plt.plot(x, m * x + b, '-', label=f'y={m:.3f}x+{b:.3f}')
-        plt.plot(x, x, '-', label='y=x')
-        plt.title('Calculated Magnitude vs. Reference Magnitude')
-        plt.ylabel(f"{app_filter} (Calculated)")
-        plt.xlabel(f"{app_filter} (Reference)")
-        plt.legend()
-        if save_plots:
-            save_loc = f"{os.path.join(kwargs.get('save_loc'), f'{app_filter}_CalcVsRefMag')}.png"
-            plt.savefig(save_loc)
-        if plot_results:
-            plt.show(block=True)
-        plt.close()
-
-    return app_mag_table
-
-
+            ascii.write(sat_table, output=f"{save_loc}/{sat}.csv", format='csv')
 
 
 def init_star_aux_table_columns():
+    """
+    Initialize the columns that will create the star auxiliary table.
+
+    Parameters
+    ----------
+    None.
+
+    Returns
+    -------
+    sat_aux_table_columns : namedtuple
+        Attributes:
+            filenames : empty list
+                Names of files to be processed.
+            times : empty list
+                Observation time of processed images in julian date.
+            filters : empty list
+                Filter used for processed images.
+            fwhms_pixels : empty list
+                FWHM of processed images in pixels.
+            fwhm_pixels_sigma : empty list
+                Standard deviation of FWHM of processed images in pixels.
+            fwhms_arcsec : empty list
+                FWHM of processed images in arcseconds.
+            fwhm_arcsec_sigma : empty list
+                Standard deviation of FWHM of processed images in arcseconds.
+            num_sources : empty list
+                Number of sources detected in the processed images.
+            background_sky_brightness : empty list
+                Background sky brightness of processed images in mag/arcsec^2.
+            background_sky_brightness_sigma : empty list
+                Standard deviation of background sky brightness of processed images in mag/arcsec^2.
+            azimuth : empty list
+                Azimuth of processed images.
+            elevation : empty list
+                Elevation of processed images.
+            airmass : empty list
+                Airmass of processed images.
+
+    """
     filenames = []
     times = []
     filters = []
@@ -4783,6 +4987,70 @@ def update_star_aux_columns(star_aux_table_columns,
                             azimuth,
                             elevation,
                             airmass):
+    """
+    Update the columns that will create the star auxiliary table.
+
+    Parameters
+    ----------
+    sat_aux_table_columns : namedtuple
+        Attributes:
+            filenames : list of str
+                Names of files to be processed.
+            times : numpy.float64
+                Observation time of processed images in julian date.
+            filters : list of str
+                Filter used for processed images.
+            fwhms_pixels : numpy.float64
+                FWHM of processed images in pixels.
+            fwhm_pixels_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in pixels.
+            fwhms_arcsec : numpy.float64
+                FWHM of processed images in arcseconds.
+            fwhm_arcsec_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in arcseconds.
+            num_sources : list of int
+                Number of sources detected in the processed images.
+            background_sky_brightness : numpy.float64
+                Background sky brightness of processed images in mag/arcsec^2.
+            background_sky_brightness_sigma : numpy.float64
+                Standard deviation of background sky brightness of processed images in mag/arcsec^2.
+            azimuth : numpy.float64
+                Azimuth of processed images.
+            elevation : numpy.float64
+                Elevation of processed images.
+            airmass : numpy.float64
+                Airmass of processed images.
+    Returns
+    -------
+    updated_sat_aux_table_columns : namedtuple
+        Attributes:
+            filenames : list of str
+                Names of files to be processed.
+            times : numpy.float64
+                Observation time of processed images in julian date.
+            filters : list of str
+                Filter used for processed images.
+            fwhms_pixels : numpy.float64
+                FWHM of processed images in pixels.
+            fwhm_pixels_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in pixels.
+            fwhms_arcsec : numpy.float64
+                FWHM of processed images in arcseconds.
+            fwhm_arcsec_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in arcseconds.
+            num_sources : list of int
+                Number of sources detected in the processed images.
+            background_sky_brightness : numpy.float64
+                Background sky brightness of processed images in mag/arcsec^2.
+            background_sky_brightness_sigma : numpy.float64
+                Standard deviation of background sky brightness of processed images in mag/arcsec^2.
+            azimuth : numpy.float64
+                Azimuth of processed images.
+            elevation : numpy.float64
+                Elevation of processed images.
+            airmass : numpy.float64
+                Airmass of processed images.
+    """
     updated_star_aux_table_columns = star_aux_table_columns
     updated_star_aux_table_columns.filenames.append(filename)
     updated_star_aux_table_columns.times.append(time)
@@ -4792,10 +5060,8 @@ def update_star_aux_columns(star_aux_table_columns,
     updated_star_aux_table_columns.fwhms_arcsec.append(fwhm_arcsec)
     updated_star_aux_table_columns.fwhm_arcsec_sigma.append(fwhm_arcsec_sigma)
     updated_star_aux_table_columns.num_sources.append(num_sources)
-    updated_star_aux_table_columns.background_sky_brightness.append(
-        background_sky_brightness)
-    updated_star_aux_table_columns.background_sky_brightness_sigma.append(
-        background_sky_brightness_sigma)
+    updated_star_aux_table_columns.background_sky_brightness.append(background_sky_brightness)
+    updated_star_aux_table_columns.background_sky_brightness_sigma.append(background_sky_brightness_sigma)
     updated_star_aux_table_columns.azimuth.append(azimuth)
     updated_star_aux_table_columns.elevation.append(elevation)
     updated_star_aux_table_columns.airmass.append(airmass)
@@ -4803,6 +5069,70 @@ def update_star_aux_columns(star_aux_table_columns,
 
 
 def create_star_aux_table(star_aux_table_columns):
+    """
+    Convert the columns of the star auxiliary table into an AstroPy table.
+
+    Paramters
+    ---------
+    sat_aux_table_columns : namedtuple
+        Attributes:
+            filenames : list of str
+                Names of files to be processed.
+            times : numpy.float64
+                Observation time of processed images in julian date.
+            filters : list of str
+                Filter used for processed images.
+            fwhms_pixels : numpy.float64
+                FWHM of processed images in pixels.
+            fwhm_pixels_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in pixels.
+            fwhms_arcsec : numpy.float64
+                FWHM of processed images in arcseconds.
+            fwhm_arcsec_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in arcseconds.
+            num_sources : list of int
+                Number of sources detected in the processed images.
+            background_sky_brightness : numpy.float64
+                Background sky brightness of processed images in mag/arcsec^2.
+            background_sky_brightness_sigma : numpy.float64
+                Standard deviation of background sky brightness of processed images in mag/arcsec^2.
+            azimuth : numpy.float64
+                Azimuth of processed images.
+            elevation : numpy.float64
+                Elevation of processed images.
+            airmass : numpy.float64
+                Airmass of processed images.
+    Returns
+    -------
+    star_aux_table : astropy.table.Table
+        Table containing auxiliary information about the observed stars. Has columns:
+            filename : str
+                Names of the processed file.
+            Time (JD) : numpy.float64
+                Observation time of processed images in julian date.
+            filter : str
+                Filter used for processed images.
+            FWHM_pixel : numpy.float64
+                FWHM of processed images in pixels.
+            FWHM_pixelfwhm_pixels_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in pixels.
+            FWHM_arcsec : numpy.float64
+                FWHM of processed images in arcseconds.
+            FWHM_arcsec_sigma : numpy.float64
+                Standard deviation of FWHM of processed images in arcseconds.
+            Number of Sources : list of int
+                Number of sources detected in the processed images.
+            BSB : numpy.float64
+                Background sky brightness of processed images in mag/arcsec^2.
+            BSB_sigma : numpy.float64
+                Standard deviation of background sky brightness of processed images in mag/arcsec^2.
+            Azimuth : numpy.float64
+                Azimuth of processed images.
+            Elevation : numpy.float64
+                Elevation of processed images.
+            x : numpy.float64
+                Airmass of processed images.
+    """
     star_aux_table = Table(
         names=[
             'filename',
@@ -4836,18 +5166,6 @@ def create_star_aux_table(star_aux_table_columns):
         ]
     )
     return star_aux_table
-
-
-def get_stars_with_multiple_observations(stars_table):
-    list_of_stars = stars_table['Name']
-    count_of_stars = Counter(list_of_stars)
-    multiple_stars = [
-        star for star in count_of_stars if count_of_stars[star] > 1]
-    mask = np.in1d(np.array(stars_table['Name']), np.array(multiple_stars))
-    stars_for_second_order_extinction = stars_table[list(mask)]
-    # stars_for_second_order_extinction.pprint(max_lines=-1, max_width=-1)
-    return stars_for_second_order_extinction, multiple_stars
-
 
 
 def verify_gb_transforms_auto(directory,
@@ -5033,31 +5351,6 @@ def verify_gb_transforms_auto(directory,
             plt.show(block=True)
         plt.close()
     return app_mag_table
-
-
-def __debugging__(gb_final_transforms, save_loc):
-    """
-    Debug the main general_tools. This should simplify git commits by only needing to edit this file.
-
-    Returns
-    -------
-    None.
-
-    """
-    # Maybe put the write table option in here?
-    formats = {
-        'k\'\'_fCI': '%0.3f',
-        'k\'\'_fCI_sigma': '%0.3f',
-        'T_fCI': '%0.3f',
-        'T_fCI_sigma': '%0.3f',
-        'k\'_f': '%0.3f',
-        'k\'_f_sigma': '%0.3f',
-        'Z_f': '%0.3f',
-        'Z_f_sigma': '%0.3f'
-    }
-    write_table_to_latex(
-        gb_final_transforms, f"{os.path.join(save_loc, 'gb_final_transforms')}.txt", formats=formats)
-    return
 
 
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
