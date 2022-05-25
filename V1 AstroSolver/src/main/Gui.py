@@ -55,6 +55,14 @@ from pathlib import Path
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'transforms'))
+sys.path.append(os.path.join(src_path, 'pinpointsolving'))
+sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
+
 import AstroFunctions as astro
 import Main
 import main_transforms
