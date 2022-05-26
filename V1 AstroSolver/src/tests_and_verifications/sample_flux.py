@@ -364,8 +364,8 @@ def plot_measure_flux(matched_star_dictionary,save_loc,
 #%% Query the Stars in SIMBAD
 ##
 from astroquery.simbad import Simbad
-def query_stars(passed_matched_stars):
-
+def query_passed_matched_stars(passed_matched_stars):
+    Simbad.add_votable_fields('ids')
     passed_matched_stars_list=passed_matched_stars.keys()
     repacked_passed_matched_star_list = [
         (passed_matched_stars_list_item.split('-')[
@@ -376,21 +376,97 @@ def query_stars(passed_matched_stars):
     for i,passed_matched_star in enumerate(repacked_passed_matched_star_list):
         try:
             if 'result_table' in locals():
-                result_table.add_row(Simbad.query_object(passed_matched_star))
+                if result_table != None:
+                    result_table.add_row(Simbad.query_object(passed_matched_star))
+                else:
+                    result_table = Simbad.query_object(passed_matched_star)
             else:
                 result_table = Simbad.query_object(passed_matched_star)
         except Exception as e:
             print(e)
             continue
+    return result_table
+
+##
+from astropy.coordinates import SkyCoord
+from astroquery.simbad import Simbad
+def find_ids_for_ref_stars(ref_stars_file):
+    '''
+    Utilizing the power of astroquery with region look up, ids for reference stars are looked up
+
+
+
+    Parameters
+    ----------
+    ref_stars_file: str
+    string directory which the reference star data will be read from
+
+    Returns
+    -------
+    resultant_table: Astropy.Table
+    table which contains the values extracted from the reference star file
+    and the various id's queried.
+    '''
+
+    if 'ids' not in Simbad.get_votable_fields():
+        Simbad.add_votable_fields('ids')
+    other_ids = []
+    with open(ref_stars_file,'r') as file:
+        lines=file.readlines()
+        formatted_ras=[]
+        formated_decs=[]
+
+        resultant_table = Table(names=((lines[0]).split('\t'))[0:17],
+                              dtype=['str','str','str','float64','float64',
+                                     'float64','float64','float64','float64','float64',
+                                     'float64','float64','float64','float64','float64',
+                                     'float64', 'float64'
+                                     ])
+        for i,line in enumerate(lines):
+            if i==0:
+                continue # title
+            else:
+
+                table_line=(line.split('\t'))[0:17]
+                resultant_table.add_row(table_line)
+                # FIXME: Add proper string spliting
+                formatted_ra=f"{(table_line[1])[0:3]}h" \
+                             f" {(table_line[1])[3:6]}m" \
+                             f"{(table_line[1])[6:14]}s"
+                formatted_ras.append(formatted_ra)
+                formatted_dec=f"{(table_line[2])[0:3]}deg"\
+                           f"{(table_line[2])[3:6]}m"\
+                            f"{table_line[2][6:14]}s"
+                formated_decs.append(formatted_dec)
+
+
+                # Will need to query region instead of querying name due to
+                # non-standardized naming scheme
+
+
+                search_name=table_line[0]
+
+    # Vectorize then query
+    query_result=Simbad.query_region(SkyCoord(formatted_ras,formated_decs))
+    for i,table_line in enumerate(resultant_table):
+        search_name=table_line[0]
+
+        for j,query_line in enumerate(query_result):
+            if query_line['SCRIPT_NUMBER_ID']==(i+1) :
+
+
+
+                #FIXME: Greedy Algorithm
+                other_ids.append(query_line['IDS'])
+                break
+
+    resultant_table.add_column(other_ids,name='IDS')
 
 
 
 
-
-
-
-
-
+    return resultant_table,formatted_ras,formated_decs, other_ids
+# TODO: Find Offline Version of this
 
 ####################### Testing the Functions ################################
 
@@ -417,9 +493,9 @@ matched_star_dictionary={}
 #%%
 ## Mutliple Requests
 
-image_path = r"D:\School\Work - Winter 2022\Work\2021-03-21"
-catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-03-21"
+catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 
 
@@ -453,11 +529,11 @@ for dirs in target_dirs:
 
     passed_matched_stars=statistics_of_matched_stars(
         matched_star_dictionary,
-                                dirs+r"\flux_calculations.txt",inner_rad,
+        dirs+r"\flux_calculations.txt",inner_rad,
         outer_rad)
     plot_measure_flux(matched_star_dictionary,
-                     dirs+r"\allfluxplots.png",passed_matched_stars,
-                      dirs+r"\passed_stars_fluxplots.png")
+        dirs+r"\allfluxplots.png",passed_matched_stars,
+        dirs+r"\passed_stars_fluxplots.png")
 
     #matched_star_dictionary_result={}
 
@@ -469,3 +545,5 @@ for dirs in target_dirs:
 
 
 ##
+
+
