@@ -31,7 +31,7 @@ INSTRUCTIONS
 """
 import PIL
 import astropy
-import cv2
+
 import datetime
 import math
 import matplotlib
@@ -40,10 +40,10 @@ import numpy
 import numpy as np
 import os
 import pandas as pd
-import pywin32_system32
+#import pywin32_system32
 import scipy
 import skimage
-import win32com
+#import win32com
 from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
 from astropy.stats import SigmaClip
@@ -158,10 +158,12 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
 
 streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
 streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018675.BREEZE-M_R_B_#38746U.FIT'
+streak2=r'/Users/home/Downloads/CAN_OTT.00041100.22108.FIT'
 streak1 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
 streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
-STARS = open(streak + '.stars', "w")
-imagehdularray = fits.open(streak)
+
+STARS = open(streak2 + '.stars', "w")
+imagehdularray = fits.open(streak2)
 
 streak_array = []
 sigma_clip = 2.5
@@ -203,10 +205,10 @@ kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
 convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
 segm = detect_sources(convolved_data, threshold, npixels=5)
 segm_deblend = deblend_sources(convolved_data, segm, npixels=5,
-
                                nlevels=32, contrast=0.001)
 
 norm = ImageNormalize(stretch=SqrtStretch())
+
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12.5))
 ax1.imshow(fitsdata, origin='lower', cmap='Greys_r', norm=norm)
 ax1.set_title('Data')
@@ -216,6 +218,8 @@ ax2.set_title('Segmentation Image')
 
 cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
 tbl = cat.to_table()
+
+
 tbl['xcentroid'].info.format = '.2f'  # optional format
 tbl['ycentroid'].info.format = '.2f'
 tbl['kron_flux'].info.format = '.2f'
