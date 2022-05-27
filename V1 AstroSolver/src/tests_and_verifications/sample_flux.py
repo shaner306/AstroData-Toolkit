@@ -61,6 +61,11 @@ class stars:
         self.ys.append(y)
         self.ras.append(ra)
         self.decs.append(dec)
+    def set_pass_bool(self, pass_bool):
+        self.pass_bool=pass_bool
+    def add_other_ids(self,other_ids):
+        self.other_ids=other_ids
+
 
 
 
@@ -221,7 +226,10 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                                         if i == star.MatchedCatalogStar.Identification:
                                             star_instance.append(matched_star_collection[i])
                                     star_instance=star_instance[0]
-                                    star_instance.update(measured_flux,star.X,star.Y,f.RightAscension,f.Declination)
+                                    star_instance.update(measured_flux,
+                                                         star.X,star.Y,
+                                                         star.RightAscension,
+                                                         star.Declination)
                             else:
                                 # First Instance of the star
                                 measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
@@ -229,7 +237,10 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                                     measured_flux])
                                 iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
                                 star_instance=stars(star.MatchedCatalogStar.Identification)
-                                star_instance.update(measured_flux,star.X,star.Y,f.RightAscension,f.Declination)
+                                star_instance.update(measured_flux,star.X,
+                                                     star.Y,
+                                                     star.RightAscension,
+                                                     star.Declination)
                                 matched_star_collection[star_instance.name]=star_instance # Add Star to Collection
                         except Exception as e:
                             raise (e)
@@ -250,7 +261,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
 
 ##
-def statistics_of_matched_stars(matched_star_dictionary, save_loc,
+def statistics_of_matched_stars(matched_star_collection, save_loc,
                                  inner_rad, outer_rad,std_pass_threshold=0.1):
     '''
     Calculates the Mean and Standard Deviations of the matched stars.
@@ -258,7 +269,7 @@ def statistics_of_matched_stars(matched_star_dictionary, save_loc,
 
     Parameters
     ----------
-    matched_star_dictionary: the stars matched to the image in the previous
+    matched_star_collection: the stars matched to the image in the previous
     step
 
     save_loc: str
@@ -290,25 +301,29 @@ def statistics_of_matched_stars(matched_star_dictionary, save_loc,
     with open(save_loc, 'a') as file:
 
         # Write Header
-        file.write(f"Matched Stars: {len(matched_star_dictionary)},"
+        file.write(f"Matched Stars: {len(matched_star_collection)},"
                    f"Pass Threshold: {std_pass_threshold} ,"
                    f"Inner Radius (arcsec): {inner_rad},"
                    f"Outer Radius(arcsecs): {outer_rad}\n")
 
         #Write Matched Stars and Their statistics (mean +/- 1 std)
-        for i,matched_star in enumerate(matched_star_dictionary):
-            array_of_match_star_items=[matched_star_item.value for matched_star_item in matched_star_dictionary[matched_star]]
+        for i,matched_star in enumerate(matched_star_collection):
+
+            array_of_match_star_items=[flux.value for flux in matched_star_collection[matched_star].counts]
+            # standard_dev=np.std(array_of_match_star_items)
+            # mean=np.mean(array_of_match_star_items)
             standard_dev=np.std(array_of_match_star_items)
             mean=np.mean(array_of_match_star_items)
 
 
-
             if standard_dev > np.mean(array_of_match_star_items)*std_pass_threshold or standard_dev==0:
                 pass_fail_str='FAIL'
+                matched_star_collection[matched_star].set_pass_bool(False)
             else:
-                passed_matched_stars[matched_star]=matched_star_dictionary[
+                passed_matched_stars[matched_star]=matched_star_collection[
                     matched_star]
                 pass_fail_str='PASS'
+                matched_star_collection[matched_star].set_pass_bool(True)
 
 
             file.write(f"{matched_star:18} : {mean:12.2f} +/-"
@@ -317,8 +332,8 @@ def statistics_of_matched_stars(matched_star_dictionary, save_loc,
     return passed_matched_stars
 
 ##
-def plot_measure_flux(matched_star_dictionary,save_loc,
-                      passed_matched_star_dictionary,passed_stars_sav_loc):
+def plot_measure_flux(matched_star_dictionary, save_loc,
+                      passed_matched_star_collection, passed_stars_sav_loc):
     ''''
     '''
     #maxcount=max(len(v) for v in matched_star_dictionary.values())
@@ -339,10 +354,11 @@ def plot_measure_flux(matched_star_dictionary,save_loc,
     plt.savefig(save_loc)
     plt.clf()
     plt.close()
-    for i, matched_passed_star in enumerate(passed_matched_star_dictionary):
+    for i, matched_passed_star in enumerate(passed_matched_star_collection):
         array_of_passed_match_star_items = [matched_passed_star_time.value for
                                      matched_passed_star_time in
-                                     matched_star_dictionary[matched_passed_star]]
+                                     passed_matched_star_collection[
+                                                matched_passed_star].counts]
         y_data = array_of_passed_match_star_items
         x_data = [*range(0, len(y_data))]
         plt.plot(x_data, y_data, '--')
@@ -364,8 +380,11 @@ def plot_measure_flux(matched_star_dictionary,save_loc,
 #%% Query the Stars in SIMBAD
 ##
 from astroquery.simbad import Simbad
+
+
 def query_passed_matched_stars(passed_matched_stars):
-    Simbad.add_votable_fields('ids')
+    if 'ids' not in Simbad.get_votable_fields():
+        Simbad.add_votable_fields('ids')
     passed_matched_stars_list=passed_matched_stars.keys()
     repacked_passed_matched_star_list = [
         (passed_matched_stars_list_item.split('-')[
@@ -387,7 +406,7 @@ def query_passed_matched_stars(passed_matched_stars):
             continue
     return result_table
 
-##
+## Find all IDS corresponding to the stars in the reference star file
 from astropy.coordinates import SkyCoord
 from astroquery.simbad import Simbad
 def find_ids_for_ref_stars(ref_stars_file):
@@ -412,31 +431,31 @@ def find_ids_for_ref_stars(ref_stars_file):
         Simbad.add_votable_fields('ids')
     other_ids = []
     with open(ref_stars_file,'r') as file:
-        lines=file.readlines()
+        reference_star_file_lines=file.readlines()
         formatted_ras=[]
         formated_decs=[]
 
-        resultant_table = Table(names=((lines[0]).split('\t'))[0:17],
+        resultant_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
                               dtype=['str','str','str','float64','float64',
                                      'float64','float64','float64','float64','float64',
                                      'float64','float64','float64','float64','float64',
                                      'float64', 'float64'
                                      ])
-        for i,line in enumerate(lines):
+        for i,reference_star_file_line in enumerate(reference_star_file_lines):
             if i==0:
                 continue # title
             else:
 
-                table_line=(line.split('\t'))[0:17]
-                resultant_table.add_row(table_line)
+                reference_star_table_line=(reference_star_file_line.split('\t'))[0:17]
+                resultant_table.add_row(reference_star_table_line)
                 # FIXME: Add proper string spliting
-                formatted_ra=f"{(table_line[1])[0:3]}h" \
-                             f" {(table_line[1])[3:6]}m" \
-                             f"{(table_line[1])[6:14]}s"
+                formatted_ra=f"{(reference_star_table_line[1])[0:3]}h" \
+                             f" {(reference_star_table_line[1])[3:6]}m" \
+                             f"{(reference_star_table_line[1])[6:14]}s"
                 formatted_ras.append(formatted_ra)
-                formatted_dec=f"{(table_line[2])[0:3]}deg"\
-                           f"{(table_line[2])[3:6]}m"\
-                            f"{table_line[2][6:14]}s"
+                formatted_dec=f"{(reference_star_table_line[2])[0:3]}deg"\
+                           f"{(reference_star_table_line[2])[3:6]}m"\
+                            f"{reference_star_table_line[2][6:14]}s"
                 formated_decs.append(formatted_dec)
 
 
@@ -444,12 +463,12 @@ def find_ids_for_ref_stars(ref_stars_file):
                 # non-standardized naming scheme
 
 
-                search_name=table_line[0]
+                search_name=reference_star_table_line[0]
 
     # Vectorize then query
     query_result=Simbad.query_region(SkyCoord(formatted_ras,formated_decs))
-    for i,table_line in enumerate(resultant_table):
-        search_name=table_line[0]
+    for i,reference_star_table_line in enumerate(resultant_table):
+        search_name=reference_star_table_line[0]
 
         for j,query_line in enumerate(query_result):
             if query_line['SCRIPT_NUMBER_ID']==(i+1) :
@@ -468,27 +487,98 @@ def find_ids_for_ref_stars(ref_stars_file):
     return resultant_table,formatted_ras,formated_decs, other_ids
 # TODO: Find Offline Version of this
 
+
+#%%
+##
+def  find_ids_for_matched_stars(passed_matched_stars):
+    average_ras=[]
+    average_decs=[]
+    if 'ids' not in Simbad.get_votable_fields():
+        Simbad.add_votable_fields('ids')
+
+    # extract all ras, decs average them out then query using averages
+    for passed_matched_star in passed_matched_stars:
+        average_ra=f"{np.mean(passed_matched_stars[passed_matched_star].ras)}h"
+        average_ras.append(average_ra)
+        average_dec=f"{np.mean(passed_matched_stars[passed_matched_star].decs)}deg"
+        average_decs.append(average_dec)
+    try:
+        query_results=Simbad.query_region(SkyCoord(ra=average_ras,
+                                                   dec=average_decs))
+    except:
+        individual_query=True
+        print('Vectorized Query did not work, Trying individual Query')
+    if 'individual_query' in locals():
+        if individual_query==True:
+            # perform individual queries
+            for i in range(len(average_ras)):
+                try:
+                    if query_results in locals() and query_results != None:
+                        query_results.add_row(Simbad.query_region(SkyCoord(
+                            ra=average_ras[i], dec=average_decs[i])))
+                    else:
+                        query_results=Simbad.query_region(SkyCoord(
+                            ra=average_ras[i], dec=average_decs[i]))
+                except Exception as e:
+                    print(e)
+                    continue
+
+
+    # Set the other ids to the passed_stars class
+    for i,passed_matched_star in enumerate(passed_matched_stars):
+        for query_result in query_results:
+
+            if query_result['SCRIPT_NUMBER_ID']==i+1:
+                passed_matched_stars[passed_matched_star].add_other_ids(
+                    query_result['IDS'])
+                break
+    return query_results
+
+#%%
+##
+def compare_ref_ids_with_matched_stars(passed_matched_stars,
+                                       reference_star_table):
+    passed_reference_star_table=Table(names=reference_star_table,dtype=reference_star_table)
+
+    # Unpack all passed_matched_stars
+    passed_id_list=[]
+    for passed_matched_star in passed_matched_stars:
+        if hasattr(passed_matched_stars[passed_matched_star],'other_ids'):
+            for other_id in passed_matched_stars[
+                passed_matched_star].other_ids.split('|'):
+                    passed_id_list.append(other_id)
+
+
+
+    #TODO: Find better way to match IDs to star.
+    #for reference_star in reference_star_table:
+        # Search reference Star ID in
+
+    return passed_id_list
+
+
+
 ####################### Testing the Functions ################################
 
 ## Singular Request
 
-inner_rad=32
-outer_rad=48
-
-image_dir=r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B"
-catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3, \
-                        0.8, 2, 60, 11, False, 32, 48)
-passed_matched_stars=statistics_of_matched_stars(matched_star_dictionary,
-                            r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\flux_calculations.txt",
-                            inner_rad,outer_rad)
-plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\fluxplots.png",
-                  passed_matched_stars,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\passed_stars_fluxplots.png"
-
-                                        )
-
-# Reset the Variables when complete
-matched_star_dictionary={}
+# inner_rad=32
+# outer_rad=48
+#
+# image_dir=r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B"
+# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
+# matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3, \
+#                         0.8, 2, 60, 11, False, 32, 48)
+# passed_matched_stars=statistics_of_matched_stars(matched_star_collection,
+#                             r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\flux_calculations.txt",
+#                             inner_rad,outer_rad)
+# plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\fluxplots.png",
+#                   passed_matched_stars,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\passed_stars_fluxplots.png"
+#
+#                                         )
+#
+# # Reset the Variables when complete
+# matched_star_dictionary={}
 
 #%%
 ## Mutliple Requests
@@ -528,20 +618,25 @@ for dirs in target_dirs:
                                                      False, inner_rad, outer_rad,)
 
     passed_matched_stars=statistics_of_matched_stars(
-        matched_star_dictionary,
+        matched_star_collection,
         dirs+r"\flux_calculations.txt",inner_rad,
         outer_rad)
     plot_measure_flux(matched_star_dictionary,
         dirs+r"\allfluxplots.png",passed_matched_stars,
         dirs+r"\passed_stars_fluxplots.png")
 
-    #matched_star_dictionary_result={}
 
-# for dirpath,dirname,filename in os.walk()
-# image_dir=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16"
-# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-# matched_star_dictionary=get_matched_stars(image_dir, catalogue_dir, 13, 3, 0.8, 1.5, 60, 11, False, 12, 24)
-#statistics_of_matched_stars(matched_star_dictionary,)
+    # Get Other IDS of passed_matched stars using ra and dec
+    find_ids_for_matched_stars(passed_matched_stars)
+
+
+    # Get Other IDS of reference stars
+    reference_star_table, reference_formatted_ras, reference_formated_decs, \
+    reference_other_ids = find_ids_for_ref_stars(refstar_dir)
+
+    # See if matched stars ids are in reference star and create new
+    # reference star
+    compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table)
 
 
 ##
