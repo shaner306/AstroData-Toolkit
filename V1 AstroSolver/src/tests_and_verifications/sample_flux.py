@@ -374,6 +374,65 @@ def plot_measure_flux(matched_star_dictionary, save_loc,
     plt.savefig(passed_stars_sav_loc)
     plt.clf()
     plt.close()
+##
+
+
+## convert to degrees minutes seconds of reference stars into degrees
+from astropy.coordinates import Angle
+from astropy import units as u
+
+ras_deg=[]
+decs_deg=[]
+def convert_DMS_to_deg_in_ref_star_table(reference_star_table):
+    ras_deg=[]
+    decs_deg=[]
+    for reference_star_table_line in reference_star_table:
+        
+        dms_ra=reference_star_table_line['RA'].split(' ')
+        d_ra=dms_ra[0]
+        m_ra=dms_ra[1]
+        s_ra=dms_ra[2]
+        dms_dec = reference_star_table_line['Dec'].split(' ')
+        d_dec = dms_dec[0]
+        m_dec = dms_dec[1]
+        s_dec = dms_dec[2]
+        ras_deg.append((Angle(f'{d_ra}d{m_ra}m{s_ra}s')))
+        decs_deg.append(Angle(f'{d_dec}d{m_dec}m{s_dec}s'))
+    reference_star_table.add_column(ras_deg,name='RA DEG')
+    reference_star_table.add_column(decs_deg,name='DEC DEG')
+    return reference_star_table
+
+## Compare Reference Star and matched stars by RA and DEC
+def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01):
+    '''
+
+    Parameters
+    ----------
+    passed_matched_stars: dicitonary
+         dictionary of filert-passed matched stars from pinpoint. dictionary uses names as keywords and values as
+         star class objects
+    reference_star_table: Astropy Table
+        Describes the reference stars extracted from the reference star file. by this point the reference stars table
+        should also contain the other ids of the stars and the ra and dec 
+    threshold: in degrees
+
+    Returns
+    -------
+
+    '''
+    passed_matched_reference_stars=Table(names=reference_star_table.colnames,dtype=reference_star_table.dtype)
+    for passed_matched_star in passed_matched_stars:
+        average_ra=np.mean(passed_matched_stars[passed_matched_star].ras)
+        average_dec=np.mean(passed_matched_stars[passed_matched_star].decs)
+
+        for reference_star in reference_star_table:
+            if ((average_ra > reference_star['RA DEG']-threshold) and (average_ra<reference_star['RA '
+                                                                                                 'DEG']+threshold))\
+                and ((average_dec > reference_star['DEC DEG'] - threshold) and (average_dec < reference_star['DEC '
+                                                                                                             'DEG'] + threshold)):
+                # Reference Matched Star
+                passed_matched_reference_stars.add_row(reference_star)
+    return passed_matched_reference_stars
 
 
 
@@ -381,6 +440,8 @@ def plot_measure_flux(matched_star_dictionary, save_loc,
 ##
 from astroquery.simbad import Simbad
 
+
+# Warning: This Method does not work
 
 def query_passed_matched_stars(passed_matched_stars):
     if 'ids' not in Simbad.get_votable_fields():
@@ -508,6 +569,7 @@ def  find_ids_for_matched_stars(passed_matched_stars):
     except:
         individual_query=True
         print('Vectorized Query did not work, Trying individual Query')
+
     if 'individual_query' in locals():
         if individual_query==True:
             # perform individual queries
@@ -537,24 +599,51 @@ def  find_ids_for_matched_stars(passed_matched_stars):
 #%%
 ##
 def compare_ref_ids_with_matched_stars(passed_matched_stars,
-                                       reference_star_table):
-    passed_reference_star_table=Table(names=reference_star_table,dtype=reference_star_table)
+                                       reference_star_table, ref_dir):
+    '''
+
+    Parameters
+    ----------
+    passed_matched_stars
+    reference_star_table:AstroPy Table
+        Astropy Table containg the reference star data
+    ref_dir: string
+
+
+    Returns
+    -------
+
+    '''
+    passed_reference_star_table=Table(names=reference_star_table.colnames,dtype=reference_star_table.dtype)
 
     # Unpack all passed_matched_stars
     passed_id_list=[]
+
+    # Create a list of matched stars ids that have low variability
     for passed_matched_star in passed_matched_stars:
         if hasattr(passed_matched_stars[passed_matched_star],'other_ids'):
             for other_id in passed_matched_stars[
                 passed_matched_star].other_ids.split('|'):
                     passed_id_list.append(other_id)
+    # Add Reference stars that have ids matching to those of the 'passed_id_list '
+    for reference_star_line in reference_star_table:
+        for reference_star_id in reference_star_line['IDS'].split('|'):
+            if reference_star_id in passed_id_list:
+                passed_reference_star_table.add_row(reference_star_line)
+                break
+
+
+
+
+
+    return passed_reference_star_table
+
 
 
 
     #TODO: Find better way to match IDs to star.
     #for reference_star in reference_star_table:
-        # Search reference Star ID in
-
-    return passed_id_list
+        # Search reference Star ID
 
 
 
@@ -565,7 +654,7 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
 # inner_rad=32
 # outer_rad=48
 #
-# image_dir=r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B"
+# image_dir=r''
 # catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
 # matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3, \
 #                         0.8, 2, 60, 11, False, 32, 48)
@@ -577,13 +666,13 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
 #
 #                                         )
 #
-# # Reset the Variables when complete
-# matched_star_dictionary={}
+
+# Reset the Variables when complete
 
 #%%
 ## Mutliple Requests
 
-image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-03-21"
+image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy 2 - Image Reduction Testing"
 catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
 refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
@@ -626,19 +715,33 @@ for dirs in target_dirs:
         dirs+r"\passed_stars_fluxplots.png")
 
 
+
+
+
+#### Compare The IDS of both DataSets
+
+
     # Get Other IDS of passed_matched stars using ra and dec
     find_ids_for_matched_stars(passed_matched_stars)
+
 
 
     # Get Other IDS of reference stars
     reference_star_table, reference_formatted_ras, reference_formated_decs, \
     reference_other_ids = find_ids_for_ref_stars(refstar_dir)
 
+
+
+
     # See if matched stars ids are in reference star and create new
-    # reference star
-    compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table)
+    # reference star table called passed matched reference stars
+    passed_matched_reference_stars=compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table,
+                                                                      refstar_dir)
 
 
-##
+
+#### Compare the RAs and DECs of both DataSets
+    reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
+    passed_matched_reference_stars=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
 
 
