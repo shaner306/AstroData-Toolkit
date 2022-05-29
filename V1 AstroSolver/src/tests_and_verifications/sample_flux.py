@@ -413,7 +413,7 @@ def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01):
          star class objects
     reference_star_table: Astropy Table
         Describes the reference stars extracted from the reference star file. by this point the reference stars table
-        should also contain the other ids of the stars and the ra and dec 
+        should also contain the other ids of the stars and the ra and dec
     threshold: in degrees
 
     Returns
@@ -735,13 +735,27 @@ for dirs in target_dirs:
 
     # See if matched stars ids are in reference star and create new
     # reference star table called passed matched reference stars
-    passed_matched_reference_stars=compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table,
+    passed_matched_reference_stars_ids=compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table,
                                                                       refstar_dir)
 
 
 
 #### Compare the RAs and DECs of both DataSets
     reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
-    passed_matched_reference_stars=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
 
+### Save New Reference File
+    ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy 2 " \
+                 r"- Image Reduction Testing\passed_star_reference_file.txt"
+    with open(ref_save_loc,'w+') as file:
+        file.write('\t'.join(passed_matched_reference_stars_ra_dec.colnames[0:16]))
+        file.write('\n')
+        for passed_matched_reference_star in passed_matched_reference_stars_ra_dec:
+            write_line=[]
+            for i,item in enumerate(passed_matched_reference_star):
+                write_line.append(str(item))
+                if i==16:
+                    break
+            file.write('\t'.join(write_line))
+            file.write('\n')
 
