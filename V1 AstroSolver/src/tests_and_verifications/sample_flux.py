@@ -115,7 +115,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
         outer aperture in arcseconds
     Returns
     -------
-    flux_table: AstroPy.QTable
+    matched_star_dictionary: AstroPy.QTable
         QTable which describes the fluxes of all the matched stars in the images
 
     '''
@@ -152,27 +152,6 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                     #y_arcsecperpixel=2.5
 
 
-                    # yBin = 4.33562092816E-004*3600;
-                    # xBin =  4.33131246330E-004*3600;
-                    # f.ArcsecperPixelHoriz  = 4.556
-                    # f.ArcsecperPixelVert =  4.556
-                    # if space_based_bool==1:
-                    #     yBin = 4.33562092816E-004*3600*2
-                    # %Image Specific Pixel Size in arcsec /
-                    # Obtained from FITS Header and converted from deg
-                    #     xBin =\
-                    # 4.33131246330E-004*3600*2#%Image Specific Pixel Size in arcsec /
-                    # Obtained from FITS Header and converted from deg
-                    # else:
-                    #     yBin = 4.33562092816E-004*3600
-                    # %Image Specific Pixel Size in arcsec /
-                    # Obtained from FITS Header and converted from deg
-                    #     xBin =  4.33131246330E-004*3600
-                    # %Image Specific Pixel Size in arcsec /
-                    # Obtained from FITS Header and converted from deg
-                    # f.ArcsecperPixelHoriz  = xBin
-                    # %CCD Pixel scale on CD
-                    # f.ArcsecperPixelVert = yBin
                     f.ArcsecperPixelHoriz = x_arcsecperpixel
                     # %CCD Pixel scale on CD
                     f.ArcsecperPixelVert = y_arcsecperpixel
@@ -212,15 +191,14 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                                 else:
                                     # FIXME: Greedy Algorithm
                                     measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
-                                    #simple_matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
-                                    #    measured_flux)
+
 
 
                                     matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
                                         measured_flux)
                                     iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
 
-                                    # Extract matched class from dictionary object
+                                    # Extract star class from dictionary object
                                     star_instance=[]
                                     for i in matched_star_collection:
                                         if i == star.MatchedCatalogStar.Identification:
@@ -418,7 +396,9 @@ def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01):
 
     Returns
     -------
-
+    passed_matched_reference_stars: AstroPy.Table
+        Table contianing the reference star table properptiers of stars that have been comparable right ascension
+        and declination to those of the passed matched star
     '''
     passed_matched_reference_stars=Table(names=reference_star_table.colnames,dtype=reference_star_table.dtype)
     for passed_matched_star in passed_matched_stars:
@@ -470,7 +450,7 @@ def query_passed_matched_stars(passed_matched_stars):
 ## Find all IDS corresponding to the stars in the reference star file
 from astropy.coordinates import SkyCoord
 from astroquery.simbad import Simbad
-def find_ids_for_ref_stars(ref_stars_file):
+def find_ids_for_ref_stars(reference_star_table,reference_formatted_ras,reference_formatted_decs):
     '''
     Utilizing the power of astroquery with region look up, ids for reference stars are looked up
 
@@ -491,43 +471,16 @@ def find_ids_for_ref_stars(ref_stars_file):
     if 'ids' not in Simbad.get_votable_fields():
         Simbad.add_votable_fields('ids')
     other_ids = []
-    with open(ref_stars_file,'r') as file:
-        reference_star_file_lines=file.readlines()
-        formatted_ras=[]
-        formated_decs=[]
-
-        resultant_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
-                              dtype=['str','str','str','float64','float64',
-                                     'float64','float64','float64','float64','float64',
-                                     'float64','float64','float64','float64','float64',
-                                     'float64', 'float64'
-                                     ])
-        for i,reference_star_file_line in enumerate(reference_star_file_lines):
-            if i==0:
-                continue # title
-            else:
-
-                reference_star_table_line=(reference_star_file_line.split('\t'))[0:17]
-                resultant_table.add_row(reference_star_table_line)
-                # FIXME: Add proper string spliting
-                formatted_ra=f"{(reference_star_table_line[1])[0:3]}h" \
-                             f" {(reference_star_table_line[1])[3:6]}m" \
-                             f"{(reference_star_table_line[1])[6:14]}s"
-                formatted_ras.append(formatted_ra)
-                formatted_dec=f"{(reference_star_table_line[2])[0:3]}deg"\
-                           f"{(reference_star_table_line[2])[3:6]}m"\
-                            f"{reference_star_table_line[2][6:14]}s"
-                formated_decs.append(formatted_dec)
 
 
-                # Will need to query region instead of querying name due to
-                # non-standardized naming scheme
+    resultant_table=reference_star_table
 
 
-                search_name=reference_star_table_line[0]
+
+
 
     # Vectorize then query
-    query_result=Simbad.query_region(SkyCoord(formatted_ras,formated_decs))
+    query_result=Simbad.query_region(SkyCoord(reference_formatted_ras, reference_formatted_decs))
     for i,reference_star_table_line in enumerate(resultant_table):
         search_name=reference_star_table_line[0]
 
@@ -545,13 +498,24 @@ def find_ids_for_ref_stars(ref_stars_file):
 
 
 
-    return resultant_table,formatted_ras,formated_decs, other_ids
+    return resultant_table, other_ids
 # TODO: Find Offline Version of this
 
 
 #%%
 ##
 def  find_ids_for_matched_stars(passed_matched_stars):
+    '''
+
+    Parameters
+    ----------
+    passed_matched_stars
+
+    Returns
+    -------
+    query_results: Astropy.Table
+        Table outputted from querying SIMBAD.
+    '''
     average_ras=[]
     average_decs=[]
     if 'ids' not in Simbad.get_votable_fields():
@@ -613,6 +577,7 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
     Returns
     -------
 
+
     '''
     passed_reference_star_table=Table(names=reference_star_table.colnames,dtype=reference_star_table.dtype)
 
@@ -672,9 +637,9 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
 #%%
 ## Mutliple Requests
 
-image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy 2 - Image Reduction Testing"
-catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+image_path = r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16"
+catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 
 
@@ -714,9 +679,37 @@ for dirs in target_dirs:
         dirs+r"\allfluxplots.png",passed_matched_stars,
         dirs+r"\passed_stars_fluxplots.png")
 
+### Create reference_table from reference_star_file
+    with open(refstar_dir, 'r') as file:
+        reference_star_file_lines = file.readlines()
+        reference_formatted_ras = []
+        reference_formated_decs = []
 
+        reference_star_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
+                                dtype=['str', 'str', 'str', 'float64', 'float64',
+                                       'float64', 'float64', 'float64', 'float64', 'float64',
+                                       'float64', 'float64', 'float64', 'float64', 'float64',
+                                       'float64', 'float64'
+                                       ])
+        for i, reference_star_file_line in enumerate(reference_star_file_lines):
+            if i == 0:
+                continue  # title
+            else:
 
+                reference_star_table_line = (reference_star_file_line.split('\t'))[0:17]
+                reference_star_table.add_row(reference_star_table_line)
+                # FIXME: Add proper string spliting
+                reference_formatted_ra = f"{(reference_star_table_line[1])[0:3]}h" \
+                               f" {(reference_star_table_line[1])[3:6]}m" \
+                               f"{(reference_star_table_line[1])[6:14]}s"
+                reference_formatted_ras.append(reference_formatted_ra)
+                reference_formatted_dec = f"{(reference_star_table_line[2])[0:3]}deg" \
+                                f"{(reference_star_table_line[2])[3:6]}m" \
+                                f"{reference_star_table_line[2][6:14]}s"
+                reference_formated_decs.append(reference_formatted_dec)
 
+                # Will need to query region instead of querying name due to
+                # non-standardized naming scheme
 
 #### Compare The IDS of both DataSets
 
@@ -727,8 +720,8 @@ for dirs in target_dirs:
 
 
     # Get Other IDS of reference stars
-    reference_star_table, reference_formatted_ras, reference_formated_decs, \
-    reference_other_ids = find_ids_for_ref_stars(refstar_dir)
+    reference_star_table, \
+    reference_other_ids = find_ids_for_ref_stars(reference_star_table, reference_formatted_ras, reference_formated_decs)
 
 
 
@@ -747,7 +740,6 @@ for dirs in target_dirs:
 ### Save New Reference File
     from astropy.io import ascii
     from astropy.table import Table
-    ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy 2 " \
-                 r"- Image Reduction Testing\passed_star_reference_file.txt"
+    ref_save_loc=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16\passed_star_reference_file.txt"
     ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
 
