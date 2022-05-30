@@ -242,7 +242,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
 ##
 def statistics_of_matched_stars(matched_star_collection, save_loc,
-                                 inner_rad, outer_rad,std_pass_threshold=0.2,**kwargs):
+                                 inner_rad, outer_rad,std_pass_threshold=0.3,**kwargs):
     '''
     Calculates the Mean and Standard Deviations of the matched stars.
 
