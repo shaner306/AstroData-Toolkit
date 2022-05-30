@@ -262,7 +262,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
 ##
 def statistics_of_matched_stars(matched_star_collection, save_loc,
-                                 inner_rad, outer_rad,std_pass_threshold=0.1):
+                                 inner_rad, outer_rad,std_pass_threshold=0.1,**kwargs):
     '''
     Calculates the Mean and Standard Deviations of the matched stars.
 
@@ -281,6 +281,10 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
         passed_matched_stars dict and a fail is written beside their name in the outputted
         statistic text file.
 
+
+    optional:
+        **kwargs:
+        - top_count_threshold: the maxium
 
 
     Returns
@@ -316,6 +320,7 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
             mean=np.mean(array_of_match_star_items)
 
 
+
             if standard_dev > np.mean(array_of_match_star_items)*std_pass_threshold or standard_dev==0:
                 pass_fail_str='FAIL'
                 matched_star_collection[matched_star].set_pass_bool(False)
@@ -329,6 +334,8 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
             file.write(f"{matched_star:18} : {mean:12.2f} +/-"
                        f" {standard_dev:12.2f} --"
                        f" {pass_fail_str} \n")
+
+
     return passed_matched_stars
 
 ##
@@ -585,7 +592,6 @@ def  find_ids_for_matched_stars(passed_matched_stars):
                     print(e)
                     continue
 
-
     # Set the other ids to the passed_stars class
     for i,passed_matched_star in enumerate(passed_matched_stars):
         for query_result in query_results:
@@ -710,6 +716,13 @@ for dirs in target_dirs:
         matched_star_collection,
         dirs+r"\flux_calculations.txt",inner_rad,
         outer_rad)
+
+
+
+    if passed_matched_stars==None:
+        raise RuntimeError('No passed matched stars, try changing threshold value')
+
+
     plot_measure_flux(matched_star_dictionary,
         dirs+r"\allfluxplots.png",passed_matched_stars,
         dirs+r"\passed_stars_fluxplots.png")
@@ -740,9 +753,18 @@ for dirs in target_dirs:
 
 
 
+
 #### Compare the RAs and DECs of both DataSets
     reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
-    passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    if 'passed_matched_reference_stars_ra_dec' in locals():
+        passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+        for line in passed_matched_reference_stars_ra_dec_add:
+            passed_matched_reference_stars_ra_dec.add_row(line)
+    else:
+
+        passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+
+
 
 ### Save New Reference File
     from astropy.io import ascii
