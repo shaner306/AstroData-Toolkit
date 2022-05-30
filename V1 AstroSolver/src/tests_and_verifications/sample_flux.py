@@ -5,11 +5,13 @@ Steps:
 1. Use Pinpoint to match the images with catalgoue stars
 2. Calculate Flux of matched stars
 3. Compare flux over time
-4. Query SIMBAD for Star Name
+4. Calculate Statistics and determine sources that have high uncertainty
+5. Match Reference Stars to those that have been passed through
+6. Produce passed reference star
 
 '''
 ##
-from astropy.table import Table,QTable
+from astropy.table import Table
 import astropy.units as u
 import os
 
@@ -240,7 +242,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
 ##
 def statistics_of_matched_stars(matched_star_collection, save_loc,
-                                 inner_rad, outer_rad,std_pass_threshold=0.1,**kwargs):
+                                 inner_rad, outer_rad,std_pass_threshold=0.2,**kwargs):
     '''
     Calculates the Mean and Standard Deviations of the matched stars.
 
@@ -262,7 +264,7 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
 
     optional:
         **kwargs:
-        - top_count_threshold: the maxium
+        - top_count_threshold: the maximum threshold for the sources
 
 
     Returns
@@ -643,9 +645,9 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
 #%%
 ## Mutliple Requests
 
-image_path = r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16"
-catalog_dir = r"D:\School\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
+catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
 
 
@@ -725,26 +727,26 @@ for dirs in target_dirs:
                 # non-standardized naming scheme
 
 #### Compare The IDS of both DataSets
-
-
-    # Get Other IDS of passed_matched stars using ra and dec
-    find_ids_for_matched_stars(passed_matched_stars)
-
-
-
-    # Get Other IDS of reference stars
-    reference_star_table, \
-    reference_other_ids = find_ids_for_ref_stars(reference_star_table, reference_formatted_ras, reference_formated_decs)
-
-
-
-
-    # See if matched stars ids are in reference star and create new
-    # reference star table called passed matched reference stars
-    passed_matched_reference_stars_ids=compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table,
-                                                                      refstar_dir)
-
-
+    #
+    #
+    # # Get Other IDS of passed_matched stars using ra and dec
+    # find_ids_for_matched_stars(passed_matched_stars)
+    #
+    #
+    #
+    # # Get Other IDS of reference stars
+    # reference_star_table, \
+    # reference_other_ids = find_ids_for_ref_stars(reference_star_table, reference_formatted_ras, reference_formated_decs)
+    #
+    #
+    #
+    #
+    # # See if matched stars ids are in reference star and create new
+    # # reference star table called passed matched reference stars
+    # passed_matched_reference_stars_ids=compare_ref_ids_with_matched_stars(passed_matched_stars,reference_star_table,
+    #                                                                   refstar_dir)
+    #
+    #
 
 
 #### Compare the RAs and DECs of both DataSets
@@ -760,8 +762,8 @@ for dirs in target_dirs:
 
 
 ### Save New Reference File
-    from astropy.io import ascii
-    from astropy.table import Table
-    ref_save_loc=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16\passed_star_reference_file.txt"
-    ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
+from astropy.io import ascii
+from astropy.table import Table
+ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering\passed_star_reference_file.txt"
+ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
 

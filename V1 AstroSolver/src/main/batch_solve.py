@@ -188,9 +188,9 @@ Mar 16 2022
     
 '''
 
-dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
-catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+dataset_folder=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
+catalog_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+refstar_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering\passed_star_reference_file.txt"
 
 
 # Pinpoint Solve Parameters
@@ -225,17 +225,17 @@ for dirs in list_subfolders_with_paths:
     Sample_image = CCDData.read(sample_image,unit='adu')
     
 # TODO: Create script that determines if WCS data is in the image
-    # pinpoint.pinpoint_solve(dirs,
-    #                     catalog_dir,
-    #                     max_mag,
-    #                     sigma,
-    #                     catalog_exp,
-    #                     match_residual,
-    #                     max_solve_time,
-    #                     catalog,
-    #                     space_based_bool,
-    #                     use_sextractor,
-    #                     all_sky_solve)
+    pinpoint.pinpoint_solve(dirs,
+                        catalog_dir,
+                        max_mag,
+                        sigma,
+                        catalog_exp,
+                        match_residual,
+                        max_solve_time,
+                        catalog,
+                        space_based_bool,
+                        use_sextractor,
+                        all_sky_solve)
 
 
     try:
@@ -285,7 +285,7 @@ for dirs in list_subfolders_with_paths:
 # %% Create Combined Large Star Table
 ##
 import csv
-dataset_folder=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-10-30\Siderial Stare Mode Reduced No Dark Scale'
+dataset_folder=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"_Combined_Large_Star_Table.csv"
 with open(file,"a+",newline='\n') as f:
@@ -308,7 +308,7 @@ with open(file,"a+",newline='\n') as f:
 ##
 import csv
 import os
-dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources"
+dataset_folder=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -356,7 +356,7 @@ import auxilary_phot_boyde_functions as aux_boyde
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources\UncappedDynamicSourcesBoyde_Table1_Combined.csv"
+file=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering\Source FilteringBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
