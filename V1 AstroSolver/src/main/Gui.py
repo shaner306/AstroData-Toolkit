@@ -44,7 +44,9 @@ This GUI Programs controls the high level processes for the Image Processor.
                        │
                        │     ┌───────────────┐
                        └────►│Boyd Method    │
-                             └───────────────┘    
+                             └───────────────┘
+
+
 
 """
 
@@ -68,6 +70,7 @@ import Main
 import main_transforms
 import pinpoint
 import trm_auxillary_functions
+import sample_flux
 
 imagefolder = 0
 catalogfolder = 0
@@ -325,6 +328,9 @@ def Gui():
         [sg.T("   ")],
         [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
     ]
+    # TODO: Make GUI for Sample Flux
+    # tab3_layout=[[sg.Button('Singular_Sample'),sg.Button[sg.Button(''),sg.Cancel()]]]
+
 
 # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
