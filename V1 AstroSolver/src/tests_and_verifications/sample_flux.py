@@ -745,17 +745,9 @@ for dirs in target_dirs:
     passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
 
 ### Save New Reference File
+    from astropy.io import ascii
+    from astropy.table import Table
     ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Siderial Stare Mode - Copy 2 " \
                  r"- Image Reduction Testing\passed_star_reference_file.txt"
-    with open(ref_save_loc,'w+') as file:
-        file.write('\t'.join(passed_matched_reference_stars_ra_dec.colnames[0:16]))
-        file.write('\n')
-        for passed_matched_reference_star in passed_matched_reference_stars_ra_dec:
-            write_line=[]
-            for i,item in enumerate(passed_matched_reference_star):
-                write_line.append(str(item))
-                if i==16:
-                    break
-            file.write('\t'.join(write_line))
-            file.write('\n')
+    ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
 
