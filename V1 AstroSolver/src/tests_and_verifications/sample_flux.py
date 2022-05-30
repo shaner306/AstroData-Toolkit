@@ -1,13 +1,19 @@
 '''
-This script was built to sample the flux of matched stars and track the flux over an observation period
+This script was built to sample the flux of matched stars and track the flux over an observation period.
+Statistics of stars that have their fluxes tracked are then calculated. From this the
+ tracked star fluxes are then correlated with the reference star file and a 'passed_reference_star_file' is produced.
+ This 'passed_reference_star_file' can then be used instead of the normal reference_star file to ensure that only stable stars are used.
 
 Steps:
 1. Use Pinpoint to match the images with catalgoue stars
 2. Calculate Flux of matched stars
 3. Compare flux over time
 4. Calculate Statistics and determine sources that have high uncertainty
-5. Match Reference Stars to those that have been passed through
-6. Produce passed reference star
+5. Match Reference Stars to those that have low uncertainty
+6. Produce a passed reference star file
+
+
+
 
 '''
 ##
@@ -26,10 +32,9 @@ import matplotlib.pyplot as plt
 ##
 class stars:
     '''
-    list_of_stars: list of strings
-    A list of star string names
-
+    A class which helps to describe the matched stars found by Pinpoint
     '''
+
     list_of_stars=[]
 
     def __init__(self,name):
@@ -49,10 +54,10 @@ class stars:
         Parameters
         ----------
         flux: value of the fluxes
-        x
-        y
-        ra
-        dec
+        x: x pixel location of the point source
+        y: y pixel location of the point source
+        ra: right ascension of the star
+        dec: declination of the star ()
 
         Returns
         -------
@@ -84,7 +89,8 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                       outer_ap: object = 24) -> object:
     '''
     A similar function to that of pinpoint_solve. This version is built specifically for sampling the flux of matched
-    stars detected by Pinpoint
+    stars detected by Pinpoint. Note that this script implements a greedy algorithm to ensure that only one
+    identification of a star is found in each image.
 
     Parameters
     ----------
@@ -121,6 +127,8 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
         QTable which describes the fluxes of all the matched stars in the images
 
     '''
+
+
     matched_star_dictionary={}
     matched_star_collection={}
     file_suffix=(".fits",".fit",".fts")
@@ -244,7 +252,8 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 def statistics_of_matched_stars(matched_star_collection, save_loc,
                                  inner_rad, outer_rad,std_pass_threshold=0.3,**kwargs):
     '''
-    Calculates the Mean and Standard Deviations of the matched stars.
+    Calculates the Mean and Standard Deviations of the matched stars. Compare the stard deviation to the std pass
+    threshold to filter out all high uncertainty stars
 
 
     Parameters
@@ -262,18 +271,13 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
         statistic text file.
 
 
-    optional:
-        **kwargs:
-        - top_count_threshold: the maximum threshold for the sources
+
 
 
     Returns
     -------
     pass_matched_stars: dict
         stars that pass the threshold test (std < mean* threshold_std)
-
-    Outputs
-    -------
 
 
     '''
@@ -290,7 +294,7 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
                    f"Inner Radius (arcsec): {inner_rad},"
                    f"Outer Radius(arcsecs): {outer_rad}\n")
 
-        #Write Matched Stars and Their statistics (mean +/- 1 std)
+        # Write Matched Stars and Their statistics (mean +/- 1 std)
         for i,matched_star in enumerate(matched_star_collection):
 
             array_of_match_star_items=[flux.value for flux in matched_star_collection[matched_star].counts]
@@ -298,8 +302,6 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
             # mean=np.mean(array_of_match_star_items)
             standard_dev=np.std(array_of_match_star_items)
             mean=np.mean(array_of_match_star_items)
-
-
 
             if standard_dev > np.mean(array_of_match_star_items)*std_pass_threshold or standard_dev==0:
                 pass_fail_str='FAIL'
@@ -321,7 +323,19 @@ def statistics_of_matched_stars(matched_star_collection, save_loc,
 ##
 def plot_measure_flux(matched_star_dictionary, save_loc,
                       passed_matched_star_collection, passed_stars_sav_loc):
-    ''''
+    '''
+    Plots the measured flux of the stars found in the image.
+
+    Parameters
+    ----------
+    matched_star_dictionary
+    save_loc
+    passed_matched_star_collection
+    passed_stars_sav_loc
+
+    Returns
+    -------
+
     '''
     #maxcount=max(len(v) for v in matched_star_dictionary.values())
     #x_data=range()
@@ -332,8 +346,7 @@ def plot_measure_flux(matched_star_dictionary, save_loc,
         x_data=[*range(0,len(y_data))]
         plt.plot(x_data,y_data,'--')
 
-        if i==30:
-            break
+
 
     plt.title('Flux Variations/Frame in the Matched Stars as Detected by Pinpoint')
     plt.xlabel('Frame')
@@ -350,8 +363,6 @@ def plot_measure_flux(matched_star_dictionary, save_loc,
         x_data = [*range(0, len(y_data))]
         plt.plot(x_data, y_data, '--')
 
-        if i == 30: # Only print 30 fluxes
-            break
 
     plt.title(
         ' Passed Stars Flux Variations/Frame in the Matched Stars as Detected '
@@ -508,7 +519,7 @@ def find_ids_for_ref_stars(reference_star_table,reference_formatted_ras,referenc
 
 
     return resultant_table, other_ids
-# TODO: Find Offline Version of this
+
 
 
 #%%
@@ -518,8 +529,8 @@ def  find_ids_for_matched_stars(passed_matched_stars):
 
     Parameters
     ----------
-    passed_matched_stars
-
+    passed_matched_stars: stars class object
+        stars class that
     Returns
     -------
     query_results: Astropy.Table
@@ -695,6 +706,8 @@ for dirs in target_dirs:
         dirs+r"\passed_stars_fluxplots.png")
 
 ### Create reference_table from reference_star_file
+
+
     with open(refstar_dir, 'r') as file:
         reference_star_file_lines = file.readlines()
         reference_formatted_ras = []
@@ -749,7 +762,12 @@ for dirs in target_dirs:
     #
 
 
-#### Compare the RAs and DECs of both DataSets
+#### Compare the RAs and DECs of both Datasets
+    '''
+    Identifies the passed matched stars in the reference star table by converting the degree, minutes and seconds of 
+    the right ascension to degrees and comparing it to the passed matched stars right ascension and declination
+    '''
+
     reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
     if 'passed_matched_reference_stars_ra_dec' in locals():
         passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
