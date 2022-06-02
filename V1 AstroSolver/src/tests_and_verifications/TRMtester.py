@@ -38,11 +38,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy
 import numpy as np
-import os
-import pandas as pd
 #import pywin32_system32
 import scipy
-import skimage
 #import win32com
 from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
@@ -55,14 +52,10 @@ from numpy import mean
 from photutils.background import Background2D
 from photutils.background import MeanBackground
 from photutils.background import SExtractorBackground
-from photutils.datasets import make_100gaussians_image
 from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
-from scipy import ndimage
-from scipy import ndimage
-from skimage import filters
 from skimage import measure
 
 
@@ -170,11 +163,6 @@ sigma_clip = 2.5
 edge_protect = 10
 min_obj_pixels = 5
 SNRLimit = 0
-pix_frac = 0;
-moffat_avg = 0;
-gauss_avg = 0;
-star_count = 0;
-mstar_count = 0;
 count = 0
 
 date = imagehdularray[0].header['DATE-OBS']
@@ -193,12 +181,14 @@ bkg_value = bkg.calc_background(fitsdata)
 bkg_estimator1 = SExtractorBackground()
 bkg_estimator2 = SExtractorBackground()
 # bkg = Background2D(fitsdata, (2, 2), filter_size=(3,3),sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2) Closest Approximate to Matlab Result
-bkg = Background2D(fitsdata, (50, 50), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
+bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator2)
 bg_rem = fitsdata - bkg.background
 threshold = detect_threshold(fitsdata, nsigma=2.5)
 sigma_clip = SigmaClip(sigma=2.5)
-bkg = SExtractorBackground(sigma_clip)
-bkg_value = bkg.calc_background(fitsdata)
+#bkg = SExtractorBackground(sigma_clip)
+#bkg_value = bkg.calc_background(fitsdata)
+plt.imshow(fitsdata - bkg.background, origin='lower',
+            cmap='Greys_r', interpolation='nearest')
 
 sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
 kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)

@@ -27,7 +27,7 @@
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/transforms/TrackRateModeTransforms" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/V1 AstroSolver/src/functions" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.8 (Astro2-updated)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.9" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
