@@ -11,7 +11,10 @@ from astropy.wcs import WCS
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from tqdm import tqdm
-
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
 import AstroFunctions as astro
 
 

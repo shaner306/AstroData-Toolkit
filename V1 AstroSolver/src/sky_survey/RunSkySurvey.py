@@ -13,7 +13,7 @@ import sky_survey_functions
 warnings.filterwarnings('ignore')
 warnings.filterwarnings('default', category=UserWarning)
 
-directory = r'D:\2021 - Suffield Sky Survey\2021 10 26 - ZWO with C14\Landolts\corrected_lights'
+directory = r'D:\DRDC Data\2021 - Suffield Sky Survey\2021 10 26 - QSI with C8\2021 10 26 - Automated Pointing Run\corrected_lights'
 plot_results = True
 save_plots = True
 file_suffix = ".fits"

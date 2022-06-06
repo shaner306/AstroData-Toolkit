@@ -22,6 +22,12 @@ from photutils.background import MeanBackground
 from photutils.background import MedianBackground
 from photutils.background import ModeEstimatorBackground
 from photutils.background import SExtractorBackground
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'image_reduction'))
+sys.path.append(os.path.join(src_path, 'temporary'))
 import AstroFunctions as astro
 import ImageReduction as IR
 import SBDarkSub
