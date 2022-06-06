@@ -32,7 +32,8 @@ for dirpath, dirnames, filenames in os.walk(streak):
 
             sigma_clip = SigmaClip(sigma=3)
             bkg_estimator = SExtractorBackground()
-            bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+            bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3),
+                               sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
             bg_rem = fitsdata - bkg.background
             threshold = detect_threshold(fitsdata, nsigma=3.0)
 
@@ -51,7 +52,10 @@ for dirpath, dirnames, filenames in os.walk(streak):
             newflux = list(tbl['segment_flux'])
 
             for i in range(len(newCenY)):
-                streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]), newflux[i])
+                streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'\
+                    .format(float(newCenX[i]), float(newCenY[i]), newflux[i])
                 STARS.write(streak_line + "\n")
+
+
 
             STARS.close()

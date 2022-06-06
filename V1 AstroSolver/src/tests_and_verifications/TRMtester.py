@@ -57,6 +57,7 @@ from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from skimage import measure
+import cv2
 
 
 def BackgroundIteration(image, tolerance):
@@ -65,7 +66,7 @@ def BackgroundIteration(image, tolerance):
     return new_mean, new_rms
 
 
-def myclip(x1, lo, hi):
+def my_clip(x1, lo, hi):
     vector = np.vectorize(np.float)
     x = vector(x1)
     high=float(hi)
@@ -151,7 +152,7 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
 
 streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
 streak = 'D:\\Breeze-M_R_B_38746U\\CAN_OTT.00018675.BREEZE-M_R_B_#38746U.FIT'
-streak2=r'/Users/home/Downloads/CAN_OTT.00041100.22108.FIT'
+streak2=r'/Users/home/Sync/CAN_OTT.00041100.22108.FIT'
 streak1 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
 streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
 
@@ -164,6 +165,7 @@ edge_protect = 10
 min_obj_pixels = 5
 SNRLimit = 0
 count = 0
+pix_frac=0
 
 date = imagehdularray[0].header['DATE-OBS']
 exposuretime = imagehdularray[0].header['EXPTIME']
@@ -230,11 +232,12 @@ newCenY = list(tbl['ycentroid'])
 newCenX = list(tbl['xcentroid'])
 newflux = list(tbl['segment_flux'])
 
-for i in range(len(newCenY)):
-    streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]), newflux[i])
-    STARS.write(streak_line + "\n")
+#for i in range(len(newCenY)):
+    #streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]), newflux[i])
+    #STARS.write(streak_line + "\n")
 
-STARS.close()
+#STARS.close()
+
 bg_rem[1:edge_protect, 1:edge_protect] = 0
 bg_rem[imagesizeX - edge_protect:imagesizeX, :] = 0
 bg_rem[:, 1:edge_protect] = 0

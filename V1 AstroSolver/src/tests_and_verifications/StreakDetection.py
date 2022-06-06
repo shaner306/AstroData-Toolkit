@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 #import pywin32_system32
 #import win32com
 import os
+import numpy
 from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
 from astropy.stats import SigmaClip
@@ -16,11 +17,11 @@ from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
+from photutils.segmentation import make_source_mask
+streak =r'/Users/home/Sync/'
 
-streak = 'D:\\Breeze-M_R_B_38746U'
-
-file_suffix = (".fits", ".fit", ".fts")
-
+file_suffix = (".fits", ".fit", ".FIT")
+trm=0
 for dirpath, dirnames, filenames in os.walk(streak):
     for filename in filenames:
         if (filename.endswith(file_suffix)):
@@ -31,24 +32,42 @@ for dirpath, dirnames, filenames in os.walk(streak):
             fitsdata = imagehdularray[0].data
 
             sigma_clip = SigmaClip(sigma=3)
+            mask = make_source_mask(fitsdata, nsigma=2, npixels=5, dilate_size=11)
             bkg_estimator = SExtractorBackground()
-            bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
-            bg_rem = fitsdata - bkg.background
-            threshold = detect_threshold(fitsdata, nsigma=3.0)
+            if trm==1:
+                bkg = Background2D(fitsdata, (30, 30), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+                # fitsdata = fitsdata - bkg.background
+                # threshold = detect_threshold(fitsdata, nsigma=3.0)
 
+                threshold = bkg.background + (2.0 * bkg.background_rms)
+                sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
+                kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
+                convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
+                segm = detect_sources(fitsdata, threshold, npixels=5)
+                segm_deblend = deblend_sources(fitsdata, segm, npixels=5,
+                                               nlevels=32, contrast=0.001)
+
+            bkg = Background2D(fitsdata, (30, 30), filter_size=(3,3), mask=mask, bkg_estimator=bkg_estimator)
+            #fitsdata = fitsdata - bkg.background
+            #threshold = detect_threshold(fitsdata, nsigma=3.0)
+
+            threshold = bkg.background + (2.0 * bkg.background_rms)
             sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
             kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
             convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
-            segm = detect_sources(fitsdata, threshold, npixels=5)
-            segm_deblend = deblend_sources(fitsdata, segm, npixels=5,
+            segm = detect_sources(convolved_data, threshold, npixels=5)
+            segm_deblend = deblend_sources(convolved_data, segm, npixels=5,
                                        nlevels=32, contrast=0.001)
 
             cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
+
             tbl = cat.to_table()
 
             newCenY = list(tbl['ycentroid'])
             newCenX = list(tbl['xcentroid'])
             newflux = list(tbl['segment_flux'])
+            el= list(tbl['eccentricity'])
+            print(el)
 
             for i in range(len(newCenY)):
                 streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]), newflux[i])
