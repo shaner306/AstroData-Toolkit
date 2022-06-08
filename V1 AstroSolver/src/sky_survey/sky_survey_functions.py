@@ -59,6 +59,11 @@ def _sky_survey_calc(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+        try:
+            fwhm_pinpoint = float(hdr['FWHM'])
+            fwhm_pp_arcsec = astro.convert_fwhm_to_arcsec_trm(hdr, fwhm_pinpoint)
+        except KeyError:
+            fwhm_pp_arcsec = np.nan
         # print(bkg)
         irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
@@ -90,6 +95,7 @@ def _sky_survey_calc(directory,
                                                              fwhm_std,
                                                              fwhm_arcsec,
                                                              fwhm_arcsec_std,
+                                                             fwhm_pp_arcsec,
                                                              num_sources,
                                                              background_sky_brightness,
                                                              background_sky_brightness_sigma,
@@ -149,6 +155,7 @@ def _sky_survey_calc(directory,
                                                          fwhm_std,
                                                          fwhm_arcsec,
                                                          fwhm_arcsec_std,
+                                                         fwhm_pp_arcsec,
                                                          num_sources,
                                                          background_sky_brightness,
                                                          background_sky_brightness_sigma,
@@ -194,6 +201,15 @@ def _sky_survey_calc(directory,
         star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
     std_fwhm_pixel = np.std(
         star_aux_table['FWHM_pixel'][~np.isnan(star_aux_table['FWHM_arcsec'])])
+    
+    min_fwhm_pp_arcsec = min(
+        star_aux_table['FWHM_pinpoint_arcsec'][~np.isnan(star_aux_table['FWHM_pinpoint_arcsec'])])
+    max_fwhm_pp_arcsec = max(
+        star_aux_table['FWHM_pinpoint_arcsec'][~np.isnan(star_aux_table['FWHM_pinpoint_arcsec'])])
+    mean_fwhm_pp_arcsec = np.mean(
+        star_aux_table['FWHM_pinpoint_arcsec'][~np.isnan(star_aux_table['FWHM_pinpoint_arcsec'])])
+    std_fwhm_pp_arcsec = np.std(
+        star_aux_table['FWHM_pinpoint_arcsec'][~np.isnan(star_aux_table['FWHM_pinpoint_arcsec'])])
 
     with open(os.path.join(save_loc, 'NightlyStats.txt'), 'a') as f:
         f.write(f'Minimum BSB:\t{min_bsb}')
@@ -219,6 +235,14 @@ def _sky_survey_calc(directory,
         f.write(f'Mean FWHM (pixels):\t{mean_fwhm_pixel}')
         f.write('\n')
         f.write(f'Standard Deviation of FWHM (pixels):\t{std_fwhm_pixel}')
+        f.write('\n')
+        f.write(f'Minimum FWHM_pinpoint (arcsec):\t{min_fwhm_pp_arcsec}')
+        f.write('\n')
+        f.write(f'Maximum FWHM_pinpoint (arcsec):\t{max_fwhm_pp_arcsec}')
+        f.write('\n')
+        f.write(f'Mean FWHM_pinpoint (arcsec):\t{mean_fwhm_pp_arcsec}')
+        f.write('\n')
+        f.write(f'Standard Deviation of FWHM_pinpoint (arcsec):\t{std_fwhm_pp_arcsec}')
         f.write('\n')
 
     theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
@@ -328,6 +352,17 @@ def _sky_survey_calc(directory,
     plt.show()
     plt.close()
 
+    fwhm_pp_arcsec = star_aux_table['FWHM_pinpoint_arcsec']
+    fig, ax = plt.subplots()
+    ax.plot(times_datetime, fwhm_pp_arcsec, 'o')
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    ax.set_ylabel('FWHM_pinpoint (arcsec)')
+    ax.set_xlabel('Time (UTC)')
+    plt.title('FWHM_pinpoint (arcsec) v. Time')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pinpoint_arcsec.png'))
+    plt.show()
+    plt.close()
+
     fwhm_arcsec = star_aux_table['FWHM_arcsec']
     fwhm_arcsec_sigma = star_aux_table['FWHM_arcsec_sigma']
     elevation = star_aux_table['Elevation']
@@ -363,6 +398,17 @@ def _sky_survey_calc(directory,
     ax.set_ylabel('Elevation')
     plt.title('FWHM (pixel) v. Elevation')
     plt.savefig(os.path.join(save_loc, 'FWHM_pixel_v_elevation.png'))
+    plt.show()
+    plt.close()
+
+    fwhm_pp_arcsec = star_aux_table['FWHM_pinpoint_arcsec']
+    elevation = star_aux_table['Elevation']
+    fig, ax = plt.subplots()
+    ax.plot(fwhm_pp_arcsec, elevation, 'o')
+    ax.set_xlabel('FWHM_pinpoint (arcsec)')
+    ax.set_ylabel('Elevation')
+    plt.title('FWHM_pinpoint (arcsec) v. Elevation')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pinpoint_arcsec_v_elevation.png'))
     plt.show()
     plt.close()
 
@@ -409,6 +455,29 @@ def _sky_survey_calc(directory,
         label.set_color('black')
     plt.title('FWHM (pixels)')
     plt.savefig(os.path.join(save_loc, 'FWHM_pixel_polar.png'))
+    plt.show()
+    plt.close()
+    
+    theta = star_aux_table['Azimuth']
+    r = star_aux_table['Elevation']
+    z = star_aux_table['FWHM_pinpoint_arcsec']
+    fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
+    ax.set_theta_zero_location("N")
+    norm = matplotlib.colors.Normalize(vmin=np.percentile(z[~np.isnan(z)], 7),
+                                       vmax=max(z[~np.isnan(z)]))
+    m = cm.ScalarMappable(cmap=plt.get_cmap('viridis_r'), norm=norm)
+    m.set_array([])
+    plt.colorbar(m)
+    # Change contourf in the line below to scatter if you have only 1D theta,
+    # r and brightness values
+    ax.scatter(theta[~np.isnan(z)], r[~np.isnan(z)], c=z[~np.isnan(z)],
+               cmap=plt.get_cmap('viridis_r'), norm=norm)
+    rlabels = ax.get_ymajorticklabels()
+    ax.set_rlim(bottom=90, top=15)
+    for label in rlabels:
+        label.set_color('black')
+    plt.title('FWHM_pinpoint (arcsec)')
+    plt.savefig(os.path.join(save_loc, 'FWHM_pinpoint_arcsec_polar.png'))
     plt.show()
     plt.close()
 

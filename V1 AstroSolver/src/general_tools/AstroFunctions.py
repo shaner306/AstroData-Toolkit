@@ -5248,6 +5248,7 @@ def init_star_aux_table_columns():
     fwhm_pixels_sigma = []
     fwhms_arcsec = []
     fwhm_arcsec_sigma = []
+    fwhm_pp = []
     num_sources = []
     background_sky_brightness = []
     background_sky_brightness_sigma = []
@@ -5262,6 +5263,7 @@ def init_star_aux_table_columns():
                                          'fwhm_pixels_sigma',
                                          'fwhms_arcsec',
                                          'fwhm_arcsec_sigma',
+                                         'fwhm_pinpoint',
                                          'num_sources',
                                          'background_sky_brightness',
                                          'background_sky_brightness_sigma',
@@ -5275,6 +5277,7 @@ def init_star_aux_table_columns():
                                   fwhm_pixels_sigma,
                                   fwhms_arcsec,
                                   fwhm_arcsec_sigma,
+                                  fwhm_pp,
                                   num_sources,
                                   background_sky_brightness,
                                   background_sky_brightness_sigma,
@@ -5291,6 +5294,7 @@ def update_star_aux_columns(star_aux_table_columns,
                             fwhm_sigma,
                             fwhm_arcsec,
                             fwhm_arcsec_sigma,
+                            fwhm_pp_arcsec,
                             num_sources,
                             background_sky_brightness,
                             background_sky_brightness_sigma,
@@ -5305,6 +5309,7 @@ def update_star_aux_columns(star_aux_table_columns,
     updated_star_aux_table_columns.fwhm_pixels_sigma.append(fwhm_sigma)
     updated_star_aux_table_columns.fwhms_arcsec.append(fwhm_arcsec)
     updated_star_aux_table_columns.fwhm_arcsec_sigma.append(fwhm_arcsec_sigma)
+    updated_star_aux_table_columns.fwhm_pinpoint.append(fwhm_pp_arcsec)
     updated_star_aux_table_columns.num_sources.append(num_sources)
     updated_star_aux_table_columns.background_sky_brightness.append(
         background_sky_brightness)
@@ -5326,6 +5331,7 @@ def create_star_aux_table(star_aux_table_columns):
             'FWHM_pixel_sigma',
             'FWHM_arcsec',
             'FWHM_arcsec_sigma',
+            'FWHM_pinpoint_arcsec',
             'Number of Sources',
             'BSB',
             'BSB_sigma',
@@ -5341,6 +5347,7 @@ def create_star_aux_table(star_aux_table_columns):
             star_aux_table_columns.fwhm_pixels_sigma,
             star_aux_table_columns.fwhms_arcsec,
             star_aux_table_columns.fwhm_arcsec_sigma,
+            star_aux_table_columns.fwhm_pinpoint,
             star_aux_table_columns.num_sources,
             star_aux_table_columns.background_sky_brightness,
             star_aux_table_columns.background_sky_brightness_sigma,
