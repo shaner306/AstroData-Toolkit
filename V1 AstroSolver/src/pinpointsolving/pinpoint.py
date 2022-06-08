@@ -38,10 +38,10 @@ def pinpoint_solve(inbox, catloc, max_mag=13, sigma=2.5, catexp=0.8, match_resid
                         astro.calc_ArcsecPerPixel(header)
                     # yBin = 4.33562092816E-004*3600;
                     # xBin =  4.33131246330E-004*3600;
-                    # f.ArcsecperPixelHoriz  = 4.556
-                    # f.ArcsecperPixelVert =  4.556
-                    f.ArcsecperPixelHoriz = x_arcsecperpixel
-                    f.ArcsecperPixelVert = y_arcsecperpixel
+                    f.ArcsecperPixelHoriz = 1.2
+                    f.ArcsecperPixelVert = 1.2
+                    #f.ArcsecperPixelHoriz = x_arcsecperpixel
+                    #f.ArcsecperPixelVert = y_arcsecperpixel
 
                     "Pinpoint Solve Inputs"
                     f.Catalog = 11

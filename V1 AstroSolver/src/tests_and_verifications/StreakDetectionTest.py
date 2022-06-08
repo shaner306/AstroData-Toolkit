@@ -1,7 +1,9 @@
+
 import matplotlib.pyplot as plt
-# import pywin32_system32
-# import win32com
+#import pywin32_system32
+#import win32com
 import os
+import numpy
 from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
 from astropy.stats import SigmaClip
@@ -15,79 +17,82 @@ from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
+from photutils.segmentation import make_source_mask
+streak =r'/Users/home/Sync/'
+streak1= r'/Users/home/Downloads/2021 10 21 - ZWO with C8/Test'
 
-streak122 = r'D:\Transfer to mac\2021-03-10 - Calibrated\Intelsat 10-02 Post Eclipse\LIGHT\B_lim\0066_3x3_-10.00_5.00_B_21-23-04.fits'
-streak = 'D:\\Breeze-M_R_B_38746U'
-streak2 = r'/Users/home/Downloads/CAN_OTT.00041100.22108.FIT'
-streak1 = r'D:\Transfer to mac\trm-stars-images\NEOS_SCI_2021099173229frame.fits'
-streak13 = r'D:\Solved Stars\Tycho 3023_1724\LIGHT\B\0000_3x3_-10.00_5.00_B_21-22-59.fits'
-file_suffix = (".fits", ".fit", ".fts")
+file_suffix = (".fits", ".fit", ".FIT")
+trm=1
 
-for dirpath, dirnames, filenames in os.walk(streak):
-    for filename in filenames:
-        if (filename.endswith(file_suffix)):
-            filepath = os.path.join(dirpath, filename)
-            STARS = open(filepath + '.stars', "w")
 
-            imagehdularray = fits.open(streak2)
-            date = imagehdularray[0].header['DATE-OBS']
-            exposuretime = imagehdularray[0].header['EXPTIME']
-            imagesizeX = imagehdularray[0].header['NAXIS1']
-            imagesizeY = imagehdularray[0].header['NAXIS2']
-            fitsdata = imagehdularray[0].data
+def StreakDetection(streak, TRM):
 
-            sigma_clip = SigmaClip(sigma=3)
-            bkg_estimator = SExtractorBackground()
-            bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), sigma_clip=sigma_clip,
-                               bkg_estimator=bkg_estimator)
-            bg_rem = fitsdata - bkg.background
-            threshold = detect_threshold(fitsdata, nsigma=3.0)
+    for dirpath, dirnames, filenames in os.walk(streak):
+        print(f'{len(filenames)} Images Detected')
+        for filename in filenames:
+            if (filename.endswith(file_suffix)):
+                #sum1+=1
+                filepath = os.path.join(dirpath, filename)
+                STARS = open(filepath + '.stars', "w")
+                AstrometryNetFile=open(filepath+'.txt', 'w')
 
-            plt.imshow(fitsdata - bkg.background, origin='lower',
-                       cmap='Greys_r', interpolation='nearest')
+                imagehdularray = fits.open(filepath)
+                fitsdata = imagehdularray[0].data
 
-            sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
-            kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
-            convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
-            segm = detect_sources(fitsdata, threshold, npixels=5)
-            segm_deblend = deblend_sources(fitsdata, segm, npixels=5,
-                                           nlevels=32, contrast=0.001)
+                sigma_clip = SigmaClip(sigma=3)
+                mask = make_source_mask(fitsdata, nsigma=2, npixels=5, dilate_size=11)
+                bkg_estimator = SExtractorBackground()
+                if trm==1:
+                    bkg = Background2D(fitsdata, (30, 30), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+                    # fitsdata = fitsdata - bkg.background
+                    # threshold = detect_threshold(fitsdata, nsigma=3.0)
 
-            norm = ImageNormalize(stretch=SqrtStretch())
+                    threshold = bkg.background + (1.5 * bkg.background_rms)
+                    sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
+                    kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
+                    convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
+                    segm = detect_sources(fitsdata, threshold, npixels=20)
+                    segm_deblend = deblend_sources(fitsdata, segm, npixels=20,
+                                                   nlevels=50, contrast=0.0001)
+                else:
+                    bkg = Background2D(fitsdata, (30, 30), filter_size=(3,3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+                    #fitsdata = fitsdata - bkg.background
+                    #threshold = detect_threshold(fitsdata, nsigma=3.0)
 
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12.5))
-            ax1.imshow(fitsdata, origin='lower', cmap='Greys_r', norm=norm)
-            ax1.set_title('Data')
-            cmap = segm.make_cmap(seed=123)
-            ax2.imshow(segm, origin='lower', cmap=cmap, interpolation='nearest')
-            ax2.set_title('Segmentation Image')
+                    threshold = bkg.background + (2.5 * bkg.background_rms)
+                    sigma = 2.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
+                    kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
+                    convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
+                    segm = detect_sources(convolved_data, threshold, npixels=5)
+                    segm_deblend = deblend_sources(convolved_data, segm, npixels=5,
+                                               nlevels=32, contrast=0.001)
 
-            cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
-            tbl = cat.to_table()
+                cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=None)
 
-            tbl['xcentroid'].info.format = '.2f'  # optional format
-            tbl['ycentroid'].info.format = '.2f'
-            tbl['kron_flux'].info.format = '.2f'
-            print(tbl)
+                tbl = cat.to_table()
 
-            # norm = simple_norm(fitsdata, segm, 'sqrt')
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12.5))
-            ax1.imshow(fitsdata, origin='lower', cmap='Greys_r', norm=norm)
-            ax1.set_title('FitsData')
-            cmap = segm_deblend.make_cmap(seed=123)
-            ax2.imshow(segm_deblend, origin='lower', cmap=cmap,
-                       interpolation='nearest')
-            ax2.set_title('Segmentation Image')
-            cat.plot_kron_apertures((2.5, 1.0), axes=ax1, color='white', lw=1.5)
-            cat.plot_kron_apertures((2.5, 1.0), axes=ax2, color='white', lw=1.5)
 
-            newCenY = list(tbl['ycentroid'])
-            newCenX = list(tbl['xcentroid'])
-            newflux = list(tbl['segment_flux'])
+                newCenY = list(tbl['ycentroid'])
+                newCenX = list(tbl['xcentroid'])
+                newflux = list(tbl['segment_flux'])
 
-            for i in range(len(newCenY)):
-                streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]),
-                                                                              newflux[i])
-                STARS.write(streak_line + "\n")
 
-            STARS.close()
+                for i in range(len(newCenY)):
+                    streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(newCenX[i]), float(newCenY[i]), newflux[i])
+                    STARS.write(streak_line + "\n")
+
+                tbl.sort('segment_flux', reverse=True)
+                newCenY = list(tbl['ycentroid'])
+                newCenX = list(tbl['xcentroid'])
+                newflux = list(tbl['segment_flux'])
+
+                for i in range(len(newCenY)):
+                    streak_line2 = '{:.4f} {:.4f}'.format(float(newCenX[i]), float(newCenY[i]))
+                    AstrometryNetFile.write(streak_line2 + "\n")
+                print(f'{filename} index created.')
+                print(f' {len(newCenY)} streaks detected.')
+
+                STARS.close()
+                AstrometryNetFile.close()
+    #print(f'{sum1} streak detection files generated')
+

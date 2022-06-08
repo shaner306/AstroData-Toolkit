@@ -18,14 +18,19 @@ from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from photutils.segmentation import make_source_mask
-streak1 =r'/Users/home/Sync/'
-streak= r'/Users/home/Downloads/2021 10 21 - ZWO with C8/Test'
+streak =r'/Users/home/Sync/'
+streak1= r'/Users/home/Downloads/2021 10 21 - ZWO with C8/Test'
 
 file_suffix = (".fits", ".fit", ".FIT")
-trm=0
+trm=True
+
+
+streak
+sum1=0
 for dirpath, dirnames, filenames in os.walk(streak):
     for filename in filenames:
         if (filename.endswith(file_suffix)):
+            sum1+=1
             filepath = os.path.join(dirpath, filename)
             STARS = open(filepath + '.stars', "w")
             AstrometryNetFile=open(filepath+'.txt', 'w')
@@ -36,7 +41,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             sigma_clip = SigmaClip(sigma=3)
             mask = make_source_mask(fitsdata, nsigma=2, npixels=5, dilate_size=11)
             bkg_estimator = SExtractorBackground()
-            if trm==1:
+            if trm==True:
                 bkg = Background2D(fitsdata, (30, 30), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
                 # fitsdata = fitsdata - bkg.background
                 # threshold = detect_threshold(fitsdata, nsigma=3.0)
@@ -83,7 +88,10 @@ for dirpath, dirnames, filenames in os.walk(streak):
             for i in range(len(newCenY)):
                 streak_line2 = '{:.4f} {:.4f}'.format(float(newCenX[i]), float(newCenY[i]))
                 AstrometryNetFile.write(streak_line2 + "\n")
-
+            print(f'{filename} index created.')
+            print(f' {len(newCenY)} streaks detected.')
 
             STARS.close()
             AstrometryNetFile.close()
+print(f'{sum1} streak detection files generated')
+
