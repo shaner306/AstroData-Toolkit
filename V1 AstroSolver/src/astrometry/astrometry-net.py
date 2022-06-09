@@ -1,6 +1,7 @@
 import os
 import sys
 from tqdm import tqdm
+from astropy.coordinates import SkyCoord
 import astropy.units as u
 from math import atan
 from os.path import dirname
@@ -31,8 +32,12 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits"):
             arcsec_per_pix = rad_per_pix.to(u.arcsec)
         low = arcsec_per_pix.value - 0.5
         high = arcsec_per_pix.value + 0.5
+        img_radec = SkyCoord(ra=hdr['OBJCTRA'], dec=hdr['OBJCTDEC'], unit=(u.hourangle, u.deg))
+        ra = img_radec.ra.deg
+        dec = img_radec.dec.deg
+        #--ra {ra} --dec {dec} --radius 360 
         terminal_call = f'solve-field -p --fits-image --overwrite -D "{directory}/solved" -d 100 -u arcsecperpix \
             -L {low} -H {high} -y "{file_path}"'
         os.system(terminal_call)
 
-solve_plate_astrometry_net("/media/jmwawrow/Data/DRDC Data/2021 - Suffield Sky Survey/2021 10 21 - ZWO with C8/2021 10 21 - Pointing Run/astrometry-net-test/")
+solve_plate_astrometry_net("/media/jmwawrow/Data/DRDC Data/2021 - Suffield Sky Survey/2021 10 26 - QSI with C8/2021 10 26 - Automated Pointing Run/asatrometry-net test/")
