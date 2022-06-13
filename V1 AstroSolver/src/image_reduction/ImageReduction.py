@@ -519,8 +519,10 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             for dark_time in dark_times:
                 
                 ### Dark Image Masking ###
+
+                #TODO: Create Comments explaining this
                 '''
-                # TODO: Create Comments explaining this
+                
                 '''
                 
                 
@@ -862,19 +864,15 @@ def flat_image_masking(flat_imgtypes_concatenateded,
             bad_ratio = True
         else:
             maskr = ccdp.ccdmask(ratio)
-            # TODO: Make this Section
+            # TODO: Run this scenario
             
-            
-            # FIXME: Why is this here?
-            if correct_outliers_params['Replace Bool']:
-                # Replaces the values in mask with a desired value
-                if correct_outliers_params['Replace Mode'] == 'Ave':
-                    print('Calculate Average Background')
-                    
-                    
+            corrected_master_flat=correct_outlier_flats(correct_outliers_params,
+                                  maskr,
+                                  flats_to_compare,
+                                  frame_filter,
+                                  master_dir,
+                                  corrected_light_dir)
 
-                elif correct_outliers_params['Replace Mode'] == 'Interpolate':
-                    print('Interpolation')
 
     if (len(flats_to_compare) == 1) or (bad_ratio is True):
         # Calibrate flat field
