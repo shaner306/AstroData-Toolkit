@@ -199,7 +199,10 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                                 if star.MatchedCatalogStar.Identification in iterative_exclusion_list:
                                     continue
                                 else:
+
+
                                     # FIXME: Greedy Algorithm
+
                                     measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
 
 
@@ -252,7 +255,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 def statistics_of_matched_stars(matched_star_collection, save_loc,
                                  inner_rad, outer_rad,std_pass_threshold=0.3,**kwargs):
     '''
-    Calculates the Mean and Standard Deviations of the matched stars. Compare the stard deviation to the std pass
+    Calculates the Mean and Standard Deviations of the matched stars. Compare the standard deviation to the std pass
     threshold to filter out all high uncertainty stars
 
 
