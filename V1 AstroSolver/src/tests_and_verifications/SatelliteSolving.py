@@ -25,8 +25,7 @@ catloc = 'D:\\squid\\UCAC4'
 
 
 StreakDetectionTest.StreakDetection(streak, TRM=True)
-
-pinpointsolving.pinpoint_solve(streak, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=2.5,
+pinpointsolving.pinpoint_solve(streak, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=1.5,
                                max_solve_time=300, space_based_bool=False, use_sextractor=True,
                                all_sky_solve=False)
 

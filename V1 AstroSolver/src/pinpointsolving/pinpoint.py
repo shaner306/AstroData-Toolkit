@@ -8,12 +8,12 @@ import win32com.client
 import AstroFunctions as astro
 
 
-def pinpoint_solve(inbox, catloc, max_mag=13, sigma=2.5, catexp=0.8, match_residual=0,
+def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=1.5,
                    max_solve_time=300, space_based_bool=False, use_sextractor=False,
                    all_sky_solve=False):
 
-    file_suffix = (".fits", ".fit", ".fts")
-
+    file_suffix = (".fits", ".fit", ".fts",".FIT",".FITS")
+    failedSolves=0
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
             if (filename.endswith(file_suffix)):
@@ -33,15 +33,18 @@ def pinpoint_solve(inbox, catloc, max_mag=13, sigma=2.5, catexp=0.8, match_resid
                     f.AttachFITS(filepath)
                     f.Declination = f.targetDeclination
                     f.RightAscension = f.targetRightAscension
+                    try:
+                        x_arcsecperpixel, y_arcsecperpixel =\
+                            astro.calc_ArcsecPerPixel(header)
+                        # f.ArcsecperPixelHoriz = x_arcsecperpixel
+                        # f.ArcsecperPixelVert = y_arcsecperpixel
+                    except:
 
-                    x_arcsecperpixel, y_arcsecperpixel =\
-                        astro.calc_ArcsecPerPixel(header)
-                    # yBin = 4.33562092816E-004*3600;
-                    # xBin =  4.33131246330E-004*3600;
-                    f.ArcsecperPixelHoriz = 1.2
-                    f.ArcsecperPixelVert = 1.2
-                    #f.ArcsecperPixelHoriz = x_arcsecperpixel
-                    #f.ArcsecperPixelVert = y_arcsecperpixel
+                        # yBin = 4.33562092816E-004*3600;
+                        # xBin =  4.33131246330E-004*3600;
+                        f.ArcsecperPixelHoriz = 1.38
+                        f.ArcsecperPixelVert = 1.38
+
 
                     "Pinpoint Solve Inputs"
                     f.Catalog = 11
@@ -56,11 +59,13 @@ def pinpoint_solve(inbox, catloc, max_mag=13, sigma=2.5, catexp=0.8, match_resid
                     f.Solve()
                     f.UpdateFITS()
 
-                    print("Pinpoint Solved")
+                    print("Solved - Header Updated")
                 except:
                     print("Could Not Solve")
-                    continue
-    return f
+                    failedSolves+=1
+
+
+    return None
 def pinpoint_init():
     f = win32com.client.Dispatch("Pinpoint.plate")
     return f
