@@ -85,8 +85,8 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                       max_solve_time: float,
                       catalog: int,
                       use_sextractor: bool,
-                      inner_ap: object = 12,
-                      outer_ap: object = 24) -> object:
+                      inner_ap: int = 12,
+                      outer_ap: int = 24) -> object:
     '''
     A similar function to that of pinpoint_solve. This version is built specifically for sampling the flux of matched
     stars detected by Pinpoint. Note that this script implements a greedy algorithm to ensure that only one
@@ -156,10 +156,11 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                     f.RightAscension = f.targetRightAscension
 
                     #focal_length = header['FOCALLEN']
-                    x_arcsecperpixel, y_arcsecperpixel = \
-                        astro.calc_ArcsecPerPixel(header)
-                    #x_arcsecperpixel=2.5
-                    #y_arcsecperpixel=2.5
+
+                    #x_arcsecperpixel, y_arcsecperpixel = \
+                    #    astro.calc_ArcsecPerPixel(header)
+                    x_arcsecperpixel=2.5
+                    y_arcsecperpixel=2.5
 
 
                     f.ArcsecperPixelHoriz = x_arcsecperpixel
@@ -181,7 +182,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
                     "Pinpoint Solving"
 
-                    # FIXME f.Solve intronsicly calls Find Catalog Stars and Image Stars
+                    # FIXME f.Solve intrinsicly calls Find Catalog Stars and Image Stars
                     f.FindCatalogStars()
                     # print(f.CatalogStars.Count)
                     f.FindImageStars()
@@ -638,106 +639,158 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
 
 ## Singular Request
 
-# inner_rad=32
-# outer_rad=48
-#
-# image_dir=r''
-# catalogue_dir=r"D:\School\StarCatalogues\USNO UCAC4"
-# matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3, \
-#                         0.8, 2, 60, 11, False, 32, 48)
-# passed_matched_stars=statistics_of_matched_stars(matched_star_collection,
-#                             r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\flux_calculations.txt",
-#                             inner_rad,outer_rad)
-# plot_measure_flux(matched_star_dictionary,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\fluxplots.png",
-#                   passed_matched_stars,r"D:\School\Work - Winter 2022\Work\2021-03-21\HIP 2894\LIGHT\B\passed_stars_fluxplots.png"
-#
-#                                         )
-#
+inner_rad=32 # in arcseconds
+outer_rad=48
 
+image_dir=r'C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 32\I'
+catalogue_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3,0.8, 2, 60, 11,
+                                                                  False, inner_rad, outer_rad)
+passed_matched_stars=statistics_of_matched_stars(matched_star_collection,
+                            (image_dir+r"\pass_fail.txt"),
+                            inner_rad,outer_rad)
+plot_measure_flux(matched_star_dictionary,(image_dir+r"\fluxplots.png"),
+                  passed_matched_stars,(image_dir+r"\passed_stars_fluxplots.png")
+                                        )
+with open(refstar_dir, 'r') as file:
+    reference_star_file_lines = file.readlines()
+    reference_formatted_ras = []
+    reference_formated_decs = []
+
+    reference_star_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
+                                 dtype=['str', 'str', 'str', 'float64', 'float64',
+                                        'float64', 'float64', 'float64', 'float64', 'float64',
+                                        'float64', 'float64', 'float64', 'float64', 'float64',
+                                        'float64', 'float64'
+                                        ])
+    for i, reference_star_file_line in enumerate(reference_star_file_lines):
+        if i == 0:
+            continue  # title
+        else:
+
+            reference_star_table_line = (reference_star_file_line.split('\t'))[0:17]
+            reference_star_table.add_row(reference_star_table_line)
+            # FIXME: Add proper string spliting
+            reference_formatted_ra = f"{(reference_star_table_line[1])[0:3]}h" \
+                                     f" {(reference_star_table_line[1])[3:6]}m" \
+                                     f"{(reference_star_table_line[1])[6:14]}s"
+            reference_formatted_ras.append(reference_formatted_ra)
+            reference_formatted_dec = f"{(reference_star_table_line[2])[0:3]}deg" \
+                                      f"{(reference_star_table_line[2])[3:6]}m" \
+                                      f"{reference_star_table_line[2][6:14]}s"
+            reference_formated_decs.append(reference_formatted_dec)
+reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
+if 'passed_matched_reference_stars_ra_dec' in locals():
+    passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    for line in passed_matched_reference_stars_ra_dec_add:
+        passed_matched_reference_stars_ra_dec.add_row(line)
+else:
+
+    passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+'''
+    Identifies the passed matched stars in the reference star table by converting the degree, minutes and seconds of 
+    the right ascension to degrees and comparing it to the passed matched stars right ascension and declination
+    '''
+
+
+
+if 'passed_matched_reference_stars_ra_dec' in locals():
+    passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    for line in passed_matched_reference_stars_ra_dec_add:
+        passed_matched_reference_stars_ra_dec.add_row(line)
+else:
+
+    passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+
+from astropy.io import ascii
+
+ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 38\passed_star_reference_file.txt"
+ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
 # Reset the Variables when complete
 
 #%%
 ## Mutliple Requests
 
-image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
-catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
-refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
-
-
-
-inner_rad=32
-outer_rad=48
-list_subfolders_with_paths = [folder.path for folder in os.scandir(image_path) if folder.is_dir()]
-
-target_dirs=[]
-
-
-#TODO : Clean up Code
-for subfolder in list_subfolders_with_paths:
-    try:
-        for subfolder2 in (os.scandir(subfolder)):
-            try:
-                for subfolder3 in (os.scandir(subfolder2)):
-                    if subfolder3.is_dir():
-
-                        target_dirs.append(subfolder3.path)
-                    else:
-                        continue
-            except:
-                continue
-    except:
-        continue
-for dirs in target_dirs:
-
-    matched_star_dictionary,matched_star_collection=get_matched_stars(dirs, catalog_dir, 15,
-                                                     3, 0.8, 2, 60, 11,
-                                                     False, inner_rad, outer_rad,)
-
-    passed_matched_stars=statistics_of_matched_stars(
-        matched_star_collection,
-        dirs+r"\flux_calculations.txt",inner_rad,
-        outer_rad)
-
-
-
-    if passed_matched_stars==None:
-        raise RuntimeError('No passed matched stars, try changing threshold value')
-
-
-    plot_measure_flux(matched_star_dictionary,
-        dirs+r"\allfluxplots.png",passed_matched_stars,
-        dirs+r"\passed_stars_fluxplots.png")
-
+# image_path = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering"
+# catalog_dir = r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
+# refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
+#
+#
+#
+# inner_rad=32
+# outer_rad=48
+# list_subfolders_with_paths = [folder.path for folder in os.scandir(image_path) if folder.is_dir()]
+#
+# target_dirs=[]
+#
+#
+# #TODO : Clean up Code
+# for subfolder in list_subfolders_with_paths:
+#     try:
+#         for subfolder2 in (os.scandir(subfolder)):
+#             try:
+#                 for subfolder3 in (os.scandir(subfolder2)):
+#                     if subfolder3.is_dir():
+#
+#                         target_dirs.append(subfolder3.path)
+#                     else:
+#                         continue
+#             except:
+#                 continue
+#     except:
+#         continue
+# for dirs in target_dirs:
+#
+#     matched_star_dictionary,matched_star_collection=get_matched_stars(dirs, catalog_dir, 15,
+#                                                      3, 0.8, 2, 60, 11,
+#                                                      False, inner_rad, outer_rad,)
+#
+#     passed_matched_stars=statistics_of_matched_stars(
+#         matched_star_collection,
+#         dirs+r"\flux_calculations.txt",inner_rad,
+#         outer_rad)
+#
+#
+#
+#     if passed_matched_stars==None:
+#         raise RuntimeError('No passed matched stars, try changing threshold value')
+#
+#
+#     plot_measure_flux(matched_star_dictionary,
+#         dirs+r"\allfluxplots.png",passed_matched_stars,
+#         dirs+r"\passed_stars_fluxplots.png")
+#
 ### Create reference_table from reference_star_file
-
-
-    with open(refstar_dir, 'r') as file:
-        reference_star_file_lines = file.readlines()
-        reference_formatted_ras = []
-        reference_formated_decs = []
-
-        reference_star_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
-                                dtype=['str', 'str', 'str', 'float64', 'float64',
-                                       'float64', 'float64', 'float64', 'float64', 'float64',
-                                       'float64', 'float64', 'float64', 'float64', 'float64',
-                                       'float64', 'float64'
-                                       ])
-        for i, reference_star_file_line in enumerate(reference_star_file_lines):
-            if i == 0:
-                continue  # title
-            else:
-
-                reference_star_table_line = (reference_star_file_line.split('\t'))[0:17]
-                reference_star_table.add_row(reference_star_table_line)
-                # FIXME: Add proper string spliting
-                reference_formatted_ra = f"{(reference_star_table_line[1])[0:3]}h" \
-                               f" {(reference_star_table_line[1])[3:6]}m" \
-                               f"{(reference_star_table_line[1])[6:14]}s"
-                reference_formatted_ras.append(reference_formatted_ra)
-                reference_formatted_dec = f"{(reference_star_table_line[2])[0:3]}deg" \
-                                f"{(reference_star_table_line[2])[3:6]}m" \
-                                f"{reference_star_table_line[2][6:14]}s"
-                reference_formated_decs.append(reference_formatted_dec)
+#
+#
+    # with open(refstar_dir, 'r') as file:
+    #     reference_star_file_lines = file.readlines()
+    #     reference_formatted_ras = []
+    #     reference_formated_decs = []
+    #
+    #     reference_star_table = Table(names=((reference_star_file_lines[0]).split('\t'))[0:17],
+    #                             dtype=['str', 'str', 'str', 'float64', 'float64',
+    #                                    'float64', 'float64', 'float64', 'float64', 'float64',
+    #                                    'float64', 'float64', 'float64', 'float64', 'float64',
+    #                                    'float64', 'float64'
+    #                                    ])
+    #     for i, reference_star_file_line in enumerate(reference_star_file_lines):
+    #         if i == 0:
+    #             continue  # title
+    #         else:
+    #
+    #             reference_star_table_line = (reference_star_file_line.split('\t'))[0:17]
+    #             reference_star_table.add_row(reference_star_table_line)
+    #             # FIXME: Add proper string spliting
+    #             reference_formatted_ra = f"{(reference_star_table_line[1])[0:3]}h" \
+    #                            f" {(reference_star_table_line[1])[3:6]}m" \
+    #                            f"{(reference_star_table_line[1])[6:14]}s"
+    #             reference_formatted_ras.append(reference_formatted_ra)
+    #             reference_formatted_dec = f"{(reference_star_table_line[2])[0:3]}deg" \
+    #                             f"{(reference_star_table_line[2])[3:6]}m" \
+    #                             f"{reference_star_table_line[2][6:14]}s"
+    #             reference_formated_decs.append(reference_formatted_dec)
 
                 # Will need to query region instead of querying name due to
                 # non-standardized naming scheme
@@ -766,25 +819,25 @@ for dirs in target_dirs:
 
 
 #### Compare the RAs and DECs of both Datasets
-    '''
-    Identifies the passed matched stars in the reference star table by converting the degree, minutes and seconds of 
-    the right ascension to degrees and comparing it to the passed matched stars right ascension and declination
-    '''
-
-    reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
-    if 'passed_matched_reference_stars_ra_dec' in locals():
-        passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
-        for line in passed_matched_reference_stars_ra_dec_add:
-            passed_matched_reference_stars_ra_dec.add_row(line)
-    else:
-
-        passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    # '''
+    # Identifies the passed matched stars in the reference star table by converting the degree, minutes and seconds of
+    # the right ascension to degrees and comparing it to the passed matched stars right ascension and declination
+    # '''
+    #
+    # reference_star_table=convert_DMS_to_deg_in_ref_star_table(reference_star_table)
+    # if 'passed_matched_reference_stars_ra_dec' in locals():
+    #     passed_matched_reference_stars_ra_dec_add=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+    #     for line in passed_matched_reference_stars_ra_dec_add:
+    #         passed_matched_reference_stars_ra_dec.add_row(line)
+    # else:
+    #
+    #     passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
 
 
 
 ### Save New Reference File
-from astropy.io import ascii
-from astropy.table import Table
-ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering\passed_star_reference_file.txt"
-ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
+# from astropy.io import ascii
+# from astropy.table import Table
+# ref_save_loc=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2022-03-16\Source Filtering\passed_star_reference_file.txt"
+# ascii.write(passed_matched_reference_stars_ra_dec,ref_save_loc,overwrite=True,delimiter='\t')
 
