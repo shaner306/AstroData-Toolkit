@@ -16,6 +16,36 @@ Find:
     Pinpoint Astrometry Solve
     Print Docs
     Astro Reducer Method
+    
+    
+    
+This GUI Programs controls the high level processes for the Image Processor.
+
+
+┌───────────┐  ┌─────────────┐
+│           ├──┤Image Reduce │
+│           │  └─────────────┘
+│           │         ▼
+│           │  ┌────────────┐  ┌─────────────┐
+│    GUI    ├──┤Plate Solve ├─►│Pinpoint     │
+│           │  └────────────┘  └─────────────┘
+│           │         ▼
+│           │  ┌────────────────┐
+│           ├──┤Calc Transforms │
+└───────────┘  └───────┬────────┘
+                       │
+                       │     ┌───────────────┐
+                       ├────►│Buchhiem Method│
+                       │     └───────────────┘
+                       │
+                       │     ┌───────────────┐
+                       ├────►│Warner Method  │
+                       │     └───────────────┘
+                       │
+                       │     ┌───────────────┐
+                       └────►│Boyd Method    │
+                             └───────────────┘    
+
 """
 
 import os
@@ -24,6 +54,14 @@ from pathlib import Path
 
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
+
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'transforms'))
+sys.path.append(os.path.join(src_path, 'pinpointsolving'))
+sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
 
 import AstroFunctions as astro
 import Main

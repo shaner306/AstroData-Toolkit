@@ -6,6 +6,30 @@ Created on Thu Apr 28 15:05:05 2022
 
 This file stores code used for photometry general_tools
 
+Breakdown of this module:
+
+┌───────────┐        ┌────────────────────────────────┐    ┌────────────────┐
+│  Inputs   │        │  Phot. Methods:                │    │ Phot Results   │
+├───────────┤        │ ┌────────────┐                 │    ├────────────────┤
+├───────────┤        │ │PSF Fitting │                 │    ├────────────────┤
+│           │        │ └────────────┘                 │    │                │
+│Source     │        │ OR                             │    │X,Y pix location│
+│  Estimates│        │ ┌────────────┐                 │    │                │
+│           │        │ │Aperture    │                 │    │flux            │
+│FWHM       │        │ └─────┬──────┘                 │    │                │
+│           │        │       │                        │    │flux error      │
+│imgdata    ├───────►│       │       ┌─────────────┐  ├───►│  (1 sigma)     │
+│           │        │       ├──────►│Mean Aperture│  │    │                │
+│bkg        │        │       │       └─────────────┘  │    │                │
+│           │        │       │ OR                     │    │                │
+│filepath   │        │       │       ┌─────────────┐  │    │                │
+│           │        │       └──────►│Dynamic      │  │    │                │
+│fits. hdr  │        │               └─────────────┘  │    │                │
+│           │        │                                │    │                │
+└───────────┘        └────────────────────────────────┘    └────────────────┘
+
+
+
 """
 import numpy as np
 from astropy.io import fits
@@ -422,8 +446,8 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
 
             # Creates a rough reisudal imae to show where the aperture masks are
             residual_image = (imgdata - (
-            (10*np.max(imgdata) * masks))).astype(
-                imgdata.dtype)
+            (np.max(imgdata) * masks))).astype(
+                'float32')
 
 
 
@@ -478,13 +502,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
             photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
             photometry_result_draft[0]['id']=i+1
             photometry_result.add_row(photometry_result_draft[0])
-    # =============================================================================
-    #         flux_unc_array.append(photometry_result_draft['aperture_sum_err'].value[0])
-    #         flux_array.append(photometry_result_draft['aperture_sum'].value[0])
-    #         id_array.append(photometry_result_draft['id'].value[0])
-    #         xcenter_array.append(photometry_result_draft['xcenter'].value[0])
-    #         ycenter_array.append(photometry_result_draft['ycenter'].value[0])
-    # =============================================================================
+
 
             if produce_residual_data:
 
@@ -494,39 +512,21 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
 
             # Creates a rough reisudal imae to show where the aperture masks are
                 residual_image=(imgdata-((np.max(imgdata)*
-                        10*combined_aperture_mask))).astype(imgdata.dtype)
+                        combined_aperture_mask))).astype('float32')
 
         
         
         
-# =============================================================================
-#     photometry_result=(Table())
-#     photometry_result['flux_unc']=flux_unc_array
-#     
-#     photometry_result['flux_0']=flux_array
-#     photometry_result['flux_fit']=flux_array
-#     
-#     photometry_result['id']=id_array
-#     photometry_result['x_0']=xcenter_array
-#     photometry_result['y_0']=ycenter_array
-#     
-#     photometry_result['x_fit']=xcenter_array
-#     photometry_result['y_fit']=ycenter_array
-# =============================================================================
+
     
     if produce_residual_data:
         "Mask and Residual Image Output"
+        hdr['IMAGETYP']='MASK'
         mask_image=fits.PrimaryHDU(data=masks.astype(dtype=imgdata.dtype),header=hdr)
         mask_image.writeto((filepath.split('.fits')[0]+'_mask.fits'),overwrite=True)
-        
+        hdr['IMAGETYP']='RESIDUAL'
         residual_image=fits.PrimaryHDU(data=residual_image,header=hdr)
+
         residual_image.writeto((filepath.split('.fits')[0]+'_aperture_residual.fits'),overwrite=True)
-# =============================================================================
-#     photometry = BasicPSFPhotometry(group_maker=daogroup,
-#                                     bkg_estimator=None,
-#                                     psf_model=psf_model,
-#                                     fitter=fitter,
-#                                     fitshape=fitshape)
-#     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
-# =============================================================================
+
     return photometry_result

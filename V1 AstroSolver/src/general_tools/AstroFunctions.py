@@ -43,9 +43,8 @@ from astropy.wcs import WCS
 
 # Import for Use in Pycharm
 import matplotlib as mpl
-mpl.use('TkAgg')
-import matplotlib.pyplot as plt
-# Contiue Rest of imports
+mpl.use('Agg')
+
 
 import  matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
@@ -62,6 +61,13 @@ from photutils.background import SExtractorBackground
 from photutils.detection import IRAFStarFinder
 from tqdm import tqdm
 
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','warner_aux'))
+sys.path.append(os.path.join(src_path, 'photometry'))
+sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
+
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
 #import trm_auxillary_functions as trm_aux
@@ -76,7 +82,7 @@ from astropy.nddata import CCDData
 # Systems (IERS) data
 # that was included with the astropy release installed on the system.
 # That may not be as accurate
-# for times that are more recent thatn the astropy release date.
+# for times that are more recent than the astropy release date.
 iers.conf.auto_download = True
 
 # Testing Github Desktop functionality.
@@ -143,7 +149,6 @@ def BackgroundIteration(image, tolerance):
 
         new_mean = np.mean(image)
         new_rms = numpy.std(image)
-        # retval = [new_mean, new_rms]
         return new_mean, new_rms
 
 
@@ -161,7 +166,6 @@ def myclip(x1, lo, hi):
 
 def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
     num_elem_x = mask_x.size
-    # num_elem_y = mask_y.size
     sum1 = 0
     pix_flux = np.zeros((num_elem_x))
     for i in range(num_elem_x):
@@ -199,10 +203,7 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     x_wt_sum = 0
     y_wt_sum = 0
     flux_sum = 0
-    # print("2")
     if num_elem_x != num_elem_y:
-        # object_flux = -999
-        # print("3")
         return
     else:
         for i in range(num_elem_x):
@@ -219,7 +220,6 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     x_var_sum = 0
     y_var_sum = 0
     flux_sum = 0
-    # print("2")
     for i in range(num_elem_x):
         x_pix = mask_x[i]
         y_pix = mask_y[i]
@@ -640,10 +640,10 @@ def calculate_magnitudes(fluxes, exptime):
         image.
 
     """
-    #fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
-    #instr_mags_units = u.Magnitude(fluxes)
-    #instr_mags = instr_mags_units.value
-    instr_mags=-2.51* np.log10(fluxes/exptime)
+    fluxes_normed = normalize_flux_by_time(fluxes, exptime)
+    instr_mags_units = u.Magnitude(fluxes_normed)
+    instr_mags = instr_mags_units.value
+    # instr_mags=-2.51* np.log10(fluxes/exptime)
     return instr_mags
 
 
@@ -3151,9 +3151,8 @@ def ground_based_first_order_transforms(matched_stars, instr_filter,
     app_mag, app_mag_sigma, app_filter, _ = get_app_mag_and_index(
         matched_stars.ref_star, instr_filter)
     max_instr_filter_sigma = max(matched_stars.img_instr_mag_sigma)
-    err_sum = app_mag_sigma + \
-        np.nan_to_num(matched_stars.img_instr_mag_sigma,
-                      nan=max_instr_filter_sigma).value
+    err_sum = app_mag_sigma + np.nan_to_num(matched_stars.img_instr_mag_sigma,
+                                            nan=max_instr_filter_sigma)
     err_sum = np.array(err_sum)
     err_sum[err_sum == 0] = max(err_sum)
     x = matched_stars.ref_star[colour_index]
@@ -4261,6 +4260,7 @@ def change_sat_positions(filenames,
         ax = fig.add_subplot()
         ax.imshow(imgdata, cmap='gray', norm=LogNorm(
             vmin=1), interpolation='nearest')
+
         # TODO: move this into a separate function?
         cmap = plt.get_cmap(cmap_set)
         colours = [cmap(i) for i in range(0, sat_information.num_sats)]
@@ -5916,3 +5916,4 @@ def param_file(save_loc,**kwargs):
     f.close()
 
     return
+

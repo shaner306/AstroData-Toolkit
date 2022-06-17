@@ -22,6 +22,18 @@ from astropy.wcs import WCS
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','boyde_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','buchheim_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','warner_aux'))
+sys.path.append(os.path.join(src_path, 'transforms', 'SpaceBasedTransforms'))
+sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms'))
+sys.path.append(os.path.join(src_path, 'photometry'))
+sys.path.append(os.path.join(src_path, 'data_visualization'))
+
 import AstroFunctions as astro
 import auxilary_phot_boyde_functions as boyde_aux
 import auxilary_phot_buchheim_functions as buch_aux
@@ -29,6 +41,7 @@ import auxilary_phot_warner_functions as warn_aux
 import auxillary_sb_functions as auxillary_phot_sb_functions
 import general_gb_functions
 import perform_photometry
+from Visualize import plot_match_confirmation
 from astropy.io import ascii
 
 
@@ -82,6 +95,15 @@ def _main_gb_transform_calc(directory,
         f.write('File')
         f.write('\t')
         f.write('Reason')
+        f.write('\n')
+    with open(os.path.join(save_loc, 'DetectedStars.txt'), 'a') as f:
+        f.write('File')
+        f.write('\t')
+        f.write('Field')
+        f.write('\t')
+        f.write('num_img_stars')
+        f.write('\t')
+        f.write('num_ref_stars')
         f.write('\n')
 
     "Create an array of all .fits files in the directory (including subfolders)."
@@ -199,13 +221,36 @@ def _main_gb_transform_calc(directory,
                 f.write('\n')
                 excluded_files += 1
             continue
-
+        
+        field = astro.get_field_name(matched_stars, name_key=name_key)
+        filename = filepath.split('\\')[-1]
+        unique_id = filename
+        try:
+            num_img_stars, num_field_stars = plot_match_confirmation(wcs, 
+                                                                    imgdata, 
+                                                                    matched_stars, 
+                                                                    reference_stars, 
+                                                                    unique_id, 
+                                                                    save_loc, 
+                                                                    save_plots=save_plots, 
+                                                                    name_key=name_key)
+        except TypeError:
+            num_img_stars = None
+            num_field_stars = None
+        if num_field_stars is not None:
+            with open(os.path.join(save_loc, 'DetectedStars.txt'), 'a') as f:
+                f.write(f'{filepath}')
+                f.write('\t')
+                f.write(f'{field}')
+                f.write('\t')
+                f.write(f'{num_img_stars}')
+                f.write('\t')
+                f.write(f'{num_field_stars}')
+                f.write('\n')
         instr_filter = astro.get_instr_filter_name(hdr)
         colour_indices = astro.get_all_colour_indices(instr_filter)
         # print("match")
         for colour_index in colour_indices:
-
-            field = astro.get_field_name(matched_stars, name_key=name_key)
 
             try:
                 len(matched_stars.img_instr_mag)
@@ -248,8 +293,6 @@ def _main_gb_transform_calc(directory,
                                                                    fwhm,
                                                                    fwhm_std,
                                                                    matched_stars)
-            filename = filepath.split('\\')[-1]
-            unique_id = filename
             # try:
             if not save_plots:
                 c_fci, c_fci_sigma, zprime_f, zprime_f_sigma = astro.ground_based_first_order_transforms(matched_stars,
@@ -818,7 +861,7 @@ def _main_gb_new_boyd_method(
         directory,
         ref_stars_file,
         plot_results=False,
-        save_plots=False,
+        save_plots=True,
         remove_large_airmass_bool=False,
         file_suffix=(".fits", ".fit", ".fts"),
         exposure_key='EXPTIME',
@@ -826,39 +869,49 @@ def _main_gb_new_boyd_method(
         lon_key='SITELONG',
         elev_key='SITEELEV',
         name_key='Name',
-        photometry_method='psf',
+        photometry_method='aperture',
         aperture_estimation_mode='mean',
+        matched_stars_min=4,
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
     calculating the colour transforms to convert instrumental magntiude to standard magntiude
 
+    $ TODO: Docstring, Figure out remove-large_airmass_bool
     Parameters
     ----------
-    directory : TYPE
-        describes the parent directory which holds 
-    ref_stars_file : TYPE
-        DESCRIPTION.
-    plot_results : TYPE, optional
+    directory : list of strings
+        Describes the parent directory which holds the directories to be walked through.
+    ref_stars_file : string
+        string which points to the directory of the reference star file
+    plot_results : boolean, optional
         DESCRIPTION. The default is False.
-    save_plots : TYPE, optional
-        DESCRIPTION. The default is False.
+    save_plots : bool, optional
+        DESCRIPTION. The default is True. If True the Boyd graphs will be saved
     remove_large_airmass_bool : TYPE, optional
         DESCRIPTION. The default is False.
+
     file_suffix : TYPE, optional
         DESCRIPTION. The default is (".fits", ".fit", ".fts").
-    exposure_key : TYPE, optional
-        DESCRIPTION. The default is 'EXPTIME'.
-    lat_key : TYPE, optional
-        DESCRIPTION. The default is 'SITELAT'.
-    lon_key : TYPE, optional
-        DESCRIPTION. The default is 'SITELONG'.
-    elev_key : TYPE, optional
-        DESCRIPTION. The default is 'SITEELEV'.
+    exposure_key : string, optional
+        Exposure key describes the .fits keyword to be queired for looking up the exposure time. The default is 'EXPTIME'.
+    lat_key : str, optional
+        Fits header keyword for Geodectic Latitude. The default is 'SITELAT'.
+    lon_key : str, optional
+        Fits header keyword for quiering Geodetic Longtitude. The default is 'SITELONG'.
+    elev_key : str, optional
+        Fits headers keyword for Geodectic Elevation. The default is 'SITEELEV'.
     name_key : TYPE, optional
         DESCRIPTION. The default is 'Name'.
-    photometry_method : TYPE, optional
-        DESCRIPTION. The default is 'psf'.
+    photometry_method : string,
+        A string  which defines the method to be used for photometry. The default is 'aperture'.Options are either 'psf' or 'aperture'
+    aperture_estimation_mode: str,
+        A string which defines the apertures estimation mode to be used in Aperture photometry. aperture_estimaiton_mode
+        is only used when 'aperture' is chosen for the photometry_method. Default is 'mean'. Options are 'mean' or 'dynamic'.
+        'dyanamic' mode changes the aperture size according to the FWHM resulting in lesser error but greater computaiton time
+    matched_stars_min: str
+        describes the minimum number of sources extracted in Boyd Step 1 to pass into Step 2.
+        Lower matched_stars_min increases uncertainty and may skew data.
     **kwargs : TYPE
         DESCRIPTION.
 
@@ -925,8 +978,11 @@ def _main_gb_new_boyd_method(
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
-    
+        try:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
+        except:
+            print("Could not find FWHM Tag")
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=3)
         
         
         
@@ -1031,13 +1087,26 @@ def _main_gb_new_boyd_method(
         azimuth = np.mean(altazpositions.az)
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
-# =============================================================================
-#         predicted_airmass = 1 / \
-#             np.cos(np.deg2rad(
-#                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
-# =============================================================================
+
         
-        predicted_airmass=float(hdr['AIRMASS'])
+        try:
+            predicted_airmass=float(hdr['AIRMASS'])
+        except KeyError:
+            # AIRMASS header not found, attempt to estimate from WCS Data
+            wcs = WCS(hdr)
+            altazpositions = astro.convert_ra_dec_to_alt_az((
+                wcs.pixel_to_world(wcs.pixel_shape[0] / 2, wcs.pixel_shape[1] / 2)),hdr)
+            predicted_airmass = altazpositions.secz.value
+
+            # Other Method for predicting airmass
+            # =============================================================================
+            #         predicted_airmass = 1 / \
+            #             np.cos(np.deg2rad(
+            #                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
+            # =============================================================================
+
+
+
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
         #if hdr['CENTALT']<30:
@@ -1143,7 +1212,7 @@ def _main_gb_new_boyd_method(
 
         
     ### Start Boyd Transformation ###
-        # Create Boyde Table
+    # Create Boyde Table
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
@@ -1154,25 +1223,27 @@ def _main_gb_new_boyd_method(
         
         
         
-        if predicted_airmass > 3:
+        #if predicted_airmass > 3:
             # If the fits header airmass is greater than two, the airmass will start to change rapidly with the elevation angles of the stars
 
             # for now we will ignore all values above 2, but further calcualtions will need to be prodcued
 
             # TODO: Write code that handles high variability airmasses (i.e airmass>2)
+        #    continue
+        #else:
+
+
+        try:
+            Boyde_Table = boyde_aux.calculate_boyde_slopes(
+                matched_stars, filepath, Boyde_Table, save_plots,
+                save_loc,stars_table)
+        except Exception as e:
+            raise KeyError(e)
+            print("Could not Calculate Boyde Slopes")
             continue
-        else:
-            # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data
-
-            try:
-                Boyde_Table = boyde_aux.calculate_boyde_slopes(
-                    matched_stars, filepath, Boyde_Table, save_plots,
-                    save_loc,stars_table)
-            except:
-                continue
 
 
-    # Calculating Second Step of Boyd Method
+
     try:
         ascii.write(Boyde_Table, os.path.join(
             save_loc, 'Boyde_Table1.csv'), format='csv')
@@ -1182,12 +1253,12 @@ def _main_gb_new_boyd_method(
     
     
     
-    # Calculate Step 2
-    match_stars_lim=4
 
+
+    # Calculating Second Step of Boyd Method
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
-            Boyde_Table, save_loc,match_stars_lim,save_plots)
+            Boyde_Table, save_loc,matched_stars_min,save_plots)
 
         date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
 

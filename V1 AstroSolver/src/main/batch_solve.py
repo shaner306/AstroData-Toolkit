@@ -10,8 +10,10 @@ Created on Mon Mar 21 11:48:29 2022
 '''
 Batch Reduced Image Script
 
-Bathc_solves purpose is to enable the user to solve multiple catalogs of data.
-Each module is broken down into sections which may be operated individual or the script can be run as a whole
+Batch_solves purpose is to enable the user to solve multiple catalogs of data.
+Each module is broken down into sections which may be operated individual or
+ the script can be run as a whole if the whole image processing pipeline is 
+ needed.
 
 '''
 
@@ -30,10 +32,12 @@ import pinpoint
 ##
 
 # Manually set the image Reduction Parameters
+# User must already have prebuilt master files in order to avaoid repeatititon
+# of master_frame creation. Developement of master frames can be done using
+# the GUI and only inputting Bias, Dark and Flat Frames
 
 '''
  Steps: Create Master frame data manually using the GUI
-
 ____
 image_path: string
  must contain only light images
@@ -53,9 +57,8 @@ def batch_reduced_images(create_master_dark,
                          use_existing_masters,
                          exisiting_masters_dir,
                          scalable_dark_bool,
-
-
                          ):
+
     list_subfolders_with_paths = [f.path for f in os.scandir(image_path) if f.is_dir()]
 
     for dirs in list_subfolders_with_paths:
@@ -74,13 +77,17 @@ def batch_reduced_images(create_master_dark,
                           sav_loc
                           )
 
+#%% Call the Image Reduciton Module
+##
 
-
+# Define the Science image Path and image Path
 
 #bias_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2022 01 17 - Bias - 3x3 - 0 sec'
 #dark_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Dark - 3x3 - 10 sec'
 #flat_frames=r'C:\Users\mstew\Documents\School and Work\Winter 2022\Work\2021-09-17 - processed\2021-09-17 - unprocessed\2021 09 17 - Flats - 3x3'
 image_path= r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode"
+
+# Set Parameters
 
 create_master_dark=False
 create_master_flat=False
@@ -124,7 +131,7 @@ list_subfolders_with_paths= [f.path for f in os.scandir(image_path) if f.is_dir(
 
 
 for dirs in list_subfolders_with_paths:
-    sav_loc = Path(str(dirs) + '_Outlier_Corrected')
+    sav_loc = Path(str(dirs) + '_Corrected')
     sav_loc.mkdir(exist_ok=True)
     if use_existing_masters:
         reduced_dirs=[dirs,exisiting_masters_dir]
@@ -162,8 +169,26 @@ for dirs in list_subfolders_with_paths:
 # %% Batch Solve
 ## Batch Solve
 #
+'''
+Batch Solving is built to iterate through the Starfields in a certain dataset 
+instead of only iterating through a singular starfield
 
-dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected"
+Current Example Structure:
+
+Mar 16 2022
+    |
+    ---> SA23
+           |
+           ---> B
+                |
+                ---> *.fits
+           |
+           ---> G
+           ````
+    
+'''
+
+dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 - Copy"
 catalog_dir=r"D:\School\StarCatalogues\USNO UCAC4"
 refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 
@@ -171,14 +196,14 @@ refstar_dir=r"C:\Users\stewe\Documents\GitHub\Astro2\Reference Star Files\Refere
 # Pinpoint Solve Parameters
 max_mag=13
 sigma=3
-max_solve_time=60
+max_solve_time=60 # Seconds
 match_residual=1.5
 catalog=11
 catalog_exp=0.8
 use_sextractor=False
 all_sky_solve=False
 space_based_bool=False
-photometry_method='psf'
+photometry_method='aperture'
 aperture_estimation_mode='mean'
 
 
@@ -215,7 +240,7 @@ for dirs in list_subfolders_with_paths:
 
     try:
         plot_results = True
-        save_plots = False
+        save_plots = True
         exposure_key = 'EXPTIME'
         name_key = 'Name'
         unique_id = 'GBO'
@@ -251,7 +276,8 @@ for dirs in list_subfolders_with_paths:
           exposure_key=exposure_key,
           name_key=name_key, lat_key=lat_key,
           lon_key=lon_key, elev_key=elev_key,
-          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
+          save_loc=save_loc, unique_id=unique_id,photometry_method=photometry_method,
+            aperture_estimation_mode=aperture_estimation_mode)
     except Exception as e:
         print(e)
         continue
@@ -281,7 +307,8 @@ with open(file,"a+",newline='\n') as f:
 # %% Create Combined Boyd Tables
 ##
 import csv
-dataset_folder=r'D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected'
+import os
+dataset_folder=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources"
 first_switch=True
 file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
 # =============================================================================
@@ -329,7 +356,7 @@ import auxilary_phot_boyde_functions as aux_boyde
 #dataset_folder=r'D:\School\Work - Winter 2022\Work\2021-04-21\Siderial Stare Mode\Post'
 
 #file=dataset_folder+"\\" + dataset_folder.split('\\')[-1] +"Boyde_Table1_Combined.csv"
-file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-01-16- Raw\SiderialStareMode_Corrected\SiderialStareMode_CorrectedBoyde_Table1_Combined.csv"
+file=r"D:\School\Work - Winter 2022\Work\2022-03-16\2022-03-16 Results\UncappedDynamicSources\UncappedDynamicSourcesBoyde_Table1_Combined.csv"
 dataset_folder=os.path.dirname(file)
 header=[]
 
@@ -348,6 +375,4 @@ ascii.write(Boyde_Table2, os.path.join(
 ###
 # FIXME: Get sorted_coefficient_data to output correctly
 
-sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2)
-ascii.write(sorted_coefficient_data, os.path.join(
-            str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)
+sorted_coefficient_data=aux_boyde.create_coefficeint_output(Boyde_Table2,file)

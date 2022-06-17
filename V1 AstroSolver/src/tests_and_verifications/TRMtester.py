@@ -29,154 +29,128 @@ INSTRUCTIONS
 7. Creating Light Curves
 
 """
-from numpy import mean
-import numpy
-import scipy
-from scipy import ndimage
-import pandas as pd
-import win32com
-import os
-import pywin32_system32
+import PIL
+import astropy
+
+import datetime
 import math
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-import datetime
-import astropy
+import numpy
+import numpy as np
+#import pywin32_system32
+import scipy
+#import win32com
+from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
-import PIL
-import cv2
 from astropy.stats import SigmaClip
-from photutils.background import SExtractorBackground
-from photutils.background import MeanBackground
-from photutils.background import Background2D
-from photutils.datasets import make_100gaussians_image
-from photutils.segmentation import detect_threshold
-from astropy.convolution import Gaussian2DKernel, convolve, convolve_fft
+
 from astropy.stats import gaussian_fwhm_to_sigma
-from photutils.segmentation import detect_sources
-import skimage
-from scipy import ndimage
-from skimage import measure
-from skimage import filters
 from astropy.visualization import SqrtStretch
+from astropy.visualization import simple_norm
 from astropy.visualization.mpl_normalize import ImageNormalize
+from numpy import mean
+from photutils.background import Background2D
+from photutils.background import MeanBackground
+from photutils.background import SExtractorBackground
 from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
-from astropy.visualization import simple_norm
-import sep
+
+from photutils.segmentation import detect_sources
+from photutils.segmentation import detect_threshold
+from skimage import measure
+import cv2
 
 
+def BackgroundIteration(image, tolerance):
+    new_mean = mean(image)
+    new_rms = numpy.std(image)
+    return new_mean, new_rms
 
-def BackgroundIteration(image, tolerance):       
-    old_mean = 1e9
-    old_rms   = 1e9
-    
-    new_mean = 2e9
-    new_rms = 2e9
-    
-    while abs(new_rms - old_rms) > (tolerance * old_rms):
-        old_mean = float(new_mean)
-        old_rms = float(new_rms)
-        #image = myclip(image, (old_mean - 2 * old_rms), (old_mean + 2 * old_rms))
-    	
-        if (np.size(image) == 0):
-            new_mean = 0
-            new_rms = 2e9
-            break
-      
-            
-       	new_mean = mean(image)
-       	new_rms   = numpy.std(image)
-        retval = [new_mean, new_rms]
-       	return new_mean, new_rms
-    
-    
-def myclip(x1,lo,hi):
-        vector = np.vectorize(np.float)
-        x= vector(x1)
-        
-        float(hi)
-        float(lo)
-        #print(x)
-        #print(hi)
-        #print(lo)
 
-       	y = (x * np.any(x<= hi)) + ((hi) * np.any(x> hi))
-       	y = (y * np.any(y>lo)) + ((lo) * np.any(y<=lo))
-        return y
+def my_clip(x1, lo, hi):
+    vector = np.vectorize(np.float)
+    x = vector(x1)
+    high=float(hi)
+    low=float(lo)
+    y = (x * np.any(x <= high)) + ((hi) * np.any(x > high))
+    y = (y * np.any(y > low)) + ((low) * np.any(y <= low))
+    return y
+
+
 def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
-      
     num_elem_x = mask_x.size
     num_elem_y = mask_y.size
     sum1 = 0
-    pix_flux = np.zeros((num_elem_x))    
+    pix_flux = np.zeros((num_elem_x))
     for i in range(num_elem_x):
         x_pix = mask_x[i]
         y_pix = mask_y[i]
-        
+
         sum1 = sum1 + flux_image[x_pix, y_pix]
         pix_flux[i] = flux_image[x_pix, y_pix]
-    
+
     object_flux = sum1
     max_pixel_flux = max(pix_flux)
     return object_flux, max_pixel_flux
+
+
 def MomentCalculation(xmask, ymask, xc, yc, p, q):
-        num_pix = xmask.size
-        mom = sum((xmask - xc)**p * (ymask - yc)**q) / num_pix
-        moment=mom
-        return moment
+    num_pix = xmask.size
+    mom = sum((xmask - xc) ** p * (ymask - yc) ** q) / num_pix
+    moment = mom
+    return moment
+
 
 def EccentricityCalculation(m11, m02, m20):
-    eccent = numpy.sqrt((m20 - m02)**2 + (4*m11**2))/ (m20+m02)
+    eccent = numpy.sqrt((m20 - m02) ** 2 + (4 * m11 ** 2)) / (m20 + m02)
     return eccent
 
+
 def Compact(num_pix, m02, m20):
-    compact = (num_pix/(m02 + m20))
+    compact = (num_pix / (m02 + m20))
     return compact
 
+
 def WeightedCentroid(mask_x, mask_y, flux_image):
-  
     num_elem_x = mask_x.size
     num_elem_y = mask_y.size
     x_wt_sum = 0
     y_wt_sum = 0
     flux_sum = 0
-    #print("2")
+    # print("2")
     if num_elem_x != num_elem_y:
         object_flux = -999
-        #print("3")
+        # print("3")
         return
     else:
-      for i in range(num_elem_x):
-                       
-                x_pix = mask_x[i]
-                y_pix = mask_y[i]
-                
-                x_wt_sum =x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
-                y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
-                flux_sum = flux_sum + flux_image[x_pix, y_pix]
-            
+        for i in range(num_elem_x):
+            x_pix = mask_x[i]
+            y_pix = mask_y[i]
+
+            x_wt_sum = x_wt_sum + (x_pix * flux_image[x_pix, y_pix])
+            y_wt_sum = y_wt_sum + (y_pix * flux_image[x_pix, y_pix])
+            flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
     x_centroid = x_wt_sum / flux_sum
     y_centroid = y_wt_sum / flux_sum
-    
-    
+
     x_var_sum = 0
     y_var_sum = 0
     flux_sum = 0
-    #print("2")
+    # print("2")
     for i in range(num_elem_x):
-                   
-            x_pix = mask_x[i]
-            y_pix = mask_y[i]
-            
-            x_var_sum =x_var_sum + ((x_pix-x_centroid)**2 * flux_image[x_pix, y_pix])
-            y_var_sum = y_var_sum + ((y_pix-y_centroid)**2 * flux_image[x_pix, y_pix])
-            flux_sum = flux_sum + flux_image[x_pix, y_pix]
-            
-    x_rms = numpy.sqrt(x_var_sum/flux_sum)
-    y_rms = numpy.sqrt(y_var_sum/flux_sum)
+        x_pix = mask_x[i]
+        y_pix = mask_y[i]
+
+        x_var_sum = x_var_sum + ((x_pix - x_centroid) ** 2 * flux_image[x_pix, y_pix])
+        y_var_sum = y_var_sum + ((y_pix - y_centroid) ** 2 * flux_image[x_pix, y_pix])
+        flux_sum = flux_sum + flux_image[x_pix, y_pix]
+
+    x_rms = numpy.sqrt(x_var_sum / flux_sum)
+    y_rms = numpy.sqrt(y_var_sum / flux_sum)
     return x_centroid, x_rms, y_centroid, y_rms
+
 
 streak122 = r'D:\2021_J172\June 22 2021'
 streak1 = 'D:\\Breeze-M_R_B_38746U'
@@ -512,12 +486,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             #FWHM= 2*gauss_avg*0.7664
             #print("FWMM: " + str(FWHM))
            # STARS.close()
-
-
-
-
-
-
+=======
 
 # [bg_mean, bg_rms] = determine_bg_iteratively(enlarged_bg_image, 0.1);
 # pix_frac = 0;
@@ -546,27 +515,27 @@ for dirpath, dirnames, filenames in os.walk(streak):
 #     X = round(mstar.X)+1
 #     if X > image_size_y:
 #         X = image_size_y;
-    
+
 #     Y = round(mstar.Y)+1
 #     if Y > image_size_x:
 #         Y = image_size_x
-    
+
 #     st_index = connected_image(Y,X);
 #     [mask_x, mask_y] = numpy.nonzero(connected_image == vsj)
 #     mobj_flux[j], mobj_max1[j] = PointSourceFluxExtraction(mask_x, mask_y, bg_rem)
-   
+
 #     if mobj_max1[j] < 60000:  #%fit unsaturated stars only
 # #                Border checks
 #           if (X > 10) and (X < (image_size_y-10)) and (Y > 10) and (Y < (image_size_x-10)):
 #            #%Find middle pixel value
-            
+
 #            [cen_x, rms_x, cen_y, rms_y] = WeightedCentroid(mask_x, mask_y, 0*bg_rem+1)
 
 #            if (cen_x > 10) and (cen_x < (image_size_x-10)) and (cen_y > 10) and (cen_y < (image_size_y-10)):
 #                 mid_pix_val = bg_rem(round(cen_x),round(cen_y))
-                
+
 #                 mid_pix_valPP = bg_rem(Y,X)
-                
+
 #                 if vmag < 13:
 #                     #Fit a moffat profile
 #                     r = np.zeros(1,mask_x);  #holds radial distance from centroid
@@ -574,8 +543,8 @@ for dirpath, dirnames, filenames in os.walk(streak):
 #                     for q in mask_x:
 #                        r[q] = np.sqrt((mask_x(q)+0.5-(mstar.Y+1))^2 + (mask_y(q)+0.5-(mstar.X+1))^2)
 #                        S[q] = bg_rem(mask_x(q),mask_y(q))
-                    
-   
+
+
 #                     C_index = numpy.nonzero(r==min(r),1)
 #                     r[C_index] = 0; #%centroid radial value
 #                     C = S[C_index]
@@ -584,37 +553,37 @@ for dirpath, dirnames, filenames in os.walk(streak):
 #                     fun = lambda a: sum((S - (C/((1+(r**2)/(a(1)^2))**1.5)))**2)
 #                     aguess = 1
 #                     a = scipy.optimize.fmin(func=fun, x0=aguess)
-                    
-                    
+
+
 #                     #%b holds [alpha Beta] moffat parameters
-                    
+
 #                     fung = lambda b: sum((S - (C*math.exp(-(r**2)/(2*(b^2)))))**2)
 #                     bguess = 2;
 #                     b = scipy.optimize.fmin(func=fung, x0=bguess)
-                    
+
 #                     #%Optional plot the fits:
-                    
+
 #                     plt.scatter(r,S);
 #                     E = lambda a,r: (C/((1+(r**2)/(a(1)^2))**1.5))
 #                     F = lambda b,r:(C*math.exp(-(r**2)/(2*(b^2))))
 #                     plot=plt(E,[0,max(r)])
-                    
+
 #                     h = plt.gca().get_children()
-                    
+
 #                     plot.set(h(1),'color','red')
-                    
+
 #                     plot= plt(F,[0,max(r)])
 #                     plt.axis([0,max(r),0,60000])
-                    
+
 #                     h = plt.gca().get_children()
 #                     plot.set(h(1),'color','green')
 #                     # Output results
-                   
+
 #                 else: 
 #                     a = [0,0]
 #                     b = 0
-                    
-         
+
+
 #                 star_count = star_count +1;
 #                 pix_frac = pix_frac + mid_pix_valPP/rawflux;
 #                 if vmag < 13:

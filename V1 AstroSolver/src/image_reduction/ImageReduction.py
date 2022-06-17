@@ -3,10 +3,69 @@
 Created on Thu Jun  3 16:22:33 2021
 
 @author: shane
+
+Image Reudction Module includes all classical Astronomy methods for 
+image reduction. 
+
+
+Creation of Master Frames (with Dark Scaling):
+
+┌───────────┐    ┌───────┐   ┌─────────────────┐
+│Bias Frames├───►│Combine├──►│Master Bias Frame├────────────────────────────────────┐
+└───────────┘    └───────┘   └─────────────────┘                                    │
+                                      ▼                                             │
+┌────────────┐               ┌─────────────────┐  ┌───────┐  ┌─────────────────┐    │
+│Dark Frames ├──────────────►│Sub M. Bias Frame├─►│Combine├─►│Master Dark Frame│    │
+└────────────┘               └─────────────────┘  └───────┘  └─────────┬───────┘    │
+                                                                       │            │
+                                      ┌────────────────────────────────┘            │
+                                      ▼                                             │
+┌────────────┐               ┌─────────────────┐  ┌─────────────────┐               │
+│Flat Frames ├──────────────►│Sub M. Dark Frame├─►│Sub M. Bias Frame│◄──────────────┘
+└────────────┘               └─────────────────┘  └─────────────────┘
+                                                            ▼
+                                                        ┌───────┐     ┌──────────────────┐
+                                                        │Combine├────►│Master Flat Frame │
+                                                        └───────┘     └──────────────────┘
+                                                        
+
+Creation of Master Frames (without Dark Scaling):
+
+┌────────────┐               ┌───────┐  ┌─────────────────┐
+│Dark Frames ├──────────────►│Combine├─►│Master Dark Frame│
+└────────────┘               └───────┘  └────────┬────────┘
+                                                 │
+                                      ┌──────────┘
+                                      ▼
+┌────────────┐               ┌─────────────────┐    ┌───────┐   ┌──────────────────┐
+│Flat Frames ├──────────────►│Sub M. Dark Frame├───►│Combine├──►│Master Flat Frame │
+└────────────┘               └─────────────────┘    └───────┘   └──────────────────┘
+
+
+
+The Master Frames are then used to calibrate the images
+
+             *┌──────┐  ┌──────┐  ┌──────┐
+              │M.    │  │M.    │  │M.    │
+              │ Bias │  │ Dark │  │ Flat │
+              │ Frame│  │ Frame│  │ Frame│
+┌──────────┐  └──────┘  └──────┘  └──────┘  ┌─────────┐
+│          │      ▼         ▼         ▼     │         │
+│          │  ┌──────┐  ┌──────┐  ┌──────┐  │ Calib.  │
+│  Light   │  │Sub M.│  │Sub M.│  │Div M.│  │  Light  │
+│   Frames ├─►│ Bias ├─►│ Dark ├─►│ Flat ├─►│  Frames │
+│          │  └──────┘  └──────┘  └──────┘  │         │
+└──────────┘                                └─────────┘
+             
+              * M. Bias Frame Sub only with Scaling
+              
+
+See AstroPy ccdproc
+
 """
 from pathlib import Path
 import matplotlib as mpl
-mpl.use('TkAgg')
+mpl.use('Agg')
 from astropy.nddata import CCDData
 from astropy.visualization import hist
 from astropy.io import fits
@@ -37,13 +96,9 @@ import time
 # run_master_flat = 1
 # correct_light_frames = 1
 
-# # The highest directoy of the .fits files to process
+# # The highest directory of the .fits files to process
 # # topdir = 'C:\\Astro_Data\\'
 
-# topdir = 'D:\Image Reduction Test Images'
-
-# if os.path.isdir(topdir) == False:
-#     raise RuntimeError('WARNING -- Directory of .fits files does not exist')
 
 # # Create output directory for master files
 # if create_master_dir == True:
@@ -94,6 +149,8 @@ def create_master_bias(all_fits, master_dir):
     -------
 
     Nil
+    
+    Outputs
 
     """
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
@@ -112,7 +169,17 @@ def create_master_bias(all_fits, master_dir):
             bin_bias_fits = bias_fits.files_filtered(include_path=True,ybinning=binning)
             biases = []
             for file in bin_bias_fits:
-                bias = CCDData.read(file, unit='adu')
+
+                # bias = CCDData.read(file, unit='adu')
+
+                # Work around for applying BZERO and BSCALE
+                hdul=fits.open(file)
+                hdul[0].scale('float64')
+                bias=CCDData(hdul[0].data,unit='adu')
+                bias.header = hdul[0].header
+
+                hdul.close()
+
                 biases.append(bias)
             
             master_bias = ccdp.combine(biases,
@@ -175,6 +242,8 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     
     
     darks_fits=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=dark_imgtypes_concatenateded)))
+
+
     try:
         unique_bin_list=list(set(darks_fits.summary['ybinning']))
     except KeyError as e:
@@ -209,7 +278,17 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     
             darks = []
             for file in darks_to_calibrate:
-                dark = CCDData.read(file, unit='adu')
+
+                # dark = CCDData.read(file, unit='adu')
+
+                # Work around for applying BZERO and BSCALE
+                hdul=fits.open(file)
+                hdul[0].scale('float64')
+                dark=CCDData(hdul[0].data,unit='adu')
+                dark.header=hdul[0].header
+                hdul.close()
+
+
                 if scalable_dark_bool is True:
                     dark = ccdp.subtract_bias(dark, master_bias)
                 darks.append(dark)
@@ -327,8 +406,17 @@ def create_master_flat(all_fits, master_dir,scalable_dark_bool):
     
             flats = []
             for file in flats_to_combine:
-                flat = CCDData.read(file, unit='adu')
-                
+
+
+                #flat = CCDData.read(file, unit='adu')
+
+                # Work around for applying BSCALE and BZERO
+                hdul=fits.open(file)
+                hdul[0].scale('float64')
+                flat=CCDData(hdul[0].data,unit='adu')
+                flat.header=hdul[0].header
+                hdul.close()
+
                 closest_dark = find_nearest_dark_exposure(flat, dark_times,
                                                           tolerance=100
                                                           )
@@ -447,17 +535,25 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             dark_times = set(all_fits.summary['exptime'][dark_mask])
             
             # Assumes all images in a dataset are the same size
+            #TODO: Add catch if images are not the same size
             example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
                                                     ybinning=binning,
                                                     filter=list(light_filter)[0],
                                                     include_path=True)[0]
 
+            # Set the default data type for the light images, this will be used to reconvert the image after calibration
             data_type=(fits.open(example_light))[0].data.dtype
-            
+
+
             corrected_master_dark={}
             for dark_time in dark_times:
                 
                 ### Dark Image Masking ###
+
+                #TODO: Create Comments explaining this
+                '''
+                
+                '''
                 
                 
                 
@@ -546,7 +642,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             
                     for file_name in lights_to_correct:
         
-                        light = CCDData.read(file_name, unit='adu')
+                        #light = CCDData.read(file_name, unit='adu')
+
+                        # Work around for applying BZERO and BSCALE
+                        hdul=fits.open(file_name)
+                        hdul[0].scale('float64')
+                        light=CCDData(hdul[0].data,unit='adu')
+                        light.header=hdul[0].header
         
                         # Note that the first argument in the remainder of the ccdproc calls is
                         # the *reduced* image, so that the calibration steps are cumulative.
@@ -614,6 +716,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         
                             if correct_outliers_params['Cosmic Rays Bool']:
                                 # Convert image to Electrons
+
+                                #TODO: Get Rid of EGAIN reliability
                                 reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
                                 reduced_in_e.mask = mask
                                 new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=0, sigclip=4, verbose=True)
@@ -630,19 +734,34 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             else:
                                 reduced.data= reduced.data - abs(np.min(reduced.data))
                                 
-                        reduced.data=reduced.data.astype(data_type)
+                        #reduced.data=reduced.data.astype(data_type)
 
                         reduced.meta['correctd'] = True
+
+
+                        reduced_hdul=reduced.to_hdu()
+
+                        # Cast back in 16 bit integers
+                        reduced_hdul[0].scale('int16')
+
+                        # Set all values below 0 equal to zero
+                        reduced_hdul[0].data=np.where(reduced_hdul[0].data<0,0,reduced_hdul[0].data)
+
+                        # If mask layer is empty, delete it to free up space
+                        if np.sum(reduced_hdul[1].data)==0:
+                            del reduced_hdul[1]
+
                         file_name = file_name.split("\\")[-1]
                         try:
-                            reduced.write(str(corrected_light_dir) +'\\' + file_name)
+                            reduced_hdul.writeto(str(corrected_light_dir) +'\\' + file_name)
+                            #reduced.write(str(corrected_light_dir) +'\\' + file_name)
                         except OSError:
                             file_name = file_name[:-5]
                             print(file_name)
                             file_name = file_name + "1.fits"
-                            reduced.write((str(corrected_light_dir) + '\\' + file_name))
-        
-                        print('Saving ', file_name)
+                            #reduced.write((str(corrected_light_dir) + '\\' + file_name))
+                            reduced_hdul.writeto(str(corrected_light_dir) + '\\' + file_name)
+                        print('Saved ', file_name)
                 except Exception as e:
                     print(e)
                     pass
@@ -710,30 +829,35 @@ def flat_image_masking(flat_imgtypes_concatenateded,
     ----------
     flat_imgtypes_concatenateded : String
         A concatenated String 
-    lights_to_correct : List
+    lights_to_correct : List of strings
         List of directory names that define the lights to be corrected
     dark_times : list
         A list of the dark times in the master darks files
     example_light : astropy CCDData
         A sample light image
-    master_bias : TYPE
-        DESCRIPTION.
-    master_darks : TYPE
-        DESCRIPTION.
-    scalable_dark_bool : TYPE
-        DESCRIPTION.
-    correct_outliers_params : TYPE
-        DESCRIPTION.
-    frame_filter : TYPE
-        DESCRIPTION.
-    master_dir : TYPE
-        DESCRIPTION.
-    corrected_light_dir : TYPE
-        DESCRIPTION.
-    all_fits : TYPE
-        DESCRIPTION.
-    binning : TYPE
-        DESCRIPTION.
+    master_bias : CCDATA object
+        CCDATA of the master bias frame that has previously been generated
+    master_darks : CCDATA object(s)
+        CCDATA describing the master dark frame at various exposure times
+    scalable_dark_bool : bool
+        when true the dark frames are scaled to match the exposure time of 
+        the ligth (science) frames
+    correct_outliers_params : dict
+        correct_outlier_params is a dictionary object which tells the program whether
+        or not to calcualte 
+    frame_filter : str
+        string describing the filter for the image
+    master_dir : str
+        string defining the path for the directory contianing master frames
+    corrected_light_dir : str
+        string defining the path for the corrected light frames
+    all_fits : Astropy.CCDProc.ImageFileCollection object
+        This object contains all .fits files in the directory and sub-directories
+        in 'topdir' given by the user in the initialization section.
+        
+    binning : string
+        defines the binnning of the images. Binning must be the same in both dimensions
+        i.e. 3x3 
 
     Returns
     -------
@@ -762,8 +886,18 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         calibrated_flats = {}
         # Calibrate Flats
         for flat in flats_to_compare:
-            flatdata = CCDData.read(flat, unit='adu')
+
+            #flatdata = CCDData.read(flat, unit='adu')
             
+            #Work around to apply  BZERO and BSCALE
+            hdul=fits.open(flat)
+            hdul[0].scale('float64')
+            flatdata=CCDData(hdul[0].data,unit='adu')
+            flatdata.header=hdul[0].header
+            hdul.close()
+            
+
+
             closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
                                                       tolerance=100
                                                       )
@@ -793,23 +927,26 @@ def flat_image_masking(flat_imgtypes_concatenateded,
             bad_ratio = True
         else:
             maskr = ccdp.ccdmask(ratio)
-            # TODO: Make this Section
+            # TODO: Run this scenario
             
-            
-            # FIXME: Why is this here?
-            if correct_outliers_params['Replace Bool']:
-                # Replaces the values in mask with a desired value
-                if correct_outliers_params['Replace Mode'] == 'Ave':
-                    print('Calculate Average Background')
-                    
-                    
+            corrected_master_flat=correct_outlier_flats(correct_outliers_params,
+                                  maskr,
+                                  flats_to_compare,
+                                  frame_filter,
+                                  master_dir,
+                                  corrected_light_dir)
 
-                elif correct_outliers_params['Replace Mode'] == 'Interpolate':
-                    print('Interpolation')
 
     if (len(flats_to_compare) == 1) or (bad_ratio is True):
         # Calibrate flat field
-        flatdata = CCDData.read(flats_to_compare[0], unit='adu')
+        #flatdata = CCDData.read(flats_to_compare[0], unit='adu')
+
+        # Work around to deal with BSCALE and BZERO
+        hdul = fits.open(flats_to_compare[0])
+        hdul[0].scale('float64')
+        flatdata = CCDData(hdul[0].data, unit='adu')
+        flatdata.header = hdul[0].header
+        hdul.close()
         
         closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
                                                   tolerance=100
@@ -889,7 +1026,16 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 if (flats_to_compare != ()) :
                     flats_to_compare = flats_to_compare[0]
                 flat=flats_to_compare
-                flatdata = CCDData.read(flat, unit='adu')
+                #flatdata = CCDData.read(flat, unit='adu')
+
+                # Work around to deal with BZERO and BSCALE
+                hdul = fits.open(flat)
+                hdul[0].scale('float64')
+                flatdata = CCDData(hdul[0].data, unit='adu')
+                flatdata.header = hdul[0].header
+                hdul.close()
+
+
                 flatdata.mask=maskr
                 Replaceable_mean=np.nanmean(flatdata)
                 for i in range(0, np.shape(coordinates)[1]):
@@ -913,7 +1059,16 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 if (flats_to_compare != ()) :
                     flats_to_compare = flats_to_compare[0]
                 flat=flats_to_compare
-                flatdata = CCDData.read(flat, unit='adu')
+                #flatdata = CCDData.read(flat, unit='adu')
+
+                # Work around to apply BZERO or BSCALE
+                hdul = fits.open(flat)
+                hdul[0].scale('float64')
+                flatdata = CCDData(hdul[0].data, unit='adu')
+                flatdata.header = hdul[0].header
+                hdul.close()
+
+
                 for i in range(0, np.shape(coordinates)[1]):
 
                     # Create copy of flat to add mask to - To Avoid Masked Pixs
@@ -941,7 +1096,17 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 
             # Correct Flats    
                 for flat in flats_to_compare:
-                    flatdata = CCDData.read(flat, unit='adu')
+                    #flatdata = CCDData.read(flat, unit='adu')
+
+                    # Work around to apply BZERO and BSCALE
+
+                    hdul = fits.open(flat)
+                    hdul[0].scale('float64')
+                    flatdata = CCDData(hdul[0].data, unit='adu')
+                    flatdata.header = hdul[0].header
+                    hdul.close()
+
+
                     for i in range(0, np.shape(coordinates)[1]):
     
                         # Create copy of flat to add mask to - To Avoid Masked Pixs
