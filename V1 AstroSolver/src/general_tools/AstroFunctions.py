@@ -44,8 +44,7 @@ from astropy.wcs import WCS
 # Import for Use in Pycharm
 import matplotlib as mpl
 mpl.use('Agg')
-import matplotlib.pyplot as plt
-# Contiue Rest of imports
+
 
 import  matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, \
@@ -83,7 +82,7 @@ from astropy.nddata import CCDData
 # Systems (IERS) data
 # that was included with the astropy release installed on the system.
 # That may not be as accurate
-# for times that are more recent thatn the astropy release date.
+# for times that are more recent than the astropy release date.
 iers.conf.auto_download = True
 
 # Testing Github Desktop functionality.
@@ -150,7 +149,6 @@ def BackgroundIteration(image, tolerance):
 
         new_mean = np.mean(image)
         new_rms = numpy.std(image)
-        # retval = [new_mean, new_rms]
         return new_mean, new_rms
 
 
@@ -168,7 +166,6 @@ def myclip(x1, lo, hi):
 
 def PointSourceFluxExtraction(mask_x, mask_y, flux_image):
     num_elem_x = mask_x.size
-    # num_elem_y = mask_y.size
     sum1 = 0
     pix_flux = np.zeros((num_elem_x))
     for i in range(num_elem_x):
@@ -206,10 +203,7 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     x_wt_sum = 0
     y_wt_sum = 0
     flux_sum = 0
-    # print("2")
     if num_elem_x != num_elem_y:
-        # object_flux = -999
-        # print("3")
         return
     else:
         for i in range(num_elem_x):
@@ -226,7 +220,6 @@ def WeightedCentroid(mask_x, mask_y, flux_image):
     x_var_sum = 0
     y_var_sum = 0
     flux_sum = 0
-    # print("2")
     for i in range(num_elem_x):
         x_pix = mask_x[i]
         y_pix = mask_y[i]
