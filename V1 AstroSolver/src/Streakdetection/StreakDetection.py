@@ -103,7 +103,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=20, TRM=True, useMask=Tru
 
                 fitsdata = fits.open(filepath)[0].data
                 sigma_clip = SigmaClip(sigma, maxiters=10)
-                mask = make_source_mask(fitsdata, nsigma=3.0, npixels=streakLength,
+                mask = make_source_mask(fitsdata, nsigma=sigma, npixels=streakLength,
                                         dilate_size=11)
                 bkg_estimator = SExtractorBackground()
 
@@ -122,11 +122,11 @@ def streak_detection(imageDir, sigma=5.0, streakLength=20, TRM=True, useMask=Tru
                     cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=None)
 
                 else:
-                    mask = make_source_mask(fitsdata, nsigma=5, npixels=10, dilate_size=11)
+                    mask = make_source_mask(fitsdata, nsigma=sigma, npixels=10, dilate_size=11)
                     bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3),
                                        mask=mask, bkg_estimator=bkg_estimator)
                     threshold = bkg.background + (3.5 * bkg.background_rms)
-                    sigma = 5.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
+                    #sigma = 5.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(convolved_data, threshold, npixels=10)
