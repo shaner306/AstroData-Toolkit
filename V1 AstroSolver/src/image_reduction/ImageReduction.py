@@ -673,6 +673,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                 reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
                                                              exposure_time='exptime', exposure_unit=u.second,
                                                              scale=True)
+
+
+
                         ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
                         #### You also have to set run_master_bias to 0 on line 378 of Main.py ####
                         if scalable_dark_bool != True:
@@ -716,33 +719,50 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
         
                             if correct_outliers_params['Cosmic Rays Bool']:
                                 # Convert image to Electrons
+                                try:
+                                    #TODO: Get Rid of EGAIN reliability
+                                    reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
+                                    reduced_in_e.mask = mask
+                                    new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=0, sigclip=4, verbose=True)
+                                    reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
+                                    mask = reduced_in_e.mask
+                                    print('Removed Cosmic Rays')
+                                except Exception as e:
+                                    print('Could not fix cosmis rays... ',e)
 
-                                #TODO: Get Rid of EGAIN reliability
-                                reduced_in_e = ccdp.gain_correct(reduced, float(light.header['EGAIN'])*u.electron/u.adu)
-                                reduced_in_e.mask = mask
-                                new_reduced_in_e = ccdp.cosmicray_lacosmic(reduced_in_e, readnoise=0, sigclip=4, verbose=True)
-                                reduced = ccdp.gain_correct(new_reduced_in_e, (u.adu/(float(light.header['EGAIN'])*u.electron)))
-                                mask = reduced_in_e.mask
-                                print('Removed Cosmic Rays')
-        
                             reduced.mask = mask
                             
-                            
+
+                        '''
+                        Force Offset applies a linear offset to the data that forces the minimum value to zero
+                        It is typically not recommended unless values are extremely high or extremely low
+                        '''
+
                         if correct_outliers_params['Force Offset']:
+
+                            minimum_value_in_reduced=np.min(reduced.data)
+
                             if np.min(reduced.data)<0:
-                                reduced.data= reduced.data + abs(np.min(reduced.data))
+                                reduced.data= reduced.data + abs(minimum_value_in_reduced)
+
+
                             else:
-                                reduced.data= reduced.data - abs(np.min(reduced.data))
-                                
+                                reduced.data= reduced.data - abs(minimum_value_in_reduced)
+
+                            reduced.meta['ASTROPY_OFFSET'] =  minimum_value_in_reduced
+
                         #reduced.data=reduced.data.astype(data_type)
 
                         reduced.meta['correctd'] = True
 
-
+                        # Convert to hdu
                         reduced_hdul=reduced.to_hdu()
 
                         # Cast back in 16 bit integers
-                        reduced_hdul[0].scale('int16')
+                        scale='int16'
+                        reduced_hdul[0].scale(scale)
+                        reduced_hdul[0].header['HISTORY']='Image cast to'+ scale
+
 
                         # Set all values below 0 equal to zero
                         reduced_hdul[0].data=np.where(reduced_hdul[0].data<0,0,reduced_hdul[0].data)
@@ -754,12 +774,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         file_name = file_name.split("\\")[-1]
                         try:
                             reduced_hdul.writeto(str(corrected_light_dir) +'\\' + file_name)
-                            #reduced.write(str(corrected_light_dir) +'\\' + file_name)
+
                         except OSError:
                             file_name = file_name[:-5]
                             print(file_name)
                             file_name = file_name + "1.fits"
-                            #reduced.write((str(corrected_light_dir) + '\\' + file_name))
+
                             reduced_hdul.writeto(str(corrected_light_dir) + '\\' + file_name)
                         print('Saved ', file_name)
                 except Exception as e:
@@ -807,7 +827,7 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
     # 'time {}.'.format(closest_dark_exposure, a_flat.header['exptime']))
 
     return closest_dark_exposure
-
+##
 #%% Outlier Correction
 def flat_image_masking(flat_imgtypes_concatenateded,
                            lights_to_correct,
