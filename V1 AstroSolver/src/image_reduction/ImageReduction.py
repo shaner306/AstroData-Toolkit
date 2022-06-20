@@ -96,9 +96,13 @@ import time
 # run_master_flat = 1
 # correct_light_frames = 1
 
-# # The highest directory of the .fits files to process
+# # The highest directoy of the .fits files to process
 # # topdir = 'C:\\Astro_Data\\'
 
+# topdir = 'D:\Image Reduction Test Images'
+
+# if os.path.isdir(topdir) == False:
+#     raise RuntimeError('WARNING -- Directory of .fits files does not exist')
 
 # # Create output directory for master files
 # if create_master_dir == True:
@@ -169,17 +173,7 @@ def create_master_bias(all_fits, master_dir):
             bin_bias_fits = bias_fits.files_filtered(include_path=True,ybinning=binning)
             biases = []
             for file in bin_bias_fits:
-
-                # bias = CCDData.read(file, unit='adu')
-
-                # Work around for applying BZERO and BSCALE
-                hdul=fits.open(file)
-                hdul[0].scale('float64')
-                bias=CCDData(hdul[0].data,unit='adu')
-                bias.header = hdul[0].header
-
-                hdul.close()
-
+                bias = CCDData.read(file, unit='adu')
                 biases.append(bias)
             
             master_bias = ccdp.combine(biases,
@@ -242,8 +236,6 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     
     
     darks_fits=ImageFileCollection(filenames=(all_fits.files_filtered(include_path=True,imagetyp=dark_imgtypes_concatenateded)))
-
-
     try:
         unique_bin_list=list(set(darks_fits.summary['ybinning']))
     except KeyError as e:
@@ -278,17 +270,7 @@ def create_master_dark(all_fits, master_dir,scalable_dark_bool):
     
             darks = []
             for file in darks_to_calibrate:
-
-                # dark = CCDData.read(file, unit='adu')
-
-                # Work around for applying BZERO and BSCALE
-                hdul=fits.open(file)
-                hdul[0].scale('float64')
-                dark=CCDData(hdul[0].data,unit='adu')
-                dark.header=hdul[0].header
-                hdul.close()
-
-
+                dark = CCDData.read(file, unit='adu')
                 if scalable_dark_bool is True:
                     dark = ccdp.subtract_bias(dark, master_bias)
                 darks.append(dark)
@@ -406,17 +388,8 @@ def create_master_flat(all_fits, master_dir,scalable_dark_bool):
     
             flats = []
             for file in flats_to_combine:
-
-
-                #flat = CCDData.read(file, unit='adu')
-
-                # Work around for applying BSCALE and BZERO
-                hdul=fits.open(file)
-                hdul[0].scale('float64')
-                flat=CCDData(hdul[0].data,unit='adu')
-                flat.header=hdul[0].header
-                hdul.close()
-
+                flat = CCDData.read(file, unit='adu')
+                
                 closest_dark = find_nearest_dark_exposure(flat, dark_times,
                                                           tolerance=100
                                                           )
@@ -535,16 +508,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             dark_times = set(all_fits.summary['exptime'][dark_mask])
             
             # Assumes all images in a dataset are the same size
-            #TODO: Add catch if images are not the same size
             example_light = all_fits.files_filtered(imagetyp=light_imgtypes_concatenateded,
                                                     ybinning=binning,
                                                     filter=list(light_filter)[0],
                                                     include_path=True)[0]
 
-            # Set the default data type for the light images, this will be used to reconvert the image after calibration
             data_type=(fits.open(example_light))[0].data.dtype
-
-
+            
             corrected_master_dark={}
             for dark_time in dark_times:
                 
@@ -642,13 +612,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                             
                     for file_name in lights_to_correct:
         
-                        #light = CCDData.read(file_name, unit='adu')
-
-                        # Work around for applying BZERO and BSCALE
-                        hdul=fits.open(file_name)
-                        hdul[0].scale('float64')
-                        light=CCDData(hdul[0].data,unit='adu')
-                        light.header=hdul[0].header
+                        light = CCDData.read(file_name, unit='adu')
         
                         # Note that the first argument in the remainder of the ccdproc calls is
                         # the *reduced* image, so that the calibration steps are cumulative.
@@ -906,18 +870,8 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         calibrated_flats = {}
         # Calibrate Flats
         for flat in flats_to_compare:
-
-            #flatdata = CCDData.read(flat, unit='adu')
+            flatdata = CCDData.read(flat, unit='adu')
             
-            #Work around to apply  BZERO and BSCALE
-            hdul=fits.open(flat)
-            hdul[0].scale('float64')
-            flatdata=CCDData(hdul[0].data,unit='adu')
-            flatdata.header=hdul[0].header
-            hdul.close()
-            
-
-
             closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
                                                       tolerance=100
                                                       )
@@ -959,14 +913,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
 
     if (len(flats_to_compare) == 1) or (bad_ratio is True):
         # Calibrate flat field
-        #flatdata = CCDData.read(flats_to_compare[0], unit='adu')
-
-        # Work around to deal with BSCALE and BZERO
-        hdul = fits.open(flats_to_compare[0])
-        hdul[0].scale('float64')
-        flatdata = CCDData(hdul[0].data, unit='adu')
-        flatdata.header = hdul[0].header
-        hdul.close()
+        flatdata = CCDData.read(flats_to_compare[0], unit='adu')
         
         closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
                                                   tolerance=100
@@ -1046,16 +993,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 if (flats_to_compare != ()) :
                     flats_to_compare = flats_to_compare[0]
                 flat=flats_to_compare
-                #flatdata = CCDData.read(flat, unit='adu')
-
-                # Work around to deal with BZERO and BSCALE
-                hdul = fits.open(flat)
-                hdul[0].scale('float64')
-                flatdata = CCDData(hdul[0].data, unit='adu')
-                flatdata.header = hdul[0].header
-                hdul.close()
-
-
+                flatdata = CCDData.read(flat, unit='adu')
                 flatdata.mask=maskr
                 Replaceable_mean=np.nanmean(flatdata)
                 for i in range(0, np.shape(coordinates)[1]):
@@ -1079,16 +1017,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 if (flats_to_compare != ()) :
                     flats_to_compare = flats_to_compare[0]
                 flat=flats_to_compare
-                #flatdata = CCDData.read(flat, unit='adu')
-
-                # Work around to apply BZERO or BSCALE
-                hdul = fits.open(flat)
-                hdul[0].scale('float64')
-                flatdata = CCDData(hdul[0].data, unit='adu')
-                flatdata.header = hdul[0].header
-                hdul.close()
-
-
+                flatdata = CCDData.read(flat, unit='adu')
                 for i in range(0, np.shape(coordinates)[1]):
 
                     # Create copy of flat to add mask to - To Avoid Masked Pixs
@@ -1116,17 +1045,7 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                 
             # Correct Flats    
                 for flat in flats_to_compare:
-                    #flatdata = CCDData.read(flat, unit='adu')
-
-                    # Work around to apply BZERO and BSCALE
-
-                    hdul = fits.open(flat)
-                    hdul[0].scale('float64')
-                    flatdata = CCDData(hdul[0].data, unit='adu')
-                    flatdata.header = hdul[0].header
-                    hdul.close()
-
-
+                    flatdata = CCDData.read(flat, unit='adu')
                     for i in range(0, np.shape(coordinates)[1]):
     
                         # Create copy of flat to add mask to - To Avoid Masked Pixs

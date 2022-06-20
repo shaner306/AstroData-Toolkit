@@ -169,6 +169,8 @@ def Gui():
             return imagefolder, catalogfolder, refdoc
 
 # Calculate Various Image Background Values
+
+
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     # Specify Sigma Clipping Value and Calculate the Background using
     # "SExtractor Algorithm"
@@ -232,7 +234,8 @@ def ref_star_folder_read(refstars_doc):
 # Use Pinpoint to Locate Reference Stars on Image
 
 
-def ref_star_search(directory, ref_stars_file):
+def ref_star_search(s, f, erad, edec, HIP, vref,
+                    bvindex, vrindex, refstarsfin):
     refx = []
     refy = []
     vref2 = []
@@ -240,20 +243,27 @@ def ref_star_search(directory, ref_stars_file):
     vrindexdet = []
     bvindexdet = []
 
-    refstars, refstarpositions = read_ref_stars(ref_stars_file)
-    matched_Ref_Stars = ref_star_search(f, refstars, refstarpos)
+    for s in range(89):
 
-    for i,v in enumerate(refstarpos):
-        f.SkyToXy(v[0], v[1])
-        refSTAR_X = f.ScratchX  # the x result of skytoxy
-        refSTAR_Y = f.ScratchY
-        if refSTAR_X > 0 and refSTAR_X < 1900:
-            refx.append(refSTAR_X)
-            refy.append(refSTAR_Y)
-            vref2.append(refstars[i][0])
-            HIP2.append(HIP[s])
-            vrindexdet.append(vrindex[s])
-            bvindexdet.append(bvindex[s])
+        try:
+            f.SkyToXy(erad[s], edec[s])
+            refSTAR_X = f.ScratchX  # the x result of skytoxy
+            refSTAR_Y = f.ScratchY
+            if refSTAR_X > 0 and refSTAR_X < 1900:
+                refx.append(refSTAR_X)
+                refy.append(refSTAR_Y)
+                vref2.append(vref[s])
+                HIP2.append(HIP[s])
+                vrindexdet.append(vrindex[s])
+                bvindexdet.append(bvindex[s])
+            # else:
+            #   print("Star Found outside bounds of image")
+            # s=s+1
+        except:
+            if s > 89:
+                print("Stop")
+            # else:
+            #     print('Pinpoint can''t process coords')
 
     nmstars = f.MatchedStars.Count
     mstars = f.MatchedStars
@@ -261,11 +271,13 @@ def ref_star_search(directory, ref_stars_file):
     print("Reference Stars Located:")
     print("")
     for i in range(1, nmstars):
+        # print(i)
         mstar = mstars.Item(i)
         X_min = mstar.X - 0.5 * mstar.Width
         X_max = mstar.X + 0.5 * mstar.Width
         Y_min = mstar.Y - 0.5 * mstar.Height
         Y_max = mstar.Y + 0.5 * mstar.Height
+        # print(i)
         length = len(refx)
 
         exptime = f.ExposureInterval
@@ -273,14 +285,22 @@ def ref_star_search(directory, ref_stars_file):
         Zp = f.MagZeroPoint
 
         vmag = Zp - 2.5 * (math.log10(rawflux / exptime))
+        # starx= mstar.X
+        # stary=mstar.Y
+        # print(vmag)
 
         for j in range(length):
+            # print("ref" +str(refx[j]))
+            # print(X_max)
             if (refx[j] > X_min) and (refx[j] < X_max):
                 if (refy[j] > Y_min) and (refy[j] < Y_max):
                     if abs(vmag - vref2[j]) < 0.5:
                         print("HIP: " + str(HIP2[j]))
                         print("Located at: X: " + str(mstar.X) +
                               " Y: " + str(mstar.Y))
+                        # print("matched X:" + str(X_max))
+                        # print(str(vref2[j]))
+                        # print(mstar.ColorMagnitude)
                         print(
                             "Reference Mag: " + str(vref2[j]) + " vs " +
                             "Detected Mag: " + str(vmag))
@@ -352,10 +372,15 @@ def edge_Protect(bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
     return im_mean, bg_rem, im_rms
 
 
+# inbox, catloc, refstars_doc = Gui()
+# print(imagefolder, catalogfolder, refdoc)
 # Image Location of .fits Format
 inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
 inbox1 = r'D:\NEOSSat-SA-111\test'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
+
+# refstars_doc = 'D:\\Reference_stars.xlsx'
+# refstars_csv='D:\\Reference_stars.csv' #Reference Star List
 catloc1 = "D:\\squid\\USNOA20-All"
 catloc2 = 'D:\\squid\\UCAC4'
 
@@ -370,7 +395,11 @@ correct_light_frames = True
 OutputsaveLoc = False  # 0 Default will save outputs in image folder
 reduce_dir = 'D:\\Image Reduction Test Images'
 
+# Start Pinpoint Software in Python
+# f = win32com.client.Dispatch("Pinpoint.plate")  # Start Pinpoint
+
 # Set Image Processing Variables
+streak_array = []  # Streak Detection for Track Rate Mode
 edge_protect = 10  # Img Edge Clipping
 min_obj_pixels = 5  # Min Pixels to qualify as a Point Source
 SNRLimit = 0  # Signal-To-Noise Ratio
@@ -388,14 +417,6 @@ remove_large_airmass = False
 image_reduce = False  # Reduce Images before Solving
 
 # Function #1: Pinpoint Solving
-def Pinpoint_Solve(directory, ref_stars_file, catalogLocation, pinpoint=True):
-    if pinpoint==True:
-        f=pinpointsolving.pinpoint(directory,catalogLocation)
-
-refstars, refstarpositions= read_ref_stars(ref_stars_file)
-matched_Ref_Stars=ref_star_search(f,refstars,refstarpos)
-
-    
 
 
 
@@ -478,6 +499,8 @@ def space_based_transform(directory, ref_stars_file):
     return
 
 # Conduct Track Rate Mode (TRM) Photometry on satellites
+
+
 def trm_photometry(directory):
 
     # Set
@@ -504,6 +527,8 @@ def trm_photometry(directory):
     sats_table.pprint_all()
 
 # Function #6: GB Image Reduction
+
+
 def Image_reduce(reduce_dirs,
                  create_master_dark,
                  create_master_flat,
@@ -735,3 +760,7 @@ def DarkSub(target, obspath, **kwargs):
     return
 
 
+class AstroReducer:
+
+    def __init__(self, targets, start_time, stop_time, *args):
+        return
