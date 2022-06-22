@@ -105,7 +105,8 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
         predicted_airmass = altazpositions.secz.value
 
     img_filter=str(hdr['FILTER'])
-    
+    if len(img_filter)>1:
+        img_filter=img_filter.split(' ')[0] #for filter keywords such as 'B BESSEL'
     airmass_std=np.sqrt(sum((matched_stars.img_star_airmass-predicted_airmass)**2)/(np.count_nonzero(matched_stars.img_star_airmass)-1))
     
     

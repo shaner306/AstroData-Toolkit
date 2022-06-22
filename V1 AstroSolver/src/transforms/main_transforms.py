@@ -781,12 +781,12 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     # Create an AstroPy table of the auxiliary data and write it to a .csv file.
     star_aux_table = astro.create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(
-        save_loc, 'auxiliary_table.csv'), format='csv')
+        save_loc, 'auxiliary_table.csv'), format='csv',overwrite=True)
     # Create an AstroPy table of each reference star detection and write it to a .csv file.
     large_stars_table = astro.create_large_stars_table(
         large_table_columns, ground_based=True)
     ascii.write(large_stars_table, os.path.join(
-        save_loc, 'large_stars_table.csv'), format='csv')
+        save_loc, 'large_stars_table.csv'), format='csv',overwrite=True)
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass,
     # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
@@ -1239,7 +1239,7 @@ def _main_gb_new_boyd_method(
                 save_loc,stars_table)
         except Exception as e:
             raise KeyError(e)
-            print("Could not Calculate Boyde Slopes")
+            print("Could not Calculate Boyde Slopes... ")
             continue
 
 

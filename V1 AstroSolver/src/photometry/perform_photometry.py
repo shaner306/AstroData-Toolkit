@@ -371,27 +371,16 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
     
     # sigma values recommended by Howell
     sigclip= SigmaClip(sigma=3,maxiters=10)
-    gain=hdr['EGAIN']
+    if 'EGAIN' in hdr:
+        gain=hdr['EGAIN']
+    elif 'GAINADU' in hdr:
+        gain=hdr['GAINADU']
 
+    # TODO: Add  a more dynamic way for initializing the table
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],
                             dtype=['int','float64','float64','float64','float64'])
     if aperture_estimation_mode == 'mean':
-        # daogroup = DAOGroup(2 * fwhm)
-        # psf_model = IntegratedGaussianPRF(sigma=fwhm * gaussian_fwhm_to_sigma)
-        # psf_model.x_0.fixed = True
-        # psf_model.y_0.fixed = True
-        # pos = Table(names=['x_0', 'y_0', 'flux_0'],
-        #             data=[irafsources['xcentroid'],
-        #                   irafsources['ycentroid'],
-        #                   irafsources['flux']])
-        #
-        # photometry = BasicPSFPhotometry(group_maker=daogroup,
-        #                                 bkg_estimator=None,
-        #                                 psf_model=psf_model,
-        #                                 fitter=fitter,
-        #                                 fitshape=fitshape)
-        #
-        # photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
+
         fwhm=np.mean(fwhms)
         positions_list=[(irafsource['xcentroid'],irafsource[
             'ycentroid']) for irafsource in irafsources]
@@ -422,9 +411,16 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
             #Work around way to calculate the total error using localized background standard deviation
 
             ### Method 2: Calculate Total Error
+            if 'gain' in locals():
+                error =calc_total_error(imgdata-bkg,bkg_std,gain)
+                photometry_result = aperture_photometry(imgdata-bkg, apertures, error=error)
+            else:
+                # Method 1: Calculate standard deviation
+                phot_table = aperture_photometry(imgdata, apertures)
+                photometry_result = phot_table
+                photometry_result['aperture_sum'] = phot_table['aperture_sum'] - total_bkg
+                photometry_result['aperture_sum_err'] = aper_stats.std
 
-            error =calc_total_error(imgdata-bkg,bkg_std,gain)
-            photometry_result = aperture_photometry(imgdata-bkg, apertures, error=error)
 
 
         elif calculate_local_error is False:
@@ -472,9 +468,10 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
                 bkg = bkg_stats.median
                 aper_stats = ApertureStats(imgdata-bkg, aperture)
 
-                # MAsking
-                mask2=annulus_aperture.to_mask(method='exact')
-                combined_aperture_mask=combined_aperture_mask+mask2.to_image(np.shape(imgdata))
+                if produce_residual_data:
+                    # MAsking
+                    mask2=annulus_aperture.to_mask(method='exact')
+                    combined_aperture_mask=combined_aperture_mask+mask2.to_image(np.shape(imgdata))
 
 
 
@@ -485,7 +482,12 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
 
                 ### Method 2: Calculate Total Error
                 # bkg_error = (np.ones(np.shape(imgdata))) * bkg_stats.std
-                error=calc_total_error(imgdata-bkg,bkg_std,gain)
+                if 'gain' in locals():
+
+                    error=calc_total_error(imgdata-bkg,bkg_std,gain)
+
+
+
 
 
 
@@ -493,13 +495,18 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
             elif calculate_local_error is False:
                 # Calculate Global Background Error
 
-
-                error=calc_total_error(imgdata-bkg, bkg_std, gain)
-
-
+                if 'gain' in locals():
+                    error=calc_total_error(imgdata-bkg, bkg_std, gain)
 
 
-            photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
+
+            if 'gain' in locals():
+                photometry_result_draft=aperture_photometry(imgdata-bkg,aperture,error=error)
+            elif 'gain' not in locals():
+                photometry_result_draft = aperture_photometry(imgdata - bkg, aperture)
+                if 'aper_stats' not in locals():
+                    aper_stats = ApertureStats(imgdata - bkg, aperture)
+                photometry_result_draft['aperture_sum_err'] = aper_stats.std
             photometry_result_draft[0]['id']=i+1
             photometry_result.add_row(photometry_result_draft[0])
 
