@@ -287,10 +287,18 @@ def perform_PSF_photometry_sat(sat_x, sat_y, fwhm, imgdata, bkg,
     photometry_result = photometry(image=imgdata - bkg, init_guesses=pos)
     return photometry_result
 
-def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
-                                filepath,hdr,produce_residual_data=False,
+def perform_aperture_photometry(irafsources,
+                                fwhms,
+                                imgdata,
+                                bkg,
+                                bkg_std,
+                                filepath,
+                                hdr,
+
+                                produce_residual_data=False,
                                 calculate_local_error=True,
-                                aperture_estimation_mode='mean'):
+                                aperture_estimation_mode='mean',
+                                **kwargs):
     
     '''
     Performs Aperture Photometry with an option to use either local background 
@@ -316,6 +324,8 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
                             the object instrumental flux
                         - mag: 
                             objects insutrmental magntiude (-2.5*log10(flux))
+                        - **kwargs:
+                            can include inner and outer radius
             
                     
         imgdata:
@@ -379,6 +389,19 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
     # TODO: Add  a more dynamic way for initializing the table
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],
                             dtype=['int','float64','float64','float64','float64'])
+    if aperture_estimation_mode == 'manual':
+        if 'inner_rad' in kwargs.items():
+
+            apertures= CircularAperture(positions,r=kwargs.get('inner_rad'))
+
+
+
+
+
+        else:
+            print('manual aperture keywords not found, reverting to mean aperture')
+            aperture_estimation_mode='mean'
+
     if aperture_estimation_mode == 'mean':
 
         fwhm=np.mean(fwhms)
@@ -388,52 +411,43 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
                                    r=3*fwhm)
         mask1=apertures.to_mask(method='exact')
 
-        if calculate_local_error:
-            annulus_apertures=CircularAnnulus(positions_list,r_in=3*3*fwhm,
-                                             r_out=4*3*fwhm)
-            mask2=annulus_apertures.to_mask(method='exact')
-            sigclip=SigmaClip(sigma=3.0,maxiters=10)
 
-            bkg_stats=ApertureStats(imgdata,annulus_apertures,sigma_clip=sigclip)
-            aper_stats=ApertureStats(imgdata,apertures,sigma_clip=None)
-            bkg_mean=bkg_stats.median
-            aperture_area=apertures.area_overlap(imgdata)
-            total_bkg=bkg_mean*aperture_area
+        annulus_apertures=CircularAnnulus(positions_list,r_in=3*3*fwhm,
+                                         r_out=4*3*fwhm)
+        mask2=annulus_apertures.to_mask(method='exact')
+        sigclip=SigmaClip(sigma=3.0,maxiters=10)
 
-
-            ### Method One: Take the Standard deviation of the aperture itself
-            # phot_table = aperture_photometry(imgdata, apertures)
-            # photometry_result = phot_table
-            # photometry_result['aperture_sum'] = phot_table[
-            #                                        'aperture_sum'] - total_bkg
-            # photometry_result['aperture_sum_err'] = aper_stats.std
-
-            #Work around way to calculate the total error using localized background standard deviation
-
-            ### Method 2: Calculate Total Error
-            if 'gain' in locals():
-                error =calc_total_error(imgdata-bkg,bkg_std,gain)
-                photometry_result = aperture_photometry(imgdata-bkg, apertures, error=error)
-            else:
-                # Method 1: Calculate standard deviation
-                phot_table = aperture_photometry(imgdata, apertures)
-                photometry_result = phot_table
-                photometry_result['aperture_sum'] = phot_table['aperture_sum'] - total_bkg
-                photometry_result['aperture_sum_err'] = aper_stats.std
+        bkg_stats=ApertureStats(imgdata,annulus_apertures,sigma_clip=sigclip)
+        aper_stats=ApertureStats(imgdata,apertures,sigma_clip=None)
+        bkg_mean=bkg_stats.median
+        aperture_area=apertures.area_overlap(imgdata)
+        total_bkg=bkg_mean*aperture_area
 
 
+        ### Method One: Take the Standard deviation of the aperture itself
+        # phot_table = aperture_photometry(imgdata, apertures)
+        # photometry_result = phot_table
+        # photometry_result['aperture_sum'] = phot_table[
+        #                                        'aperture_sum'] - total_bkg
+        # photometry_result['aperture_sum_err'] = aper_stats.std
 
-        elif calculate_local_error is False:
-            error = calc_total_error(imgdata-bkg, bkg_std, gain)
+        #Work around way to calculate the total error using localized background standard deviation
 
-            photometry_result = aperture_photometry(imgdata-bkg,
-                                                          apertures,
-                                                          error=error)
+        ### Method 2: Calculate Total Error
 
+        if 'gain' in locals():
+            # FIXME : Add Local Error Code for this condition
+            error = calc_total_error(imgdata - bkg, bkg_std, gain)
+            photometry_result = aperture_photometry(imgdata - bkg, apertures, error=error)
+        else:
+            # Method 1: Calculate standard deviation
+            phot_table = aperture_photometry(imgdata, apertures)
+            photometry_result = phot_table
+            photometry_result['aperture_sum'] = phot_table['aperture_sum'] - total_bkg
 
-
-
-
+            #Calculate error manually, assuming bkg_std is the same 
+            photometry_result['aperture_sum_err'] = np.sqrt(np.array(apertures.area_overlap(imgdata))*(bkg_std[0][
+                                                                                                           0]**2))
 
         if produce_residual_data:
             masks1= [mask.to_image(np.shape(imgdata)) for mask in mask1]
