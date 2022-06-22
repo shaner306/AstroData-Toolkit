@@ -371,6 +371,7 @@ def perform_aperture_photometry(irafsources, fwhms, imgdata, bkg, bkg_std,
     
     # sigma values recommended by Howell
     sigclip= SigmaClip(sigma=3,maxiters=10)
+
     gain=hdr['EGAIN']
 
     photometry_result=Table(names=['id','xcenter','ycenter','aperture_sum','aperture_sum_err'],

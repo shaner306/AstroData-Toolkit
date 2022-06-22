@@ -27,7 +27,11 @@ import win32com.client
 import AstroFunctions as astro
 import numpy as np
 import matplotlib.pyplot as plt
-
+import AstroFunctions as astro
+from photutils.aperture import CircularAperture,CircularAnnulus,aperture_photometry
+from astropy.wcs import WCS
+from astropy.table import join
+from astropy.table import hstack,vstack
 
 ##
 class stars:
@@ -206,7 +210,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
 
                                     measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
 
-
+                                    #measured_flux=star.RawFlux * u.count
 
                                     matched_star_dictionary[star.MatchedCatalogStar.Identification].append(
                                         measured_flux)
@@ -225,6 +229,7 @@ def get_matched_stars(image_dir: str, catloc: str, max_mag: float,
                             else:
                                 # First Instance of the star
                                 measured_flux = f.MeasureFlux(star.X, star.Y, inner_ap, outer_ap) * u.count
+                                #measured_flux = star.RawFlux * u.count
                                 matched_star_dictionary[star.MatchedCatalogStar.Identification] = ([
                                     measured_flux])
                                 iterative_exclusion_list.append(star.MatchedCatalogStar.Identification)
@@ -391,23 +396,23 @@ def convert_DMS_to_deg_in_ref_star_table(reference_star_table):
     for reference_star_table_line in reference_star_table:
         
         dms_ra=reference_star_table_line['RA'].split(' ')
-        d_ra=dms_ra[0]
+        h_ra=dms_ra[0]
         m_ra=dms_ra[1]
         s_ra=dms_ra[2]
         dms_dec = reference_star_table_line['Dec'].split(' ')
         d_dec = dms_dec[0]
         m_dec = dms_dec[1]
         s_dec = dms_dec[2]
-        ras_deg.append((Angle(f'{d_ra}d{m_ra}m{s_ra}s')))
+        ras_deg.append((Angle(f'{h_ra}h{m_ra}m{s_ra}s')))
         decs_deg.append(Angle(f'{d_dec}d{m_dec}m{s_dec}s'))
     reference_star_table.add_column(ras_deg,name='RA DEG')
     reference_star_table.add_column(decs_deg,name='DEC DEG')
     return reference_star_table
 
 ## Compare Reference Star and matched stars by RA and DEC
-def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01):
+def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.001):
     '''
-
+    compares the stars found in the image to those from the reference star table
     Parameters
     ----------
     passed_matched_stars: dicitonary
@@ -439,6 +444,46 @@ def compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01):
     return passed_matched_reference_stars
 
 
+##
+#%
+
+def compare_matched_stars_2(irafsources,reference_star_table, threshold=0.0005):
+    '''
+    A similar method to compare_matched_stars except this one is used to compare
+
+    Parameters
+    ----------
+    irafsources: AstroPy Table
+        The irafsources table generated from using irafsource function. Columns of RA and Declination
+        must also be added for comparision to happen. RA and DEC must be in hourangle and degrees repestively.
+        RA and Dec is found by using SkyCoord
+    reference_star_table:
+        Reference star table generated in previous steps.
+    threshold: the threshold value for matching stars
+
+    Returns
+    -------
+
+    '''
+    #passed_matched_reference_stars = Table(names=reference_star_table.colnames+irafsources.colnames,
+    #                                       dtype=reference_star_table.dtype+irafsources.dtype)
+    for reference_star in reference_star_table:
+        for irafsource in irafsources:
+            average_ra = irafsource['RA SOURCE'].value
+            average_dec = irafsource['DEC SOURCE'].value
+            if ((average_ra > reference_star['RA DEG'] - threshold) and
+                (average_ra < reference_star['RA DEG'] + threshold)) \
+                and ((average_dec > reference_star['DEC DEG'] - threshold) and
+                     (average_dec < reference_star['DEC DEG'] + threshold)):
+                    matched_star=hstack([irafsource,reference_star])
+                # Reference Matched Star
+
+                    if 'passed_matched_reference_stars2' in locals() and matched_star not in passed_matched_reference_stars2:
+
+                        passed_matched_reference_stars2=vstack([passed_matched_reference_stars2,matched_star])
+                    else:
+                        passed_matched_reference_stars2=matched_star
+    return passed_matched_reference_stars2
 
 #%% Query the Stars in SIMBAD
 ##
@@ -634,13 +679,37 @@ def compare_ref_ids_with_matched_stars(passed_matched_stars,
         # Search reference Star ID
 
 
+## Use iraf sources and pre-exisiting architecture to calculate the fluxes
+#%
+
+import AstroFunctions as astro
+from photutils.aperture import CircularAperture,CircularAnnulus
+import perform_photometry
+# similar to main_trnasforms.py
+def join_apertures(filepath):
+
+
+    hdr,imgdata= astro.read_fits_file(filepath)
+    exptime=hdr['EXPTIME']
+    bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+    irafsources = astro.detecting_stars(
+        imgdata, bkg=bkg, bkg_std=bkg_std)
+    fwhms, fwhm, fwhm_std = astro.calculate_fwhm(irafsources)
+
+    positions_list=[(irafsource['xcentroid'],irafsource[
+            'ycentroid']) for irafsource in irafsources]
+    apertures=CircularAperture(positions_list,r=3*fwhm)
+
+
+
+
 
 ####################### Testing the Functions ################################
 
 ## Singular Request
 
-inner_rad=32 # in arcseconds
-outer_rad=48
+inner_rad=20 # in arcseconds
+outer_rad=25
 
 image_dir=r'C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 32\I'
 catalogue_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
@@ -702,6 +771,62 @@ if 'passed_matched_reference_stars_ra_dec' in locals():
 else:
 
     passed_matched_reference_stars_ra_dec=compare_by_ra_dec(passed_matched_stars,reference_star_table,threshold=0.01)
+
+
+
+file_paths=[]
+file_names=[]
+iraf_tables=[]
+for dirpth,_,files in os.walk(image_dir):
+    for file in files:
+        if file.endswith('fit'):
+            file_paths.append(os.path.join(dirpth,file))
+            file_names.append(file)
+
+#photometry_result=aperture_photometry(file_paths[0])
+            hdr, imgdata = astro.read_fits_file(os.path.join(dirpth,file))
+            exptime = hdr['EXPTIME']
+            bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+            irafsources = astro.detecting_stars(
+                imgdata, bkg=bkg, bkg_std=bkg_std)
+            fwhms, fwhm, fwhm_std = astro.calculate_fwhm(irafsources)
+
+            positions_list = [(irafsource['xcentroid'], irafsource[
+                'ycentroid']) for irafsource in irafsources]
+            apertures = CircularAperture(positions_list, r=inner_rad)
+            aperture_sums_results=aperture_photometry(imgdata,apertures=apertures)
+
+            wcs = WCS (hdr)
+            sky_positions=wcs.pixel_to_world(irafsources['xcentroid'],irafsources['ycentroid'])
+
+            # Note: Astropy loses the hourangle unit when converting from deg to hour angle
+            # It then has to be reapplied
+            irafsources['Source Sum']=aperture_sums_results['aperture_sum']
+            irafsources['RA SOURCE']=sky_positions.ra.hourangle*u.hourangle
+            irafsources['DEC SOURCE']=sky_positions.dec
+            iraf_tables.append(irafsources)
+
+# Group sources in iraf sources
+for irafsources in iraf_tables:
+    if 'passed_matched_with_reference_stars_2' in locals():
+        passed_matched_with_reference_stars_2=vstack([passed_matched_with_reference_stars_2,compare_matched_stars_2(
+             irafsources,reference_star_table)])
+    else:
+        passed_matched_with_reference_stars_2=compare_matched_stars_2(irafsources,reference_star_table)
+
+passed_matched_with_reference_stars_2_grouped_by_name=passed_matched_with_reference_stars_2.group_by('Name')
+
+#for name_group in passed_matched_with_reference_stars_2_grouped_by_name.groups
+for i in range(len(passed_matched_with_reference_stars_2_grouped_by_name.groups.keys)):
+    y_data=passed_matched_with_reference_stars_2_grouped_by_name.groups[i]['flux'].value
+    x_data=[*range(0,len(y_data))]
+    plt.plot(x_data,y_data,'--')
+plt.title(' Aperture Photometry Passed Stars Flux Variations/Frame in the Matched Stars')
+plt.xlabel('Frame')
+plt.ylabel('Flux (in counts)')
+plt.savefig(image_dir+r"\passed_stars_fluxplots_aperture_photometry.png")
+plt.clf()
+plt.close()
 
 from astropy.io import ascii
 
