@@ -35,7 +35,8 @@ def make_kernal_line(angle, length, option=None):
     #Generate a kernal line based on angle and length
     # angle=numpy.arctan(numpy.tan(angle))
     angle = numpy.deg2rad(angle)
-    xsize=
+    xsize= int(length*numpy.cos(angle))
+
     dx = int(numpy.ceil(length * max(np.abs(np.sin(angle)),
                                      np.cos(angle))))
 
@@ -87,11 +88,9 @@ def make_matched_filter(kernal, xsize, ysize):
         # filter[xsize - midrow+1:xsize][1:col - midcol] = kernal[1:midrow][midcol + 1:col]
     ft = fft.fft2(filter)
     return ft
-def write_pinpoint_file(STARS, tbl, astrometryNetFile):
+#def write_pinpoint_file(STARS, tbl, astrometryNetFile):
     # Write a file with the results of the Streak Detection
     # filename = 'pinpoint_results.txt'
-
-def
 
 
 def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True):
