@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import numpy
@@ -13,29 +12,27 @@ from photutils.background import SExtractorBackground
 from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
-from photutils.segmentation import detect_threshold
+
 from photutils.segmentation import make_source_mask
 
 streak1 = r'/Users/home/Sync/'
-streak = r'/Users/home/Downloads/2022-108-neossat-crosstalk-example'
+streak2 = r'/Users/home/Downloads/2022-108-neossat-crosstalk-example'
 streak = r'/Users/home/Downloads/2020_J107_Ottawa_IS901'
 file_suffix = (".fits", ".fit", ".FIT", '.fts')
 trm = True
 numFits = 0  # Number of images run through the Streak Detection
 
-useMatchedFilter=False # NOT WORKING - Experimental
+useMatchedFilter = False   # NOT WORKING - Experimental
 
 # TODO Count fits not total files
 # TODO Iterative matching based on results
 # TODO Identify critical inputs
 
-
 def make_kernal_line(angle, length, option=None):
-
-    #Generate a kernal line based on angle and length
+    # Generate a kernel line based on angle and length
     # angle=numpy.arctan(numpy.tan(angle))
     angle = numpy.deg2rad(angle)
-    xsize= int(length*numpy.cos(angle))
+    xsize = int(length * numpy.cos(angle))
 
     dx = int(numpy.ceil(length * max(np.abs(np.sin(angle)),
                                      np.cos(angle))))
@@ -63,11 +60,9 @@ def make_kernal_line(angle, length, option=None):
     return linekernal
 
 
-
-
 def make_matched_filter(kernal, xsize, ysize):
-    #Generate a matched filter based on angle and length
-    #kernal = make_kernal_line(angle, length)   # Generate the kernal
+    # Generate a matched filter based on angle and length
+    # kernal = make_kernal_line(angle, length)   # Generate the kernal
 
     col = len(kernal)
     row = len(kernal[0])
@@ -82,15 +77,17 @@ def make_matched_filter(kernal, xsize, ysize):
         print(row - midrow)
         filter[int((xsize - row) / 2):int(((xsize + row) / 2) - 1)][
         int((ysize - col) / 2): int((ysize + col) / 2 - 1)] = kernal
-        #filter[0:(row-midrow)][0:(col-midcol)] = kernal[(midrow+1):row][(midcol+1):col]
+        # filter[0:(row-midrow)][0:(col-midcol)] = kernal[(midrow+1):row][(midcol+1):col]
         # filter[1:(row - midrow)][(ysize-midcol+1):ysize] = kernal[midrow + 1:row][1:col]
         # filter[xsize - midrow+1:xsize][ysize-midcol+1:ysize] = kernal[1:midrow][1:midcol]
         # filter[xsize - midrow+1:xsize][1:col - midcol] = kernal[1:midrow][midcol + 1:col]
     ft = fft.fft2(filter)
     return ft
-#def write_pinpoint_file(STARS, tbl, astrometryNetFile):
-    # Write a file with the results of the Streak Detection
-    # filename = 'pinpoint_results.txt'
+
+
+# def write_pinpoint_file(STARS, tbl, astrometryNetFile):
+# Write a file with the results of the Streak Detection
+# filename = 'pinpoint_results.txt'
 
 
 def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True):
@@ -98,7 +95,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
     xlocSat = []
     ylocSat = []
     imageSats = []
-    #satelliteDetections = QTable([imageSats, xlocSat, ylocSat, fluxSat],
+    # satelliteDetections = QTable([imageSats, xlocSat, ylocSat, fluxSat],
     #                             names=('Image', 'X Location (pixel)', 'Y Location (pixel)', 'Instrumental Magnitude'),
     #                             meta={'name': 'Satellite Detections'})
     numFits = 0
@@ -122,7 +119,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
 
                 if trm:
                     try:
-                        bkg = Background2D(fitsdata, (30, 30),filter_size=(3,3),mask=mask,
+                        bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), mask=mask,
                                            bkg_estimator=bkg_estimator)
                     except:
                         bkg = SExtractorBackground(fitsdata)
@@ -139,7 +136,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                     bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3),
                                        mask=mask, bkg_estimator=bkg_estimator)
                     threshold = bkg.background + (2.5 * bkg.background_rms)
-                    #sigma = 5.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
+                    # sigma = 5.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(convolved_data, threshold, npixels=10)
@@ -148,9 +145,9 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                     cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
 
                 tbl = cat.to_table()
-                #print(str(len(tbl)) + "Sources Detected")
+                # print(str(len(tbl)) + "Sources Detected")
 
-                if useMatchedFilter==True:
+                if useMatchedFilter == True:
                     xmax = cat.bbox_xmax
                     xmin = cat.bbox_xmin
                     ymax = cat.bbox_ymax
@@ -162,24 +159,24 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                     medangle = numpy.median(angles)
                     xsiz = len(fitsdata)
                     ysiz = len(fitsdata[0])
-                    #print(angles)
-                    for i in range(len(xmax)): #Calculate Length of streaks
+                    # print(angles)
+                    for i in range(len(xmax)):  # Calculate Length of streaks
                         x_length = xmax[i] - xmin[i]
                         y_length = ymax[i] - ymin[i]
                         length[i] = numpy.sqrt(x_length ** 2 + y_length ** 2)
-                    #print(length)
-                    medlen=numpy.median(length)
+                    # print(length)
+                    medlen = numpy.median(length)
 
-                    kernel=make_kernal_line(medangle,medlen) #Create a matched filter
-                    #filter=make_matched_filter(kernel,xsiz,ysiz)
+                    kernel = make_kernal_line(medangle, medlen)  # Create a matched filter
+                    # filter=make_matched_filter(kernel,xsiz,ysiz)
                     convolved_data = convolve_fft(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(convolved_data, threshold, npixels=10)
                     segm_deblend = deblend_sources(convolved_data, segm, npixels=10,
-                                                      nlevels=32, contrast=0.001)
+                                                   nlevels=32, contrast=0.001)
                     cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
-                    tbl=cat.to_table()
-                    #print(str(len(tbl)) + "Sources Detected - with Matched Filter")
-                    #print(cat.orientation)
+                    tbl = cat.to_table()
+                    # print(str(len(tbl)) + "Sources Detected - with Matched Filter")
+                    # print(cat.orientation)
 
                 for i in range(len(tbl['segment_flux'])):
                     streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(tbl['xcentroid'][i]),
@@ -187,7 +184,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                                                                                   tbl['segment_flux'][i])
                     STARS.write(streak_line + "\n")
                     if cat.eccentricity[i] < 0.5:
-                        #satelliteDetections.append(filename, float(tbl['xcentroid'][i]), float(tbl['ycentroid'][i]),
+                        # satelliteDetections.append(filename, float(tbl['xcentroid'][i]), float(tbl['ycentroid'][i]),
                         #                           float(tbl['segment_flux'][i]))
                         print(
                             f"Potential satellite detected at {cat.xcentroid[i]:.3f}, "
@@ -212,11 +209,11 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
         return None
 
     elif trm == True:
-        #if len(satelliteDetections) == 0:
-            #return "No valid satellite detections - Check images or adjust parameters. "
-        #else:
-            #return satelliteDetections
+        # if len(satelliteDetections) == 0:
+        # return "No valid satellite detections - Check images or adjust parameters. "
+        # else:
+        # return satelliteDetections
         return 0
     else:
-        #return satelliteDetections
+        # return satelliteDetections
         return 0
