@@ -412,7 +412,7 @@ def Pinpoint_Solve(directory, ref_stars_file, catalogLocation, pinpoint=True):
 # Calculate Ground-Based Transforms
 
 
-def Ground_based_transforms(directory, ref_stars_file):
+def Ground_based_transforms(directory, ref_stars_file,**kwargs):
     plot_results = True
     save_plots = True
     remove_large_airmass = False
@@ -447,7 +447,8 @@ def Ground_based_transforms(directory, ref_stars_file):
                                       lon_key=lon_key,
                                       elev_key=elev_key,
                                       name_key=name_key,
-                                      save_loc=save_loc)
+                                      save_loc=save_loc,
+                                           **kwargs)
 
     gb_final_transforms.pprint_all()
     auxiliary_data_table.pprint_all()

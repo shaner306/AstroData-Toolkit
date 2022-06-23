@@ -176,7 +176,8 @@ def _main_gb_transform_calc(directory,
             photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,
                                                                              bkg_std=np.ones(np.shape(imgdata))*bkg_std,
                                                                              hdr=hdr,filepath=filepath,
-                                                                             aperture_estimation_mode=aperture_estimation_mode)
+                                                                             aperture_estimation_mode=aperture_estimation_mode,**kwargs)
+
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -1027,7 +1028,7 @@ def _main_gb_new_boyd_method(
                                                                                  bkg=bkg,
                                                                                  bkg_std=np.ones(np.shape(imgdata))*bkg_std,
                                                                                  hdr=hdr,filepath=filepath,
-                                                                                 aperture_estimation_mode=aperture_estimation_mode)
+                                                                                 aperture_estimation_mode=aperture_estimation_mode,**kwargs)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
