@@ -31,10 +31,14 @@ useMatchedFilter=False # NOT WORKING - Experimental
 
 
 def make_kernal_line(angle, length, option=None):
+
+    #Generate a kernal line based on angle and length
     # angle=numpy.arctan(numpy.tan(angle))
     angle = numpy.deg2rad(angle)
+    xsize=
     dx = int(numpy.ceil(length * max(np.abs(np.sin(angle)),
                                      np.cos(angle))))
+
     if dx % 2 == 0:
         dx += 1
     dy = dx
@@ -58,7 +62,12 @@ def make_kernal_line(angle, length, option=None):
     return linekernal
 
 
+
+
 def make_matched_filter(kernal, xsize, ysize):
+    #Generate a matched filter based on angle and length
+    #kernal = make_kernal_line(angle, length)   # Generate the kernal
+
     col = len(kernal)
     row = len(kernal[0])
     print(col)
@@ -72,15 +81,20 @@ def make_matched_filter(kernal, xsize, ysize):
         print(row - midrow)
         filter[int((xsize - row) / 2):int(((xsize + row) / 2) - 1)][
         int((ysize - col) / 2): int((ysize + col) / 2 - 1)] = kernal
-        # filter[0:(row-midrow)][0:(col-midcol)] = kernal[(midrow+1):row][(midcol+1):col]
+        #filter[0:(row-midrow)][0:(col-midcol)] = kernal[(midrow+1):row][(midcol+1):col]
         # filter[1:(row - midrow)][(ysize-midcol+1):ysize] = kernal[midrow + 1:row][1:col]
         # filter[xsize - midrow+1:xsize][ysize-midcol+1:ysize] = kernal[1:midrow][1:midcol]
         # filter[xsize - midrow+1:xsize][1:col - midcol] = kernal[1:midrow][midcol + 1:col]
     ft = fft.fft2(filter)
     return ft
+def write_pinpoint_file(STARS, tbl, astrometryNetFile):
+    # Write a file with the results of the Streak Detection
+    # filename = 'pinpoint_results.txt'
+
+def
 
 
-def streak_detection(imageDir, sigma=5.0, streakLength=20, TRM=True, useMask=True):
+def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True):
     fluxSat = []
     xlocSat = []
     ylocSat = []
@@ -113,7 +127,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=20, TRM=True, useMask=Tru
                                            bkg_estimator=bkg_estimator)
                     except:
                         bkg = SExtractorBackground(fitsdata)
-                    threshold = bkg.background + (1.5 * bkg.background_rms)
+                    threshold = bkg.background + (2.0 * bkg.background_rms)
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(fitsdata, threshold, npixels=streakLength)
@@ -122,10 +136,10 @@ def streak_detection(imageDir, sigma=5.0, streakLength=20, TRM=True, useMask=Tru
                     cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=None)
 
                 else:
-                    mask = make_source_mask(fitsdata, nsigma=sigma, npixels=10, dilate_size=11)
+                    mask = make_source_mask(fitsdata, nsigma=sigma, npixels=5, dilate_size=11)
                     bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3),
                                        mask=mask, bkg_estimator=bkg_estimator)
-                    threshold = bkg.background + (3.5 * bkg.background_rms)
+                    threshold = bkg.background + (2.5 * bkg.background_rms)
                     #sigma = 5.5 * gaussian_fwhm_to_sigma  # FWHM = 3.
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
