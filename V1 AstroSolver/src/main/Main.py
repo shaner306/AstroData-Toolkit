@@ -22,6 +22,15 @@ from photutils.background import MeanBackground
 from photutils.background import MedianBackground
 from photutils.background import ModeEstimatorBackground
 from photutils.background import SExtractorBackground
+
+import sys
+from os.path import dirname
+src_path = dirname(dirname(__file__))
+sys.path.append(os.path.join(src_path, 'general_tools'))
+sys.path.append(os.path.join(src_path, 'transforms'))
+sys.path.append(os.path.join(src_path, 'pinpointsolving'))
+sys.path.append(os.path.join(src_path, 'image_reduction'))
+
 import AstroFunctions as astro
 import ImageReduction as IR
 import SBDarkSub
@@ -392,8 +401,8 @@ def Pinpoint_Solve(directory, ref_stars_file, catalogLocation, pinpoint=True):
     if pinpoint==True:
         f=pinpointsolving.pinpoint(directory,catalogLocation)
 
-refstars, refstarpositions= read_ref_stars(ref_stars_file)
-matched_Ref_Stars=ref_star_search(f,refstars,refstarpos)
+# refstars, refstarpositions= astro.read_ref_stars(ref_stars_file)
+# matched_Ref_Stars=ref_star_search(f,refstars,refstarpos)
 
     
 
