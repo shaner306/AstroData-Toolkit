@@ -205,9 +205,9 @@ def Gui():
                                     default=False,
                                     key="phot_meth_manual"),
                            sg.Text("Inner Aperture Radius (pix)"),
-                           sg.InputText('20',key='inner_rad',size=(5,5)),
+                           sg.InputText('8',key='inner_rad',size=(5,5)),
                            sg.Text('Outer Aperture Radius(pix)'),
-                           sg.InputText('25',key='outer_rad',size=(5,5))
+                           sg.InputText('9',key='outer_rad',size=(5,5))
                            ]])]
                ]
     # column2.update(disabled=True)
