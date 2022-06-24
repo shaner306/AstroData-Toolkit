@@ -413,7 +413,7 @@ def perform_aperture_photometry(irafsources,
                 photometry_result = aperture_photometry(imgdata - bkg, apertures, error=error)
             else:
                 # Method 1: Calculate standard deviation
-                phot_table = aperture_photometry(imgdata, apertures)
+                phot_table = aperture_photometry(imgdata-bkg, apertures)
                 photometry_result = phot_table
                 photometry_result['aperture_sum'] = phot_table['aperture_sum'] #- total_bkg
 
@@ -467,7 +467,7 @@ def perform_aperture_photometry(irafsources,
             photometry_result = aperture_photometry(imgdata - bkg, apertures, error=error)
         else:
             # Method 1: Calculate standard deviation
-            phot_table = aperture_photometry(imgdata, apertures)
+            phot_table = aperture_photometry(imgdata-bkg, apertures)
             photometry_result = phot_table
             photometry_result['aperture_sum'] = phot_table['aperture_sum'] #- total_bkg
 
