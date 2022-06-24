@@ -66,61 +66,21 @@ AstroSolver
 
 1. Space Based - Airmass not a factor in determining transforms
 2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+        
+Main Function
+Image Reduction - GB
+Image Reduction - SB
+Source Detection / Photometry
+    Image Segmentation - Streak Detection
+    Aperture Photometry
+    PSF Photometry
+Image Solving
+    Batch Solving
+    Pinpoint Solving
+    Astrometry Local Solve
+    Astrometry.net Web API Solve
+Transform Calculations
 
-        ------------------------ 
-        STAR STARE MODE (SSM)
-        ------------------------
-            1.Solve Using pinpoint and IRAF
-                - iraf_Sources= detecting_stars(fitsdata, bkg, bkg_std)
-            
-            2.Convert Pixel Location to RA and DEC
-                - skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
-            
-            3.Convert RA Dec to Altitude and Azimuth
-                - altazpositions = convert_ra_dec_to_alt_az(skypositions,
-                                                            header)
-            
-            4.Calculate FWHM
-                - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
-            
-            5.Produce Photometry data Fluxes and Centroids
-                - photometry_result= perform_photometry(iraf_Sources, fwhm,
-                                                        fitsdata, bkg)
-            
-            6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
-                - calculate_magnitudes(photometry_result, exposure_Time)
-                - calculate_magnitudes_sigma(photometry_result, exposure_Time)
-                
-            7. Calculate Transforms
-
-                a. Space Based Sensor
-                   
-                    Construct Tables to Store Data
-                        large_table_columns= update_large_table_columns
-                        (large_table_columns, iraf_Sources, header, 
-                         exposure_Time, ground_based=False, name_key='Name')
-                        large_stars_table = create_large_stars_table
-                        (large_table_columns, ground_based=False)
-                        stars_table= group_each_star(large_stars_table, 
-                                                     ground_based=False, 
-                                                     keys='Name')
-
-                    Calculate Space Based Transforms    
-                        filter_fci, zprime_fci = space_based_transform(
-                            stars_table, plot_results=False,index='(B-V)',
-                            app_filter='V', instr_filter='clear', field=None)
-
-                    Calculate Standard Magnitude
-
-                b. Ground Based Sensor
-                    avg_Airmass= get_avg_airmass(altazpositions)
-                
-            8. Output Table to Excel
-            
-            9. Produce Plots and Save to PNG
-                - With error bars
-    2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
-        avg_Airmass= get_avg_airmass(altazpositions)
 """
 
 

@@ -1,37 +1,58 @@
-'''
-Module Contains all functions pertaining to using Visual Pinpoint
-
-
-
-
-
-'''
-
 import os
-
 import win32com
 import win32com.client
-
 import AstroFunctions as astro
 
 
 def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=1.5,
                    max_solve_time=300, space_based_bool=False, use_sextractor=False,
-                   all_sky_solve=False):
+                   all_sky_solve=False, **kwargs):
+    """
+    Function to solve for the position of a target in a given image.
+    Parameters
+    ----------
+    inbox : str
+        path of image folder to be solved
+    catloc: str
+        path of catalog file
+    max_mag: float
+        maximum magnitude of catalog stars to be used in solving
+    sigma: float
+        threshold for sigma-clipping
+    catexp: float
+        expansion factor for catalog stars
+    match_residual: float
+        max residual deviation of catalog stars from image stars
+    max_solve_time: int
+        maximum time in seconds to solve for the position of the target
+    space_based_bool: bool
+        if True, use space-based solving
+    use_SExtractor: bool
+        if True, use Source-Extractor background calculation method to find the catalog stars
+    all_sky_solve: bool
+        if True, use all-sky solving
+    kwargs: dict
+        additional arguments to be passed to the solver
 
-    file_suffix = (".fits", ".fit", ".fts",".FIT",".FITS")
-    failedSolves=0
+
+    Returns
+    -------
+    None
+    """
+
+    file_suffix = (".fits", ".fit", ".fts", ".FIT", ".FITS")
+    failedsolves = 0
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
-            if (filename.endswith(file_suffix)):
+            if filename.endswith(file_suffix):
                 filepath = os.path.join(dirpath, filename)
                 # Creates an instance of a plate object
                 f = win32com.client.Dispatch("Pinpoint.plate")
                 print("Processing Image: " + filepath)
 
                 "Import Data from FITS Image"
-                __, __, __, __, __,\
-                    __, __, header, __, __, __ = \
+                __, __, __, __, __, \
+                __, __, header, __, __, __ = \
                     astro.fits_header_import(filepath, space_based_bool)
 
                 """Pinpoint Solve"""
@@ -41,7 +62,7 @@ def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_resid
                     f.Declination = f.targetDeclination
                     f.RightAscension = f.targetRightAscension
                     try:
-                        x_arcsecperpixel, y_arcsecperpixel =\
+                        x_arcsecperpixel, y_arcsecperpixel = \
                             astro.calc_ArcsecPerPixel(header)
                         # f.ArcsecperPixelHoriz = x_arcsecperpixel
                         # f.ArcsecperPixelVert = y_arcsecperpixel
@@ -51,7 +72,6 @@ def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_resid
                         # xBin =  4.33131246330E-004*3600;
                         f.ArcsecperPixelHoriz = 1.38
                         f.ArcsecperPixelVert = 1.38
-
 
                     "Pinpoint Solve Inputs"
                     f.Catalog = 11
@@ -67,12 +87,12 @@ def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_resid
                     f.UpdateFITS()
 
                     print("Solved - Header Updated")
-                except:
-                    print("Could Not Solve")
-                    failedSolves+=1
-
-
+                except RuntimeError as e:
+                    print(e + " - Could Not Solve Image")
+                    failedSolves += 1
     return None
+
+
 def pinpoint_init():
     f = win32com.client.Dispatch("Pinpoint.plate")
     return f

@@ -135,10 +135,10 @@ def perform_PSF_photometry_2(irafsources, fwhm, imgdata, bkg,filepath,hdr,
     #TODO: Find Dynamic way to adjust the PSF fitting
 
     '''
-    An experimeental version of the 'perform_PSF_photometry' funciton which uses
+    An experimental version of the 'perform_PSF_photometry' function which uses
     3*fwhm of the chosen source to create a fit shape of the object.
     The primary reason for doing this is to explore the consequences
-    of changing the fit shape of the basic psf fucntion
+    of changing the fit shape of the basic psf function
     
     '''
     pos = Table(names=['x_0', 'y_0', 'flux_0'],
@@ -535,11 +535,6 @@ def perform_aperture_photometry(irafsources,
                 residual_image=(imgdata-((np.max(imgdata)*
                         combined_aperture_mask))).astype('float32')
 
-        
-        
-        
-
-    
     if produce_residual_data:
         "Mask and Residual Image Output"
         hdr['IMAGETYP']='MASK'
