@@ -873,6 +873,7 @@ def _main_gb_new_boyd_method(
         photometry_method='aperture',
         aperture_estimation_mode='mean',
         matched_stars_min=4,
+        save_phot_results=False,
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
@@ -1038,7 +1039,15 @@ def _main_gb_new_boyd_method(
                     fluxes,fluxes_unc, exptime)
             except Exception as exception:
                 raise RuntimeError(exception)
-        
+
+        if save_phot_results is True:
+            print('Saving Photometry Results')
+            try:
+                photometry_result.write(filepath.split('.')[0]+'_photo_results.txt',format='ascii',overwrite=True)
+            except:
+                print('Cannot save table')
+
+
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)

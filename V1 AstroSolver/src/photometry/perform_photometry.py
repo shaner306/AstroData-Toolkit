@@ -415,7 +415,7 @@ def perform_aperture_photometry(irafsources,
                 # Method 1: Calculate standard deviation
                 phot_table = aperture_photometry(imgdata, apertures)
                 photometry_result = phot_table
-                photometry_result['aperture_sum'] = phot_table['aperture_sum'] - total_bkg
+                photometry_result['aperture_sum'] = phot_table['aperture_sum'] #- total_bkg
 
                 # Calculate error manually, assuming bkg_std is the same
                 photometry_result['aperture_sum_err'] = np.sqrt(np.array(apertures.area_overlap(imgdata)) * (bkg_std[0][
@@ -469,7 +469,7 @@ def perform_aperture_photometry(irafsources,
             # Method 1: Calculate standard deviation
             phot_table = aperture_photometry(imgdata, apertures)
             photometry_result = phot_table
-            photometry_result['aperture_sum'] = phot_table['aperture_sum'] - total_bkg
+            photometry_result['aperture_sum'] = phot_table['aperture_sum'] #- total_bkg
 
             #Calculate error manually, assuming bkg_std is the same 
             photometry_result['aperture_sum_err'] = np.sqrt(np.array(apertures.area_overlap(imgdata))*(bkg_std[0][
