@@ -708,14 +708,16 @@ def join_apertures(filepath):
 
 ## Singular Request
 
-inner_rad=20 # in arcseconds
-outer_rad=25
+inner_rad=8 # in pixels
+outer_rad=9
+inner_rad_arcsec=20 # in arcseconds
+outer_rad_arcsec=25 # in arcseconds
 
-image_dir=r'C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 32\I'
+image_dir=r'C:\Users\mstew\Documents\School and Work\Summer 2022\ImageProcessor\Landolt Fields\images\SA 35\B'
 catalogue_dir=r"C:\Users\mstew\Documents\School and Work\Winter 2022\Work\StarCatalogues\USNO UCAC4"
 refstar_dir = r"C:\Users\mstew\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt"
 matched_star_dictionary,matched_star_collection=get_matched_stars(image_dir, catalogue_dir, 15 ,3,0.8, 2, 60, 11,
-                                                                  False, inner_rad, outer_rad)
+                                                                  False, inner_rad_arcsec, outer_rad_arcsec)
 passed_matched_stars=statistics_of_matched_stars(matched_star_collection,
                             (image_dir+r"\pass_fail.txt"),
                             inner_rad,outer_rad)
@@ -794,7 +796,7 @@ for dirpth,_,files in os.walk(image_dir):
             positions_list = [(irafsource['xcentroid'], irafsource[
                 'ycentroid']) for irafsource in irafsources]
             apertures = CircularAperture(positions_list, r=inner_rad)
-            aperture_sums_results=aperture_photometry(imgdata,apertures=apertures)
+            aperture_sums_results=aperture_photometry(imgdata-bkg,apertures=apertures)
 
             wcs = WCS (hdr)
             sky_positions=wcs.pixel_to_world(irafsources['xcentroid'],irafsources['ycentroid'])
