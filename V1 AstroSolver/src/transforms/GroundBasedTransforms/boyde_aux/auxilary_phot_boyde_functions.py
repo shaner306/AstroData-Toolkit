@@ -122,7 +122,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
     # Keys are reference table column index
     # Values are column names
 
-    colour_incides = {}
+    colour_indices = {}
     colour_indices_errors={}
     reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
     reference_magntiude_column_error = matched_stars.ref_star.colnames.index("e_V")
@@ -130,14 +130,14 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
     for column_num, colname in enumerate(matched_stars.ref_star.colnames):                                              #Dynamically create colour_indices and colour_indices_errors
         if (('-' in colname) and ('e' not in colname)):
-            colour_incides[column_num] = colname
+            colour_indices[column_num] = colname
         if (('-' in colname) and ('e' in colname)):
             colour_indices_errors[column_num]=colname
 
 
 
     # Iterate through indices
-    for colour_index in colour_incides:
+    for colour_index in colour_indices:
 
         # Iterate through macthed reference stars
         y_data = []
@@ -156,10 +156,13 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             # Instrumental Magnitude
             ins_mag = matched_stars.img_instr_mag[row]
 
-            mag_unc_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
+            #mag_unc_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
             #mag_unc_column = [i for i,colname in enumerate(stars_table.colnames) if str() == colname]
-            mag_unc=np.mean(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
-            if mag_unc==0 or mag_unc==np.nan or mag_unc<np.nanmean((stars_table[str(img_filter.lower()+'_sigma')])*0.25):
+            #mag_unc=np.mean(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
+            mag_unc=matched_stars.img_instr_mag_sigma[row]
+
+            if mag_unc==0 or mag_unc==np.nan: #or mag_unc<np.nanmean((stars_table[str(img_filter.lower(
+                # )+'_sigma')])*0.25):
                 # If magnitude uncertainty is 0 or np.nan skip entry or less than 0.25 of the mean exclude the value
                 continue
 
@@ -169,30 +172,45 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
                 diff_mag = ref_mag-ins_mag
                 diff_mag_error=ref_mag_e
             else:
+                '''
+                Using the filter name, find and match the filter to an index in the the reference star column name
+                i.e. An image with a B filter with us B to find the B-V index. 
+                 
+                '''
 
-                if str(img_filter)+'-V' in matched_stars.ref_star.colnames:
+                if str(img_filter)+'-V' in colour_indices[colour_index] and str(img_filter)+'-V' in\
+                        matched_stars.ref_star.colnames:
+
                     matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
                     ref_filter_mag = matched_ref_star_vals[matched_index[0]] + ref_mag
                     diff_mag = ref_filter_mag - ins_mag
                     diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
-                elif 'V-'+ str(img_filter) in matched_stars.ref_star.colnames:
+                elif 'V-'+ str(img_filter) in matched_stars.ref_star.colnames and 'V-'+ str(img_filter) in \
+                        colour_indices[colour_index]:
                     matched_index = [i for i in range(len(matched_stars.ref_star.colnames)) if
                                      ('V-' + str(img_filter) in matched_stars.ref_star.colnames[i])]
                     ref_filter_mag = -(matched_ref_star_vals[matched_index[0]] - ref_mag)
                     diff_mag = ref_filter_mag - ins_mag
                     diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
                 else:
-                    print('Could not find corresponding index')
+                    # No img filter in Colour index
                     break
             if ((str(diff_mag_error+mag_unc) != 'nan')
                 and (str(diff_mag) != 'nan')
-                and (str(x_data) != 'nan')):
+                and (str(x_data) != 'nan')
+                and ((('V-'+ str(img_filter) in colour_indices[colour_index])
+                    or (str(img_filter) + '-V' in colour_indices[colour_index]))
+                    or ((img_filter == 'V') or (img_filter == 'G') and  'V' in colour_indices[colour_index] )
+                    )
+            ):
+
 
                 star_name=matched_ref_star_vals['Name']
                 y_data.append(diff_mag)
                 y_data_e.append(diff_mag_error+mag_unc)
                 labels.append(star_name)
                 x_data.append(matched_stars.ref_star[row][colour_index])
+
             else:
                 continue
 
@@ -220,7 +238,7 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
 
 
         # Plotting #
-        if save_plots:
+        if save_plots and x_data!=[] and y_data!=[] and y_data_e!=[] and labels!=[]:
             # print('Save Plots')
 
             plt.figure()
@@ -230,8 +248,8 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
             plt.plot(x_data, fitted_line1(x_data), 'k:', label=f"Z': {fitted_line1.intercept.value:.3f}, C: {fitted_line1.slope.value:.3f}")
             # plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
-            plt.xlabel(colour_incides[colour_index])
-            plt.ylabel('V_ref-v_inst')
+            plt.xlabel(colour_indices[colour_index])
+            plt.ylabel(img_filter.upper()+'_ref'+'-'+img_filter.lower()+'_inst')
 
             i=0
             for x,y in  zip(x_data,y_data):
@@ -243,17 +261,17 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             plt.legend()
             
             plt.title('Step 1: V_ref-v_inst vs.' +
-                      colour_incides[colour_index] + '_in Filter ' + img_filter +" With image " + os.path.basename(filepath))
+                      colour_indices[colour_index] + '_in Filter ' + img_filter +" With image " + os.path.basename(filepath))
 
             plt.savefig(str(sav_loc)+'Boyde_step_1_' +
-                        str(colour_incides[colour_index])+'_'+str(img_filter)+ os.path.basename(filepath) +'.png')
+                        str(colour_indices[colour_index])+'_'+str(img_filter)+ os.path.basename(filepath) +'.png')
 
             plt.close('all')
 
         #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
         Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
-                            fitted_line1.intercept.value, colour_incides[colour_index], airmass,airmass_std, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
+                            fitted_line1.intercept.value, colour_indices[colour_index], airmass,airmass_std, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
 
     return Boyde_Table
 
@@ -313,7 +331,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
         filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
 
-        if save_plots is True:
+        if save_plots and x_data!=[] and y_data!=[] and x_data_e !=[] and y_data_e !=[] :
 
             plt.figure()
             plt.errorbar(x_data, y_data, yerr=y_data_e, xerr=x_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
@@ -368,7 +386,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
         k_prime = fitted_line2.slope.value
         zero_point = fitted_line2.intercept.value
 
-        if save_plots is True:
+        if save_plots and x_data!=[] and x_data_e2!=[] and y_data !=[] and y_data_e2 !=[]:
 
             plt.figure()
 # =============================================================================
