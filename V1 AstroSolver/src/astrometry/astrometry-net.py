@@ -13,7 +13,7 @@ sys.path.append(os.path.join(src_path, 'general_tools'))
 sys.path.append(os.path.join(src_path, 'tests_and_verifications'))
 
 import AstroFunctions as astro
-import StreakDetection as sd
+import Streakdetection as sd
 
 def solve_plate_astrometry_net(directory, file_suffix=".fits"):
     filecount = 0
@@ -28,9 +28,14 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits"):
     
     for file_path in file_paths:
         hdr, _ = astro.read_fits_file(file_path)
-        focal_length = hdr['FOCALLEN'] * u.mm
-        xpixsz = hdr['XPIXSZ']
-        ypixsz = hdr['YPIXSZ']
+        try:
+            focal_length = hdr['FOCALLEN'] * u.mm
+            xpixsz = hdr['XPIXSZ']
+            ypixsz = hdr['YPIXSZ']
+        except KeyError:
+            terminal_call = f'solve-field -p --fits-image --overwrite -D "{directory}/solved" -d 100 -y -g "{file_path}"'
+            os.system(terminal_call)
+            continue
         if xpixsz == ypixsz:
             pixsz = xpixsz * u.um
             rad_per_pix = atan(pixsz / focal_length) * u.rad
