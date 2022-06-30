@@ -924,7 +924,7 @@ def _main_gb_new_boyd_method(
 '''
 
     
-    
+    img_filters=[]
     matched_stars_dict={}
     reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
     large_table_columns = astro.init_large_table_columns()
@@ -977,6 +977,7 @@ def _main_gb_new_boyd_method(
         hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
+        img_filters.append(hdr['FILTER'])
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         # Detect point sources in the image.
@@ -1226,9 +1227,10 @@ def _main_gb_new_boyd_method(
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
-    for filepath in matched_stars_dict:
+    img_filters=list(set(img_filters))
+    for img_filter in img_filters:
         
-        matched_stars=matched_stars_dict[filepath]
+        #matched_stars=matched_stars_dict[filepath]
         
         
         
@@ -1242,11 +1244,11 @@ def _main_gb_new_boyd_method(
         #    continue
         #else:
 
-
+        boyd_filepath=filepath.split('\\')[0]
         try:
-            Boyde_Table = boyde_aux.calculate_boyde_slopes(
-                matched_stars, filepath, Boyde_Table, save_plots,
-                save_loc,stars_table)
+            Boyde_Table = boyde_aux.calculate_boyde_slopes(boyd_filepath,
+                Boyde_Table, save_plots,
+                save_loc,stars_table,img_filter,img_filters)
         except Exception as e:
             raise KeyError(e)
             print("Could not Calculate Boyde Slopes... ")
@@ -1254,11 +1256,11 @@ def _main_gb_new_boyd_method(
 
 
 
-    try:
-        ascii.write(Boyde_Table, os.path.join(
-            save_loc, 'Boyde_Table1.csv'), format='csv')
-    except:
-        print('Could Not Save Boyde Table')
+    # try:
+    #     ascii.write(Boyde_Table, os.path.join(
+    #         save_loc, 'Boyde_Table1.csv'), format='csv')
+    # except:
+    #     print('Could Not Save Boyde Table')
     
     
     
