@@ -188,7 +188,29 @@ def Gui():
                            sg.Radio('Aperture',
                                     "RADIO5",
                                     default=False,
-                                    key="aperture")]])]]
+                                    key="aperture")]])],
+               [sg.Frame('Aperture Photometry Mode',
+                         [[sg.T(""),
+                           sg.Radio('Dynamic',
+                                    "RADIO6",
+                                    default=True,
+                                    key="phot_meth_dynamic"),
+                           sg.T(""),
+                           sg.Radio('Mean',
+                                    "RADIO6",
+                                    default=False,
+                                    key="phot_meth_mean"),
+                           sg.T(""),
+                           sg.Radio('Manual',
+                                    "RADIO6",
+                                    default=False,
+                                    key="phot_meth_manual"),
+                           sg.Text("Inner Aperture Radius (pix)"),
+                           sg.InputText('8',key='inner_rad',size=(5,5)),
+                           sg.Text('Outer Aperture Radius(pix)'),
+                           sg.InputText('9',key='outer_rad',size=(5,5))
+                           ]])]
+               ]
     # column2.update(disabled=True)
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
@@ -221,7 +243,7 @@ def Gui():
                    [sg.T("   ")],
                    [sg.T("   "), sg.Button("Solve"), sg.Cancel()]]
 
-    tab2_column1 = [[sg.Text('Correct Outliear Parameters',
+    tab2_column1 = [[sg.Text('Correct Outlier Parameters',
                              background_color='#F7F3EC',
                              justification='center',
                              size=(30, 1))],
@@ -508,8 +530,20 @@ def Gui():
             if values['psf'] is True:
                 photometry_method = 'psf'
             elif values['aperture'] is True:
-                photometry_method = 'aperture'
 
+                photometry_method='aperture'
+                if values['phot_meth_manual']:
+                    aperture_estimation_mode = 'manual'
+                    inner_rad=float(values['inner_rad'])
+                    outer_rad=float(values['outer_rad'])
+                elif values['phot_meth_mean']:
+                    aperture_estimation_mode='mean'
+                elif values['phot_meth_dynamic']:
+                    aperture_estimation_mode = 'dynamic'
+
+                    # inner aperture
+
+            
             # Check to See if image has been corrected already
             for dirpath, dirnames, files in os.walk(image_dir):
                 for name in files:
@@ -624,17 +658,36 @@ def Gui():
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id)
                         if values['NewBoydMethod']:
-                            NewBoydMethod = main_transforms._main_gb_new_boyd_method(
-                                image_dir,
-                                refstar_dir,
-                                plot_results=plot_results,
-                                save_plots=save_plots,
-                                file_suffix=file_suffix,
-                                exposure_key=exposure_key,
-                                name_key=name_key, lat_key=lat_key,
-                                lon_key=lon_key, elev_key=elev_key,
-                                save_loc=save_loc, unique_id=unique_id,
-                                photometry_method=photometry_method)
+
+                            if photometry_method=='aperture' and values['phot_meth_manual'] is True:
+                                NewBoydMethod = main_transforms._main_gb_new_boyd_method(
+                                    image_dir,
+                                    refstar_dir,
+                                    plot_results=plot_results,
+                                    save_plots=save_plots,
+                                    file_suffix=file_suffix,
+                                    exposure_key=exposure_key,
+                                    name_key=name_key, lat_key=lat_key,
+                                    lon_key=lon_key, elev_key=elev_key,
+                                    save_loc=save_loc, unique_id=unique_id,
+                                    photometry_method=photometry_method,
+                                    aperture_estimation_mode=aperture_estimation_mode,
+                                    #kwargs:
+                                    inner_rad=inner_rad,outer_rad=outer_rad
+                                )
+                            else:
+                                NewBoydMethod=main_transforms._main_gb_new_boyd_method(
+                                  image_dir,
+                                  refstar_dir,
+                                  plot_results=plot_results,
+                                  save_plots=save_plots,
+                                  file_suffix=file_suffix,
+                                  exposure_key=exposure_key,
+                                  name_key=name_key, lat_key=lat_key,
+                                  lon_key=lon_key, elev_key=elev_key,
+                                  save_loc=save_loc, unique_id=unique_id,
+                                  photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
+
                         if values['BuchiemMethod']:
                             BuchiemMethod = \
                                 main_transforms._main_gb_transform_calc_Buchheim(

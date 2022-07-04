@@ -30,7 +30,8 @@ import AstroFunctions as astro
 from astropy.io import ascii
 from astropy.wcs import WCS
 
-def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav_loc,stars_table):
+
+def calculate_boyde_slopes(filepath,Boyde_Table, save_plots, sav_loc,stars_table,img_filter,img_filters):
     '''
 
 
@@ -91,174 +92,390 @@ def calculate_boyde_slopes(matched_stars, filepath, Boyde_Table, save_plots, sav
             
 
     '''
-    hdr, imgdata = astro.read_fits_file(filepath)
+    # hdr, imgdata = astro.read_fits_file(filepath)
+    #
+    # #TODO: Add Keyword Editor to except multiple
+    #
+    # try:
+    #     predicted_airmass = float(hdr['AIRMASS'])
+    # except KeyError:
+    #     # AIRMASS header not found, attempt to estimate from WCS data
+    #     wcs = WCS(hdr)
+    #     altazpositions = astro.convert_ra_dec_to_alt_az((
+    #         wcs.pixel_to_world(wcs.pixel_shape[0] / 2, wcs.pixel_shape[1] / 2)), hdr)
+    #     predicted_airmass = altazpositions.secz.value
+    #
+    # img_filter=str(hdr['FILTER'])
+    # if len(img_filter)>1:
+    #     img_filter=img_filter.split(' ')[0] #for filter keywords such as 'B BESSEL'
+    # airmass_std=np.sqrt(sum((matched_stars.img_star_airmass-predicted_airmass)**2)/(np.count_nonzero(matched_stars.img_star_airmass)-1))
+    #
+    #
+    # airmass=predicted_airmass
+    #
+    #
+    # fit = LinearLSQFitter(calc_uncertainties=True)
+    # line_init = Linear1D()
+    # or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=3)
+    #
+    # # Create Table with headers
+    # # Create a dict object of column names that contain the colour indices
+    # # Keys are reference table column index
+    # # Values are column names
+    #
+    # colour_indices = {}
+    # colour_indices_errors={}
+    # reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
+    # reference_magntiude_column_error = matched_stars.ref_star.colnames.index("e_V")
+    #
+    #
+    # for column_num, colname in enumerate(matched_stars.ref_star.colnames):                                              #Dynamically create colour_indices and colour_indices_errors
+    #     if (('-' in colname) and ('e' not in colname)):
+    #         colour_indices[column_num] = colname
+    #     if (('-' in colname) and ('e' in colname)):
+    #         colour_indices_errors[column_num]=colname
+    #
+    #
+    #
+    # # Iterate through indices
+    # for colour_index in colour_indices:
+    #
+    #     # Iterate through macthed reference stars
+    #     y_data = []
+    #     x_data = []
+    #     y_data_e=[]
+    #     labels=[]
+    #
+    #     for row, matched_ref_star_vals in enumerate(matched_stars.ref_star):
+    #
+    #         # Reference Magntiude- instrumental magntiude
+    #
+    #         # Find Reference Magntitude:
+    #         ref_mag = matched_ref_star_vals[reference_magntiude_column]
+    #         ref_mag_e=matched_ref_star_vals[reference_magntiude_column_error]
+    #
+    #         # Instrumental Magnitude
+    #
+    #         ins_mag_sigma=matched_stars.img_instr_mag_sigma[row]
+    #         matched_star_stars_table_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
+    #         #mag_unc_column = [i for i,colname in enumerate(stars_table.colnames) if str() == colname]
+    #         #mag_unc_list=(stars_table[matched_star_stars_table_row][str(img_filter.lower()+'_sigma')])
+    #
+    #         # If multiple airmasses are in the same file dataset, chose the data that has the closest airmass to the
+    #         # image
+    #         closest_airmass=min(stars_table[matched_star_stars_table_row]['X_'+str(img_filter.lower())].value,key=lambda x:abs(
+    # x-np.mean(matched_stars.img_star_airmass)))
+    #         closest_airmass_ind = np.where(stars_table[matched_star_stars_table_row]['X_' + str(img_filter.lower())] == closest_airmass)
+    #         mag_unc= (stars_table[matched_star_stars_table_row][str(img_filter.lower() + '_sigma')])[closest_airmass_ind]
+    #
+    #         #  Mean value of the instrumental magnitude calcualted in stars table
+    #         try:
+    #             ins_mag=(stars_table[matched_star_stars_table_row][img_filter.lower()])[closest_airmass_ind].value[0]
+    #         except IndexError:
+    #             continue
+    #         #mag_unc=matched_stars.img_instr_mag_sigma[row]
+    #
+    #         if mag_unc==0 or mag_unc==np.nan: #or mag_unc<np.nanmean((stars_table[str(img_filter.lower(
+    #             # )+'_sigma')])*0.25):
+    #             # If magnitude uncertainty is 0 or np.nan skip entry or less than 0.25 of the mean exclude the value
+    #             continue
+    #
+    #         # TODO: Restructure so it's easier to read
+    #         # Difference between the two
+    #         if (img_filter == 'V') or (img_filter == 'G'):
+    #             diff_mag = ref_mag-ins_mag
+    #             diff_mag_error=ref_mag_e
+    #         else:
+    #             '''
+    #             Using the filter name, find and match the filter to an index in the the reference star column name
+    #             i.e. An image with a B filter with us B to find the B-V index.
+    #
+    #             '''
+    #
+    #             if str(img_filter)+'-V' in colour_indices[colour_index] and str(img_filter)+'-V' in\
+    #                     matched_stars.ref_star.colnames:
+    #
+    #                 matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
+    #                 ref_filter_mag = matched_ref_star_vals[matched_index[0]] + ref_mag
+    #                 diff_mag = ref_filter_mag - ins_mag
+    #                 diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
+    #             elif 'V-'+ str(img_filter) in matched_stars.ref_star.colnames and 'V-'+ str(img_filter) in \
+    #                     colour_indices[colour_index]:
+    #                 matched_index = [i for i in range(len(matched_stars.ref_star.colnames)) if
+    #                                  ('V-' + str(img_filter) in matched_stars.ref_star.colnames[i])]
+    #                 ref_filter_mag = -(matched_ref_star_vals[matched_index[0]] - ref_mag)
+    #                 diff_mag = ref_filter_mag - ins_mag
+    #                 diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
+    #             else:
+    #                 # No img filter in colour index
+    #                 break
+    #         if ((str(diff_mag_error+mag_unc) != 'nan')
+    #             and (str(diff_mag) != 'nan')
+    #             and (str(x_data) != 'nan')
+    #             and ((('V-'+ str(img_filter) in colour_indices[colour_index])
+    #                 or (str(img_filter) + '-V' in colour_indices[colour_index]))
+    #                 or ((img_filter == 'V') or (img_filter == 'G') and  'V' in colour_indices[colour_index] )
+    #                 )
+    #         ):
+    #
+    #
+    #             star_name=matched_ref_star_vals['Name']
+    #             y_data.append(diff_mag)
+    #             y_data_e.append((diff_mag_error+mag_unc.value[0]+ins_mag_sigma))
+    #             labels.append(star_name)
+    #             x_data.append(matched_stars.ref_star[row][colour_index])
+    #
+    #         else:
+    #             continue
+    #
+    #     # Implement Linear Regression Model
+    #
+    #     #fit, or_fit, line_init=init_linear_fitting(sigma=2.0)
+    #     #fitted_line, mask = fit(line_init, x_data, y_data)
+    #     #x_nan_indices = np.isnan(x_data)
+    #     #y_nan_indices = np.isnan(y_data)
+    #     # fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
+    #
+    #     fitted_line1, mask = or_fit(
+    #         line_init, np.array(x_data), np.array(y_data),weights=1.0/(np.array(y_data_e)**2))
+    #     filtered_data = np.ma.masked_array(y_data, mask=mask)
+    #
+    #
+    #     # TODO: Confirm with Don that this is the right equations
+    #     # Calculate the residuals and accuracy of the computed data
+    #     residuals = filtered_data - (fitted_line1((x_data)))
+    #     filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
+    #     std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
+    #     se_residuals=std_residuals/np.sqrt(np.count_nonzero(residuals.mask == False))
+    #     ave_data_e=np.mean(filtered_data_e)
+    #     ave_std=abs(std_residuals)+abs(ave_data_e)
+    grouped_stars=stars_table.group_by('Name')
+    # Create run class
 
-    #TODO: Add Keyword Editor to except multiple
 
-    try:
-        predicted_airmass = float(hdr['AIRMASS'])
-    except KeyError:
-        # AIRMASS header not found, attempt to estimate from WCS data
-        wcs = WCS(hdr)
-        altazpositions = astro.convert_ra_dec_to_alt_az((
-            wcs.pixel_to_world(wcs.pixel_shape[0] / 2, wcs.pixel_shape[1] / 2)), hdr)
-        predicted_airmass = altazpositions.secz.value
 
-    img_filter=str(hdr['FILTER'])
-    if len(img_filter)>1:
-        img_filter=img_filter.split(' ')[0] #for filter keywords such as 'B BESSEL'
-    airmass_std=np.sqrt(sum((matched_stars.img_star_airmass-predicted_airmass)**2)/(np.count_nonzero(matched_stars.img_star_airmass)-1))
-    
-    
-    airmass=predicted_airmass
-    
+    rows = []
+    for group in grouped_stars.groups:
+        for row, star in enumerate(group):
+            rows.append(row)
+    grouped_stars.add_column(rows, name='run')
+    grouped_stars = grouped_stars.group_by('run')
+
+    colour_indices = []
+
+    if img_filter=='G' or img_filter=='V':
+        for colname in grouped_stars.colnames:
+            for img_filter_instance in img_filters:
+
+                if ('V-'+img_filter_instance.upper()) in colname and 'e' not in colname:
+                    colour_indices.append(colname)
+                elif (img_filter_instance.upper()+'-V') in colname and 'e' not in colname:
+                    colour_indices.append(colname)
+        for group in grouped_stars.groups:
+            for colour_index in colour_indices:
+                y_data = []
+                x_data = []
+                y_data_e = []
+                labels = []
+                airmasses = []
+
+                for row, instr_mag in enumerate(group[img_filter.lower()]):
+                    if str(instr_mag) != 'nan' and \
+                            str(group[colour_index][row]) != 'nan' and \
+                            str(img_filter.lower() + '_sigma') != 'nan' and \
+                            str(group[img_filter.lower() + '_sigma'][row]) != 'nan' and (
+                            img_filter == 'G' or img_filter == 'V'):
+                                diff_mag = group['V_ref'][row] - instr_mag
+                                colour_index_value = group[colour_index][row]
+                                diff_mag_e = group[img_filter.lower() + '_sigma'][row]
+
+                                average_mag_e = np.mean(group[img_filter.lower() + '_sigma'])
+                                std_mag_e = np.std(group[img_filter.lower() + '_sigma'])
+                                if diff_mag_e < average_mag_e - std_mag_e or diff_mag_e > average_mag_e + std_mag_e or \
+                                        diff_mag_e == 0:
+                                    continue
+                                star_ave_airmass = group['X_' + img_filter.lower()][row]
+                                if (isinstance(diff_mag, float) or isinstance(diff_mag, int)) and \
+                                        (isinstance(colour_index_value, float) or isinstance(colour_index_value,
+                                                                                             int)) and \
+                                        (isinstance(diff_mag_e, float) or isinstance(diff_mag_e, int)) and \
+                                        (isinstance(star_ave_airmass, float) or isinstance(star_ave_airmass, int)):
+                                    x_data.append(colour_index_value)
+                                    y_data.append(diff_mag)
+                                    y_data_e.append(diff_mag_e)
+                                    labels.append(group['Name'][row])
+                                    airmasses.append(star_ave_airmass)
+
+                    else:
+                        continue
+                try:
+                    Boyde_Table = plot_bodye_slope1(Boyde_Table, airmasses, x_data, y_data, y_data_e,
+                                                    colour_index,
+                                                    img_filter,
+                                                    labels, sav_loc, filepath, save_plots)
+                    ascii.write(Boyde_Table, os.path.join(
+                        sav_loc, 'Boyde_Table1.csv'), format='csv',overwrite=True)
+                except:
+                    print('Could Not Save Boyde Table')
+
+
+    else:
+        for colname in grouped_stars.colnames:
+            if ('V-' + img_filter.upper()) in colname and 'e' not in colname:
+                colour_indices.append(colname)
+            elif (img_filter.upper() + '-V') in colname and 'e' not in colname:
+                colour_indices.append(colname)
+
+
+        for group in grouped_stars.groups:
+
+            for colour_index in colour_indices:
+                y_data = []
+                x_data = []
+                y_data_e = []
+                labels = []
+                airmasses=[]
+
+                # TODO: Fix All of these redundant conditions
+
+                for row,instr_mag in enumerate(group[img_filter.lower()]):
+                    if str(instr_mag) != 'nan' and \
+                            str(group[colour_index][row]) != 'nan' and \
+                            str(img_filter.lower() + '_sigma') != 'nan' and \
+                            str(group[img_filter.lower() + '_sigma'][row]) != 'nan':
+                        if str(img_filter) + '-V' in colour_index:
+                            diff_mag = group[colour_index][row]+group['V_ref'][row]  - instr_mag
+                            colour_index_value=group[colour_index][row]
+                            diff_mag_e=group[img_filter.lower() + '_sigma'][row]
+
+                            # TODO: Delete this when better correlator/detector method is created
+                            average_mag_e=np.mean(group[img_filter.lower() + '_sigma'])
+                            std_mag_e=np.std(group[img_filter.lower() + '_sigma'])
+                            if diff_mag_e<average_mag_e-std_mag_e or diff_mag_e>average_mag_e+std_mag_e or \
+                                    diff_mag_e==0:
+                                continue
+
+
+                            star_ave_airmass=group['X_' + img_filter.lower()][row]
+                            if (isinstance(diff_mag,float) or isinstance(diff_mag,int)) and \
+                                (isinstance(colour_index_value,float) or isinstance(colour_index_value,int)) and \
+                                (isinstance(diff_mag_e,float) or isinstance(diff_mag_e,int)) and \
+                                    (isinstance(star_ave_airmass,float) or isinstance(star_ave_airmass,int)):
+
+                                x_data.append(colour_index_value)
+                                y_data.append(diff_mag)
+                                y_data_e.append(diff_mag_e)
+                                labels.append(group['Name'][row])
+                                airmasses.append(star_ave_airmass)
+
+                            else:
+                                continue
+
+                        elif 'V-' +str(img_filter) in colour_index:
+                            diff_mag=-(group[colour_index][row]-group['V_ref'][row]) - instr_mag
+                            diff_mag_e = group[img_filter.lower() + '_sigma'][row]
+
+                            # FIXME: Delete this when better correlator/detector is implemented
+                            average_mag_e = np.mean(group[img_filter.lower() + '_sigma'])
+                            std_mag_e = np.std(group[img_filter.lower() + '_sigma'])
+                            if diff_mag_e < average_mag_e - std_mag_e or diff_mag_e > average_mag_e + std_mag_e or \
+                                    diff_mag_e == 0:
+                                # Filters out low variability stars associated with small sample size
+                                continue
+                            colour_index_value = group[colour_index][row]
+                            star_ave_airmass = group['X_' + img_filter.lower()][row]
+
+                            if (isinstance(diff_mag, float) or isinstance(diff_mag, int)) and \
+                                    (isinstance(colour_index_value, float) or isinstance(colour_index_value, int)) and \
+                                    (isinstance(diff_mag_e, float) or isinstance(diff_mag_e, int)) and \
+                                    (isinstance(star_ave_airmass, float) or isinstance(star_ave_airmass, int)):
+
+                                x_data.append(colour_index_value)
+                                y_data.append(diff_mag)
+                                y_data_e.append(diff_mag_e)
+                                labels.append(group['Name'][row])
+                                airmasses.append(star_ave_airmass)
+                            else:
+                                continue
+                        else:
+                            continue
+                try:
+                    Boyde_Table=plot_bodye_slope1(Boyde_Table, airmasses, x_data, y_data, y_data_e, colour_index,
+                                                              img_filter,
+                                                  labels,sav_loc,filepath,save_plots)
+                    ascii.write(Boyde_Table, os.path.join(
+                        sav_loc, 'Boyde_Table1.csv'), format='csv', overwrite=True)
+
+                except:
+                    print('Could Not Save Boyde Table')
+
+
+    return Boyde_Table
+
+
+def plot_bodye_slope1(Boyde_Table,airmasses,x_data,y_data,y_data_e,colour_index,img_filter,labels,
+                      sav_loc,filepath,save_plots=True):
+    airmass = np.mean(airmasses)
+    airmass_std = np.std(airmasses)
 
     fit = LinearLSQFitter(calc_uncertainties=True)
     line_init = Linear1D()
     or_fit = FittingWithOutlierRemoval(fit, sigma_clip, niter=300, sigma=3)
 
-    # Create Table with headers
-    # Create a dict object of column names that contain the colour indices
-    # Keys are reference table column index
-    # Values are column names
+    # fit, or_fit, line_init=astro.init_linear_fitting(sigma=2.0)
+    # fitted_line, mask = fit(line_init, x_data, y_data)
+    # fitted_line,mask=or_fit(line_init,x_data,y_data)
+    fitted_line1, mask = or_fit(
+        line_init, np.array(x_data), np.array(y_data), weights=1.0 / (np.array(y_data_e) ** 2))
+    filtered_data = np.ma.masked_array(y_data, mask=mask)
+    residuals = filtered_data - (fitted_line1((x_data)))
 
-    colour_incides = {}
-    colour_indices_errors={}
-    reference_magntiude_column = matched_stars.ref_star.colnames.index("V_ref")
-    reference_magntiude_column_error = matched_stars.ref_star.colnames.index("e_V")
+    filtered_data_e = np.ma.masked_array(y_data_e, mask=mask)
+    std_residuals = np.sqrt(
+        sum(residuals.data[np.where(residuals.mask == False)] ** 2) / (np.count_nonzero(residuals.mask == False) - 1))
+    se_residuals = std_residuals / np.sqrt(np.count_nonzero(residuals.mask == False))
+    ave_data_e = np.mean(filtered_data_e)
+    ave_std = abs(std_residuals) + abs(ave_data_e)
 
+    # Plotting #
+    if save_plots and x_data != [] and y_data != [] and y_data_e != [] and labels != []:
+        # print('Save Plots')
 
-    for column_num, colname in enumerate(matched_stars.ref_star.colnames):                                              #Dynamically create colour_indices and colour_indices_errors
-        if (('-' in colname) and ('e' not in colname)):
-            colour_incides[column_num] = colname
-        if (('-' in colname) and ('e' in colname)):
-            colour_indices_errors[column_num]=colname
+        plt.figure()
+        plt.errorbar(x_data, y_data, yerr=y_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
+        # plt.plot(x_data, y_data, 'ro',
+        #         fillstyle='none', label='Clipped Data')
+        plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
+        plt.plot(x_data, fitted_line1(x_data), 'k:',
+                 label=f"Z': {fitted_line1.intercept.value:.3f}, C: {fitted_line1.slope.value:.3f}")
+        # plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
+        plt.xlabel(colour_index)
+        plt.ylabel(img_filter.upper() + '_ref' + '-' + img_filter.lower() + '_inst')
 
+        i = 0
+        for x, y in zip(x_data, y_data):
+            label = labels[i]
+            i = i + 1
+            plt.annotate(label, (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
 
+        plt.legend()
 
-    # Iterate through indices
-    for colour_index in colour_incides:
+        plt.title('Step 1: V_ref-v_inst vs.' +
+                  colour_index + '_in Filter ' + img_filter + " With image " + os.path.basename(filepath))
 
-        # Iterate through macthed reference stars
-        y_data = []
-        x_data = []
-        y_data_e=[]
-        labels=[]
+        plt.savefig(str(sav_loc) + 'Boyde_step_1_' +
+                    str(colour_index) + '_' + str(img_filter) + os.path.basename(filepath) + '.png')
 
-        for row, matched_ref_star_vals in enumerate(matched_stars.ref_star):
+        plt.close('all')
 
-            # Reference Magntiude- instrumental magntiude
+    # Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
 
-            # Find Reference Magntitude:
-            ref_mag = matched_ref_star_vals[reference_magntiude_column]
-            ref_mag_e=matched_ref_star_vals[reference_magntiude_column_error]
-
-            # Instrumental Magnitude
-            ins_mag = matched_stars.img_instr_mag[row]
-
-            mag_unc_row = np.where(stars_table['Name']==matched_stars.ref_star['Name'][row])
-            #mag_unc_column = [i for i,colname in enumerate(stars_table.colnames) if str() == colname]
-            mag_unc=np.mean(stars_table[mag_unc_row][str(img_filter.lower()+'_sigma')])
-            if mag_unc==0 or mag_unc==np.nan or mag_unc<np.nanmean((stars_table[str(img_filter.lower()+'_sigma')])*0.25):
-                # If magnitude uncertainty is 0 or np.nan skip entry or less than 0.25 of the mean exclude the value
-                continue
-
-            # TODO: Restructure so it's easier to read
-            # Difference between the two
-            if (img_filter == 'V') or (img_filter == 'G'):
-                diff_mag = ref_mag-ins_mag
-                diff_mag_error=ref_mag_e
-            else:
-
-                if str(img_filter)+'-V' in matched_stars.ref_star.colnames:
-                    matched_index=[i for i in range(len(matched_stars.ref_star.colnames)) if str(img_filter)+'-V' in matched_stars.ref_star.colnames[i]]
-                    ref_filter_mag = matched_ref_star_vals[matched_index[0]] + ref_mag
-                    diff_mag = ref_filter_mag - ins_mag
-                    diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
-                elif 'V-'+ str(img_filter) in matched_stars.ref_star.colnames:
-                    matched_index = [i for i in range(len(matched_stars.ref_star.colnames)) if
-                                     ('V-' + str(img_filter) in matched_stars.ref_star.colnames[i])]
-                    ref_filter_mag = -(matched_ref_star_vals[matched_index[0]] - ref_mag)
-                    diff_mag = ref_filter_mag - ins_mag
-                    diff_mag_error = (matched_ref_star_vals[matched_index[1]] + ref_mag_e)
-                else:
-                    print('Could not find corresponding index')
-                    break
-            if ((str(diff_mag_error+mag_unc) != 'nan')
-                and (str(diff_mag) != 'nan')
-                and (str(x_data) != 'nan')):
-
-                star_name=matched_ref_star_vals['Name']
-                y_data.append(diff_mag)
-                y_data_e.append(diff_mag_error+mag_unc)
-                labels.append(star_name)
-                x_data.append(matched_stars.ref_star[row][colour_index])
-            else:
-                continue
-
-        # Implement Linear Regression Model
-
-        #fit, or_fit, line_init=init_linear_fitting(sigma=2.0)
-        #fitted_line, mask = fit(line_init, x_data, y_data)
-        #x_nan_indices = np.isnan(x_data)
-        #y_nan_indices = np.isnan(y_data)
-        # fitted_line,mask=or_fit(line_init,x_data[~x_nan_indices],y_data[~y_nan_indices])
-
-        fitted_line1, mask = or_fit(
-            line_init, np.array(x_data), np.array(y_data),weights=1.0/(np.array(y_data_e)**2))
-        filtered_data = np.ma.masked_array(y_data, mask=mask)
-
-
-        # TODO: Confirm with Don that this is the right equations
-        # Calculate the residuals and accuracy of the computed data
-        residuals = filtered_data - (fitted_line1((x_data)))
-        filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
-        std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
-        se_residuals=std_residuals/np.sqrt(np.count_nonzero(residuals.mask == False))
-        ave_data_e=np.mean(filtered_data_e)
-        ave_std=abs(std_residuals)+abs(ave_data_e)
-
-
-        # Plotting #
-        if save_plots:
-            # print('Save Plots')
-
-            plt.figure()
-            plt.errorbar(x_data,y_data,yerr=y_data_e,fmt='ko',fillstyle='none',label='Clipped Data')
-            #plt.plot(x_data, y_data, 'ro',
-            #         fillstyle='none', label='Clipped Data')
-            plt.plot(x_data, filtered_data, 'ro', label='Filtered Data')
-            plt.plot(x_data, fitted_line1(x_data), 'k:', label=f"Z': {fitted_line1.intercept.value:.3f}, C: {fitted_line1.slope.value:.3f}")
-            # plt.plot(x_data, fitted_line1(x_data), 'k:', label=("Z':"+str(fitted_line1.intercept.value)+"C:"+str(fitted_line1.slope.value)))
-            plt.xlabel(colour_incides[colour_index])
-            plt.ylabel('V_ref-v_inst')
-
-            i=0
-            for x,y in  zip(x_data,y_data):
-
-                label=labels[i]
-                i = i + 1
-                plt.annotate(label, (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
-
-            plt.legend()
-            
-            plt.title('Step 1: V_ref-v_inst vs.' +
-                      colour_incides[colour_index] + '_in Filter ' + img_filter +" With image " + os.path.basename(filepath))
-
-            plt.savefig(str(sav_loc)+'Boyde_step_1_' +
-                        str(colour_incides[colour_index])+'_'+str(img_filter)+ os.path.basename(filepath) +'.png')
-
-            plt.close('all')
-
-        #Boyde_Table=Table(names=['Image Name','C prime','Z-prime','Index (i.e. B-V)','Z Prime','Airmass','Colour Filter'])
-
-        Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
-                            fitted_line1.intercept.value, colour_incides[colour_index], airmass,airmass_std, img_filter,ave_std,np.count_nonzero(residuals.mask == False)])
-
+    Boyde_Table.add_row([os.path.basename(filepath), fitted_line1.slope.value,
+                         fitted_line1.intercept.value, colour_index, airmass, airmass_std, img_filter, ave_std,
+                         np.count_nonzero(residuals.mask == False)])
     return Boyde_Table
 
 #%% Boyde Slopes 2
-
 def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=True):
     '''
     See calculate_boyde_slope_1
@@ -313,7 +530,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
         filtered_data_e = np.ma.masked_array(y_data_e,mask=mask)
         std_residuals=np.sqrt(sum(residuals.data[np.where(residuals.mask==False)]**2)/(np.count_nonzero(residuals.mask == False)-1))
 
-        if save_plots is True:
+        if save_plots and x_data!=[] and y_data!=[] and x_data_e !=[] and y_data_e !=[] :
 
             plt.figure()
             plt.errorbar(x_data, y_data, yerr=y_data_e, xerr=x_data_e, fmt='ko', fillstyle='none', label='Clipped Data')
@@ -368,7 +585,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
         k_prime = fitted_line2.slope.value
         zero_point = fitted_line2.intercept.value
 
-        if save_plots is True:
+        if save_plots and x_data!=[] and x_data_e2!=[] and y_data !=[] and y_data_e2 !=[]:
 
             plt.figure()
 # =============================================================================
