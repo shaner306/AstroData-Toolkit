@@ -3,32 +3,46 @@
 Created on Fri Jun  4 11:00:58 2021
 
 @author: shane
-"""
 
+Credit to NEOSSAT Dark Subtraction Algorithm. - https://github.com/jasonfrowe/neossat/tree/master/neossat
+
+"""
 from tkinter.filedialog import SaveFileDialog
 import numpy as np
-
 from photutils import CircularAperture
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-
 import matplotlib
 from matplotlib import cm
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import os
 import re
-
 import sys
 from os.path import dirname
 src_path = dirname(dirname(__file__))
 sys.path.append(os.path.join(src_path, 'general_tools'))
-
 import AstroFunctions as astro
 
 
 def plot_histogram(scidata, imstat, sigscalel, sigscaleh):
-    """"""
+    """
+    Plot the histogram of Image Counts (ADU) VS Frequency.
+    Parameters
+    ----------
+    scidata : numpy.ndarray
+        The image to be plotted.
+    imstat : list
+        The statistics of the image.
+    sigscalel : float
+        The lower limit of the sigma scale.
+    sigscaleh : float
+        The upper limit of the sigma scale.
+
+    Returns
+    -------
+    None
+    """
 
     matplotlib.rcParams.update({'font.size': 24})  # Adjust font.
 
@@ -46,7 +60,34 @@ def plot_histogram(scidata, imstat, sigscalel, sigscaleh):
 
 
 def plot_image_wsource(scidata, imstat, sigscalel, sigscaleh, sources=None, xy=None, figname=None, display=True):
-    """"""
+    """
+    Plot the image with the sources highlighted.
+
+    **Part of NEOSSAT Dark Subtraction Algorithm.** - https://github.com/jasonfrowe/neossat/tree/master/neossat
+
+    Parameters
+    ----------
+    scidata : numpy.ndarray
+        The image to be plotted.
+    imstat : list
+        The statistics of the image.
+    sigscalel : float
+        The lower limit of the sigma scale.
+    sigscaleh : float
+        The upper limit of the sigma scale.
+    sources : list
+        The sources to be highlighted.
+    xy : list
+        The x and y coordinates of the sources.
+    figname : str
+        The name of the figure.
+    display : bool
+        Whether to display the figure.
+
+    Returns
+    -------
+    None
+    """
 
     eps = 1.0e-9
     sigscalel = -np.abs(sigscalel)  # Expected to be negative.

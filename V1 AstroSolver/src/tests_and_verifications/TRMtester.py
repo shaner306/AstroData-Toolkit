@@ -2,49 +2,19 @@
 """
 Created on Thu Mar 18 10:33:21 2021
 @author: shane
-
------
-INSTRUCTIONS
-1. MUST RUN ON 32 BIT Python - Pinpoint will not run on 64 bit python code
-2. Reference Data
-3. Output Transforms + Standard Magnitudes
-    - Errors
-4. Output Star Data
-    - FWHM
-    - Magnitudes
-    - Instrumental Mag
-    - Flux, Stellar Flux, Visual Magnitude, gaussian data, sigmas
-5. TRM mode
-    - Martin Levesque Method
-    - Brad Wallace Method
-    - Photutils combination
-    - SExtractor (background Extraction method)- Currently using
-5a. Background Extraction
-    -Sextractor
-    -Polynomial Form Fit
-    -Mean Background
-    *Filter and Box Size TBD
-
-6. Creating Stars file and outputing solutions
-7. Creating Light Curves
-
 """
 import PIL
 import astropy
-
 import datetime
 import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy
 import numpy as np
-#import pywin32_system32
 import scipy
-#import win32com
 from astropy.convolution import Gaussian2DKernel, convolve
 from astropy.io import fits
 from astropy.stats import SigmaClip
-
 from astropy.stats import gaussian_fwhm_to_sigma
 from astropy.visualization import SqrtStretch
 from astropy.visualization import simple_norm
@@ -55,14 +25,31 @@ from photutils.background import MeanBackground
 from photutils.background import SExtractorBackground
 from photutils.segmentation import SourceCatalog
 from photutils.segmentation import deblend_sources
-
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from skimage import measure
 import cv2
 
 
-def BackgroundIteration(image, tolerance):
+def background_iteration(image, tolerance):
+    """
+    This function takes in an image and a tolerance and returns a background
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to be background subtracted
+    tolerance : float
+        The tolerance for the background subtraction
+
+    Returns
+    -------
+    new_mean : float
+        The mean background of the image
+    new_rms : float
+        The rms background of the image
+
+    """
+
     new_mean = mean(image)
     new_rms = numpy.std(image)
     return new_mean, new_rms
@@ -263,7 +250,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             im_mean = mean(bg_rem)
             
             im_rms=np.std(fitsdata)
-            im_mean, im_rms = BackgroundIteration(bg_rem, 0.1)
+            im_mean, im_rms = background_iteration(bg_rem, 0.1)
             low_clip = 110
             high_clip = 161
             
@@ -420,8 +407,8 @@ for dirpath, dirnames, filenames in os.walk(streak):
             
                         
             
-            [compact_mean, compact_rms] = BackgroundIteration(compact,0.1)
-            [ecct_mean, ecct_rms] = BackgroundIteration(ecct,0.1)
+            [compact_mean, compact_rms] = background_iteration(compact, 0.1)
+            [ecct_mean, ecct_rms] = background_iteration(ecct, 0.1)
             compact_cut = compact_mean  + 1 * compact_rms  
             ecct_cut = 0.5
             
@@ -432,7 +419,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             
             sda = valid_sources[stars]
             num_pix_in_stars = num_sourcepix[sda]
-            [mean_starpix, rms_starpix] = BackgroundIteration(num_pix_in_stars, 0.1)
+            [mean_starpix, rms_starpix] = background_iteration(num_pix_in_stars, 0.1)
             
             pix_cutoff = mean_starpix + 10 * rms_starpix
             
@@ -445,11 +432,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             ymin = edge_protect
             ymax = imagesizeY - edge_protect
             streaksize = streaks.size
-            
-            
-            
-            
-            
+
             for k in range(streaksize):
                 
                 real_star_num = streaks[0,k]  
