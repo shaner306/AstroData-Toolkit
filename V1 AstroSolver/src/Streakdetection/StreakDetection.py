@@ -15,9 +15,9 @@ from photutils.segmentation import detect_sources
 
 from photutils.segmentation import make_source_mask
 
-streak1 = r'/Users/home/Sync/'
+streak = r'/Users/home/Downloads/Landolt Fields/New Folder With Items'
 streak2 = r'/Users/home/Downloads/2022-108-neossat-crosstalk-example'
-streak = r'/Users/home/Downloads/2020_J107_Ottawa_IS901'
+streak1 = r'/Users/home/Downloads/2020_J107_Ottawa_IS901'
 file_suffix = (".fits", ".fit", ".FIT", '.fts')
 trm = True
 numFits = 0  # Number of images run through the Streak Detection
@@ -105,9 +105,10 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
 
                 fitsdata = fits.open(filepath)[0].data
                 sigma_clip = SigmaClip(sigma, maxiters=10)
-                mask = make_source_mask(fitsdata, nsigma=sigma, npixels=streakLength,
+                mask = make_source_mask(fitsdata, nsigma=sigma, npixels=10,
                                         dilate_size=11)
                 bkg_estimator = SExtractorBackground()
+
 
                 if trm:
                     try:
@@ -115,7 +116,8 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                                            bkg_estimator=bkg_estimator)
                     except:
                         bkg = SExtractorBackground(fitsdata)
-                    threshold = bkg.background + (2.0 * bkg.background_rms)
+                    threshold = bkg.background + (2.5 * bkg.background_rms)
+                    print(threshold)
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(fitsdata, threshold, npixels=streakLength)
