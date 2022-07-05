@@ -176,7 +176,8 @@ def _main_gb_transform_calc(directory,
             photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,
                                                                              bkg_std=np.ones(np.shape(imgdata))*bkg_std,
                                                                              hdr=hdr,filepath=filepath,
-                                                                             aperture_estimation_mode=aperture_estimation_mode)
+                                                                             aperture_estimation_mode=aperture_estimation_mode,**kwargs)
+
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -782,12 +783,12 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
     # Create an AstroPy table of the auxiliary data and write it to a .csv file.
     star_aux_table = astro.create_star_aux_table(star_aux_table_columns)
     ascii.write(star_aux_table, os.path.join(
-        save_loc, 'auxiliary_table.csv'), format='csv')
+        save_loc, 'auxiliary_table.csv'), format='csv',overwrite=True)
     # Create an AstroPy table of each reference star detection and write it to a .csv file.
     large_stars_table = astro.create_large_stars_table(
         large_table_columns, ground_based=True)
     ascii.write(large_stars_table, os.path.join(
-        save_loc, 'large_stars_table.csv'), format='csv')
+        save_loc, 'large_stars_table.csv'), format='csv',overwrite=True)
     # Group each observation of a star at an airmass.
     # E.g. if there are 5 images of star X at 1.2 airmass, and 10 images of star X at 2 airmass,
     # it will produce a mean and standard deviation of the observations at both 1.2 and 2 airmass.
@@ -873,6 +874,7 @@ def _main_gb_new_boyd_method(
         photometry_method='aperture',
         aperture_estimation_mode='mean',
         matched_stars_min=4,
+        save_phot_results=False,
         **kwargs):
     '''
     A derivative of the _main_gb_transform_calc which uses the Boyde Method for
@@ -923,7 +925,7 @@ def _main_gb_new_boyd_method(
 '''
 
     
-    
+    img_filters=[]
     matched_stars_dict={}
     reference_stars, ref_star_positions = astro.read_ref_stars(ref_stars_file)
     large_table_columns = astro.init_large_table_columns()
@@ -976,6 +978,7 @@ def _main_gb_new_boyd_method(
         hdr, imgdata = astro.read_fits_file(filepath)
         # Read the exposure time of the image.
         exptime = hdr[exposure_key]
+        img_filters.append(hdr['FILTER'])
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
         # Detect point sources in the image.
@@ -1028,7 +1031,7 @@ def _main_gb_new_boyd_method(
                                                                                  bkg=bkg,
                                                                                  bkg_std=np.ones(np.shape(imgdata))*bkg_std,
                                                                                  hdr=hdr,filepath=filepath,
-                                                                                 aperture_estimation_mode=aperture_estimation_mode)
+                                                                                 aperture_estimation_mode=aperture_estimation_mode,**kwargs)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
@@ -1038,7 +1041,15 @@ def _main_gb_new_boyd_method(
                     fluxes,fluxes_unc, exptime)
             except Exception as exception:
                 raise RuntimeError(exception)
-        
+
+        if save_phot_results is True:
+            print('Saving Photometry Results')
+            try:
+                photometry_result.write(filepath.split('.')[0]+'_photo_results.txt',format='ascii',overwrite=True)
+            except:
+                print('Cannot save table')
+
+
         # Read the World Coordinate System transformation added to the
         # fits header by a plate solving software (external to this program, e.g. PinPoint).
         wcs = WCS(hdr)
@@ -1217,9 +1228,10 @@ def _main_gb_new_boyd_method(
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
-    for filepath in matched_stars_dict:
+    img_filters=list(set(img_filters))
+    for img_filter in img_filters:
         
-        matched_stars=matched_stars_dict[filepath]
+        #matched_stars=matched_stars_dict[filepath]
         
         
         
@@ -1233,23 +1245,23 @@ def _main_gb_new_boyd_method(
         #    continue
         #else:
 
-
+        boyd_filepath=filepath.split('\\')[0]
         try:
-            Boyde_Table = boyde_aux.calculate_boyde_slopes(
-                matched_stars, filepath, Boyde_Table, save_plots,
-                save_loc,stars_table)
+            Boyde_Table = boyde_aux.calculate_boyde_slopes(boyd_filepath,
+                Boyde_Table, save_plots,
+                save_loc,stars_table,img_filter,img_filters)
         except Exception as e:
             raise KeyError(e)
-            print("Could not Calculate Boyde Slopes")
+            print("Could not Calculate Boyde Slopes... ")
             continue
 
 
 
-    try:
-        ascii.write(Boyde_Table, os.path.join(
-            save_loc, 'Boyde_Table1.csv'), format='csv')
-    except:
-        print('Could Not Save Boyde Table')
+    # try:
+    #     ascii.write(Boyde_Table, os.path.join(
+    #         save_loc, 'Boyde_Table1.csv'), format='csv')
+    # except:
+    #     print('Could Not Save Boyde Table')
     
     
     

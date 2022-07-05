@@ -807,8 +807,8 @@ def calculate_magnitudes_sigma(photometry_result, exptime):
     """
     fluxes = normalize_flux_by_time(photometry_result['flux_fit'], exptime)
     flux_uncs = normalize_flux_by_time(photometry_result['flux_unc'], exptime)
-    # snr = (fluxes / flux_uncs).value
-    snr = np.sqrt(fluxes)
+    snr = (fluxes / flux_uncs).value
+    #snr = np.sqrt(fluxes)
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma, snr
 
@@ -858,8 +858,8 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
 def calculate_BSB_sigma(bkg, bkg_std, exptime):
     fluxes = normalize_flux_by_time(bkg, exptime)
     flux_uncs = normalize_flux_by_time(bkg_std, exptime)
-    # snr = (fluxes / flux_uncs).value
-    snr = np.sqrt(fluxes)
+    snr = (fluxes / flux_uncs).value
+    #snr = np.sqrt(fluxes)
     instr_mags_sigma = 1.0857 / np.sqrt(snr)
     return instr_mags_sigma
 
