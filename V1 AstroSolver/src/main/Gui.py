@@ -57,6 +57,7 @@ from astropy.nddata import CCDData
 
 import sys
 from os.path import dirname
+
 src_path = dirname(dirname(__file__))
 sys.path.append(os.path.join(src_path, 'general_tools'))
 sys.path.append(os.path.join(src_path, 'transforms'))
@@ -137,22 +138,22 @@ def Gui():
                         justification='center',
                         size=(30, 1))],
                [sg.Frame('Transform Method',
-                [[sg.T(""),
-                  sg.Radio('Boyde Method',
-                           default=True,
-                           group_id='Method',
-                           key="NewBoydMethod"),
-                  sg.T(""),
-                  sg.Radio('Warner Method',
-                           group_id='Method',
-                           default=False,
-                           key="WarnerMethod"),
-                  sg.T(""),
-                  sg.Radio('Buckhiem Method',
-                           group_id='Method',
-                           default=False,
-                           key="BuchiemMethod")
-                  ]])
+                         [[sg.T(""),
+                           sg.Radio('Boyde Method',
+                                    default=True,
+                                    group_id='Method',
+                                    key="NewBoydMethod"),
+                           sg.T(""),
+                           sg.Radio('Warner Method',
+                                    group_id='Method',
+                                    default=False,
+                                    key="WarnerMethod"),
+                           sg.T(""),
+                           sg.Radio('Buckhiem Method',
+                                    group_id='Method',
+                                    default=False,
+                                    key="BuchiemMethod")
+                           ]])
                 ],
                [sg.Frame('Source Capture Mode',
                          [[sg.T(""),
@@ -214,9 +215,10 @@ def Gui():
     tab1_layout = [[sg.T("Input Folders")],
                    [sg.T("   ")],
                    [sg.Text("Image Folder:      "),
-                    sg.Input("C:/Users/mstew/Documents/School and Work/Winter 2022/Work/2022-03-16/Siderial Stare Mode - Copy/SA23/LIGHT",
-                             key="-IN2-",
-                             change_submits=True),
+                    sg.Input(
+                        "C:/Users/mstew/Documents/School and Work/Winter 2022/Work/2022-03-16/Siderial Stare Mode - Copy/SA23/LIGHT",
+                        key="-IN2-",
+                        change_submits=True),
                     sg.FolderBrowse(key="-IN1-"), sg.Text('')],
                    [sg.Text("Catalog Folder:    "),
                     sg.Input(r'C:/Users/mstew/Documents/School and Work/Winter 2022/Work/StarCatalogues/USNO UCAC4',
@@ -234,9 +236,7 @@ def Gui():
                    [sg.T(""), sg.Checkbox('Pinpoint Solve',
                                           default=False,
                                           key="-IN100-")],
-                   
-                   
-                   
+
                    # 1N100- PinPoint Solve
                    [sg.Column(column1),
                     sg.Column(column2)],
@@ -263,11 +263,11 @@ def Gui():
                                   size=(5, 5),
                                   key="-IN1012-4-")],
                     [sg.Checkbox("ccdmask",
-                     default=False,
-                     key="-IN1012-5-")],
+                                 default=False,
+                                 key="-IN1012-5-")],
                     [sg.Checkbox("Cosmic Rays Removal",
-                     default=False,
-                     key="IN1012-6")]
+                                 default=False,
+                                 key="IN1012-6")]
                     ]
     tab2_column2 = [[sg.Text('Replace Outliers Options',
                              background_color='#F7F3EC',
@@ -281,10 +281,10 @@ def Gui():
                               default=True,
                               key="1IN10121-1"),
 
-                    sg.Radio('Local Averaging',
-                             "RADIO2",
-                             default=False,
-                             key="1IN10121-2")],
+                     sg.Radio('Local Averaging',
+                              "RADIO2",
+                              default=False,
+                              key="1IN10121-2")],
                     [sg.T("Radius of Local Averaging"),
                      sg.T("     "),
                      sg.InputText('1', size=(5, 5),
@@ -293,8 +293,8 @@ def Gui():
                                  default=False,
                                  key='1IN10122')],
                     [sg.Checkbox('Save Corrected Flats',
-                                default=False,
-                                key='1IN10123')],
+                                 default=False,
+                                 key='1IN10123')],
                     [sg.Checkbox('Force Offset',
                                  default=False,
                                  key='ForceOffset')],
@@ -308,14 +308,14 @@ def Gui():
                   change_submits=True),
          sg.FolderBrowse(key="-IN120-"), sg.Text('')],
         [sg.Text("Bias Images:    "),
-          sg.Input(key="-IN20-" ,change_submits=True),
-          sg.FolderBrowse(key="-IN12-"), sg.Text('')],
+         sg.Input(key="-IN20-", change_submits=True),
+         sg.FolderBrowse(key="-IN12-"), sg.Text('')],
         [sg.Text("Dark Images:    "),
-          sg.Input(key="-IN30-" ,change_submits=True),
-          sg.FolderBrowse(key="-IN40-")],
+         sg.Input(key="-IN30-", change_submits=True),
+         sg.FolderBrowse(key="-IN40-")],
         [sg.Text("Flat Images:     "),
-          sg.Input(key="-IN50-" ,change_submits=True),
-          sg.FolderBrowse(key="-IN60-")],
+         sg.Input(key="-IN50-", change_submits=True),
+         sg.FolderBrowse(key="-IN60-")],
         [sg.T(""), sg.Checkbox('Create Master Flats',
                                default=True,
                                key="-IN71-"),
@@ -328,13 +328,12 @@ def Gui():
          sg.T(""), sg.Checkbox('Correct for Outliers',
                                default=True,
                                key="-IN1012-")],
-        [sg.T(""),sg.Checkbox('Use Exisitng Masters',
-                              default=True,
-                              key='-1N109-'),
+        [sg.T(""), sg.Checkbox('Use Exisitng Masters',
+                               default=True,
+                               key='-1N109-'),
          sg.Text("Master Images:    "),
-           sg.Input(key="-IN 109-1" ,change_submits=True),
-           sg.FolderBrowse(key="-1N109-2")],
-                                              
+         sg.Input(key="-IN 109-1", change_submits=True),
+         sg.FolderBrowse(key="-1N109-2")],
 
         [sg.T(""), sg.Checkbox('Space Based',
                                default=True,
@@ -348,14 +347,13 @@ def Gui():
         [sg.T(" "), sg.Button("Reduce"), sg.Cancel()]
     ]
 
-# Layout
+    # Layout
     layout = [[sg.TabGroup([[sg.Tab('AstroSolver', tab1_layout),
-               sg.Tab('Image Reduction', tab2_layout)
-    ]])]]
+                             sg.Tab('Image Reduction', tab2_layout)
+                             ]])]]
     if windowopen is False:
         window = sg.Window('AstroSolver', layout)
         windowopen is True
-
 
     while True:  # Read Events
         window.Refresh()
@@ -365,120 +363,115 @@ def Gui():
         #     window["-IN56-"].update(disabled=True)
         #     print("test")
         # print(values["-IN2-"])
-        if event == sg.WIN_CLOSED or event == "Exit" :
+        if event == sg.WIN_CLOSED or event == "Exit":
             window.close()
             break
         elif event == "Reduce":
-             
+
             use_existing_masters = values['-1N109-']
-            exisiting_masters_dir = values['-1N109-2']
-            
+            existing_masters_dir = values['-1N109-2']
+
             reduce_dir = values["-IN200-"]
             if use_existing_masters is True:
-                reduce_dirs = [values["-IN200-"],exisiting_masters_dir] 
+                reduce_dirs = [values["-IN200-"], existing_masters_dir]
             else:
-                reduce_dirs = [values["-IN200-"],values["-IN30-"],values["-IN50-"], values["-IN20-"]]
+                reduce_dirs = [values["-IN200-"], values["-IN30-"], values["-IN50-"], values["-IN20-"]]
 
-            export_parameter_file=True # TODO: Create GUI Input for this option
+            export_parameter_file = True  # TODO: Create GUI Input for this option
             use_existing_masters = values['-1N109-']
-            exisiting_masters_dir = values['-1N109-2']
-            
+            existing_masters_dir = values['-1N109-2']
+
             #### Read Variables and Sample them #####
-            
 
             try:
-                sample_science_image=AstroFunctions.sample_dataset(reduce_dir,window)
-                sample_bool=True
+                sample_science_image = AstroFunctions.sample_dataset(reduce_dir, window)
+                sample_bool = True
             except:
                 print('No Image Sampled, reduce_dir is not a directory')
-                sample_bool=False
+                sample_bool = False
             # TODO: Create Function for this sampling
-            
+
             # Find Sample Dark
-            
             if use_existing_masters:
-                dark_look_dir = exisiting_masters_dir
+                dark_look_dir = existing_masters_dir
             else:
-                dark_look_dir= values["-IN30-"]
-            try:    
-                for dirpath,dirnames,files in os.walk(dark_look_dir):
+                dark_look_dir = values["-IN30-"]
+            try:
+                for dirpath, dirnames, files in os.walk(dark_look_dir):
                     for name in files:
-                        if name.lower().endswith(('.fits','.fit','.fts')):
-                            CCDData_sample=CCDData.read(os.path.join(dirpath,name),unit='adu')
-                            
-                            try: 
+                        if name.lower().endswith(('.fits', '.fit', '.fts')):
+                            CCDData_sample = CCDData.read(os.path.join(dirpath, name), unit='adu')
+
+                            try:
                                 if "dark" in CCDData_sample.header["IMAGETYP"].lower():
                                     sample_dark_image = CCDData_sample
                                     break
                                 else:
-                                    continue 
-                            except KeyError: 
+                                    continue
+                            except KeyError:
                                 raise KeyError("WARNING -- Cound not find Keyword when looking for Dark Frame")
                         else:
                             continue
             except:
                 raise KeyError("WARNING -- Could not find Dark Sample image")
-            try: 
-                if sample_science_image.header["EXPTIME"]!=sample_dark_image.header["EXPTIME"]:
-                    popup_string=sg.popup_yes_no("Science images might not have the same exposure time as the dark frames, Continue?")
-                    if popup_string=='No':
+            try:
+                if sample_science_image.header["EXPTIME"] != sample_dark_image.header["EXPTIME"]:
+                    popup_string = sg.popup_yes_no(
+                        "Science images might not have the same exposure time as the dark frames, Continue?")
+                    if popup_string == 'No':
                         break
                         window.close()
-                        
-                
             except UnboundLocalError:
                 print('No Sample Prediction')
-                
-                                
+
             # TODO : Come up with better methods for improving this
-            
+
             if use_existing_masters is True:
-                
-                    create_master_dir=False
+
+                create_master_dir = False
             else:
-                    create_master_dir=True
-            
+                create_master_dir = True
+
             # TODO: Come up with a better method for this 
-            scalable_dark_bool=True
-            if (values["-IN20-"] == '') and (values["-IN30-"]!='') and (values["-IN40-"]!=''):
-                      
-                if (len(reduce_dirs)==4) & (use_existing_masters is False):
+            scalable_dark_bool = True
+            if (values["-IN20-"] == '') and (values["-IN30-"] != '') and (values["-IN40-"] != ''):
+
+                if (len(reduce_dirs) == 4) & (use_existing_masters is False):
                     print('None Scalabale Dark Detected')
-                    scalable_dark_bool=False
+                    scalable_dark_bool = False
                     del reduce_dirs[reduce_dirs.index('')]
                     print('Deleted Bias in redcued dir')
-     
+
             create_master_flat = values["-IN71-"]
             create_master_dark = values["-IN1010-"]
             create_master_bias = values["-IN1011-"]
-            
+
             if values["1IN10121-1"] is True:
                 replace_mode = 'Ave'
             elif values["1IN10121-2"] is True:
                 replace_mode = 'Interpolate'
-                
+
             correct_outliers_params = {'Outlier Boolean': values["-IN1012-"],
 
                                        'Hot Pixel': values["-IN1012-1-"],
                                        'Dark Frame Threshold Bool': values["-IN1012-2-"],
-                                       'Dark Frame Threshold Min':  values["-IN1012-3-"],
+                                       'Dark Frame Threshold Min': values["-IN1012-3-"],
                                        'Dark Frame Threshold Max': values["-IN1012-4-"],
                                        'ccdmask': values["-IN1012-5-"],
                                        'Cosmic Rays Bool': values["IN1012-6"],
                                        'Replace Bool': values["1IN10121"],
                                        'Replace Mode': replace_mode,
-                                       'Multiple Flat Combination':values["1IN10122"],
-                                       'Save Corrected Flats': values ["1IN10123"],
+                                       'Multiple Flat Combination': values["1IN10122"],
+                                       'Save Corrected Flats': values["1IN10123"],
                                        'Radius of local Averaging': values["1IN10121-2-1"],
                                        'Force Offset': values['ForceOffset']
                                        }
 
-            
             correct_light_dir = Path(reduce_dirs[0], 'corrected_lights')
             correct_light_dir.mkdir(exist_ok=True)
             correct_light_directory = reduce_dirs[0] + '\\corrected_lights'
             sav_loc = correct_light_directory
-            
+
             target = values["-IN1014-"]
 
             ### Save All Parameters in the Parameter File
@@ -488,18 +481,16 @@ def Gui():
                 for param1 in correct_outliers_params:
                     try:
 
-                        astro.param_file(save_loc=sav_loc,param=correct_outliers_params[param1])
+                        astro.param_file(save_loc=sav_loc, param=correct_outliers_params[param1])
                     except:
                         continue
                 # Save Basic Calibration Parameters
-
 
             ### Processes
 
             if values["-IN1013-"]:  # Space Based Observations is True
                 try:
-                    Main.DarkSub(target, reduce_dir,
-                                 'D:\\NEOSSat-SA-111\\test')
+                    Main.DarkSub(target, reduce_dirs)
                     print("Reduce Space-Based Images ---- Started")
                     break
                     window.close()
@@ -509,13 +500,9 @@ def Gui():
                     break
                     window.update()
             else:
-                
-                
+
                 try:
-                    
-                    
-                    
-                    
+
                     Main.Image_reduce(reduce_dirs,
                                       create_master_dark,
                                       create_master_flat,
@@ -523,7 +510,7 @@ def Gui():
                                       correct_outliers_params,
                                       create_master_dir,
                                       use_existing_masters,
-                                      exisiting_masters_dir,
+                                      existing_masters_dir,
                                       scalable_dark_bool,
                                       sav_loc
                                       )
@@ -534,15 +521,16 @@ def Gui():
                     print(ex)
 
         elif event == "Solve":
-            
+
             image_dir = values["-IN2-"]
             catalog_dir = values["-IN3-"]
             refstar_dir = values["-IN5-"]
             save_data = values["-IN7-"]
             plot_data = values["-IN1014-"]
             if values['psf'] is True:
-                photometry_method='psf'
+                photometry_method = 'psf'
             elif values['aperture'] is True:
+
                 photometry_method='aperture'
                 if values['phot_meth_manual']:
                     aperture_estimation_mode = 'manual'
@@ -557,44 +545,34 @@ def Gui():
 
             
             # Check to See if image has been corrected already
-            for dirpath,dirnames,files in os.walk(image_dir):
+            for dirpath, dirnames, files in os.walk(image_dir):
                 for name in files:
-                    
-                    
-                    if name.lower().endswith(('.fits','.fit','.fts')):
-                        CCData_sample=CCDData.read(os.path.join(dirpath,name),unit='adu')
-                        sample_science_image=CCData_sample
+
+                    if name.lower().endswith(('.fits', '.fit', '.fts')):
+                        CCData_sample = CCDData.read(os.path.join(dirpath, name), unit='adu')
+                        sample_science_image = CCData_sample
                         break
-                        
-            
-            try: 
+
+            try:
                 if sample_science_image.header['Correctd'] is False:
-                    Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
-                    if Popup_string=='No':
+                    Popup_string = sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                    if Popup_string == 'No':
                         break
                         window.close()
-                        
-                    
-                
+
                 # Do Nothing if Image is already Reduced
-                
+
             except:
                 sample_science_image.meta['Correctd'] = False
-                
+
                 # Prompt User about Confirming to Solve the image despite it not being redcued
-                Popup_string=sg.popup_yes_no("Images Aren't Reduced, Continue?")
-                if Popup_string=='No':
+                Popup_string = sg.popup_yes_no("Images Aren't Reduced, Continue?")
+                if Popup_string == 'No':
                     break
                     window.close()
-                    
-                
-                        
-                
-            
-            
-            
+
             if values["-IN82-"] is True:  # Ground Based Observation
-                space_based_bool = 0   # Space Based Boolean=0
+                space_based_bool = 0  # Space Based Boolean=0
             else:
                 space_based_bool = 1
             window.Refresh()
@@ -616,18 +594,17 @@ def Gui():
                 try:
                     print("Pinpoint Solve Images ---- Started")
                     pinpoint.pinpoint_solve(image_dir,
-                                        catalog_dir,
-                                        max_mag,
-                                        sigma,
-                                        catalog_exp,
-                                        match_residual,
-                                        max_solve_time,
-                                        catalog,
-                                        space_based_bool,
-                                        use_sextractor,
-                                        all_sky_solve)
+                                            catalog_dir,
+                                            max_mag,
+                                            sigma,
+                                            catalog_exp,
+                                            match_residual,
+                                            max_solve_time,
+                                            catalog,
+                                            space_based_bool,
+                                            use_sextractor,
+                                            all_sky_solve)
 
-                    
                     window.close()
                 except:
                     print("Pinpoint Error. Please See Instructions")
@@ -659,18 +636,17 @@ def Gui():
                         # lat_key = 'OBSGEO-B'
                         # lon_key = 'OBSGEO-L'
                         # elev_key = 'OBSGEO-H'
-                            
-                        try: 
+
+                        try:
                             if sample_science_image.meta['Correctd'] == True:
                                 save_loc = os.path.join(image_dir, 'Corrected_Outputs')
                             else:
                                 save_loc = os.path.join(image_dir, 'Outputs')
                         except KeyError:
                             save_loc = os.path.join(image_dir, 'Outputs')
-                        
 
                         if values['WarnerMethod']:
-                            Warner_final_transform_table =\
+                            Warner_final_transform_table = \
                                 main_transforms._main_gb_transform_calc_Warner(
                                     image_dir,
                                     refstar_dir,
@@ -682,6 +658,7 @@ def Gui():
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id)
                         if values['NewBoydMethod']:
+
                             if photometry_method=='aperture' and values['phot_meth_manual'] is True:
                                 NewBoydMethod = main_transforms._main_gb_new_boyd_method(
                                     image_dir,
@@ -711,11 +688,8 @@ def Gui():
                                   save_loc=save_loc, unique_id=unique_id,
                                   photometry_method=photometry_method,aperture_estimation_mode=aperture_estimation_mode)
 
-
-
-
                         if values['BuchiemMethod']:
-                            BuchiemMethod=\
+                            BuchiemMethod = \
                                 main_transforms._main_gb_transform_calc_Buchheim(
                                     image_dir,
                                     refstar_dir,
@@ -727,11 +701,9 @@ def Gui():
                                     lon_key=lon_key, elev_key=elev_key,
                                     save_loc=save_loc, unique_id=unique_id,
                                     photometry_method=photometry_method
-                                    
-                                    )
-                        
-                          
-                            
+
+                                )
+
                         # Main.Ground_based_transforms(image_dir,refstar_dir)
                         # print (image_dir,refstar_dir)
                         break
@@ -757,9 +729,9 @@ def Gui():
                     size = 20
                     max_num_nan = 5
                     plot_results = 0
-                    sats_table,\
-                        uncertainty_table,\
-                        sat_fwhm_table = \
+                    sats_table, \
+                    uncertainty_table, \
+                    sat_fwhm_table = \
                         trm_auxillary_functions._main_sc_lightcurve(image_dir,
                                                                     temp_dir=temp_dir,
                                                                     max_distance_from_sat=max_distance_from_sat,

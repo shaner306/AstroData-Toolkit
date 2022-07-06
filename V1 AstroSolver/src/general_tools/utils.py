@@ -8,10 +8,8 @@ Created on Fri Jun  4 11:00:22 2021
 import os
 import glob
 import re
-
 import math
 import numpy as np
-
 from astropy.io import fits
 from astropy.table import Table
 
