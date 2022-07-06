@@ -170,7 +170,10 @@ def create_master_bias(all_fits, master_dir):
 
                 # Work around for applying BZERO and BSCALE
                 hdul = fits.open(file)
-                hdul[0].scale('float64')
+                if str(hdul[0].data.dtype)=='uint16' and hdul[0].header['BITPIX']==16:
+                    hdul[0].data = ((hdul[0].data).astype('float64'))
+                    hdul[0].data = hdul[0].data + 32768
+
                 bias = CCDData(hdul[0].data, unit='adu')
                 bias.header = hdul[0].header
 
@@ -286,7 +289,9 @@ def create_master_dark(all_fits, master_dir, scalable_dark_bool):
 
                 # Work around for applying BZERO and BSCALE
                 hdul = fits.open(file)
-                hdul[0].scale('float64')
+                if str(hdul[0].data.dtype) == 'uint16' and hdul[0].header['BITPIX'] == 16:
+                    hdul[0].data = ((hdul[0].data).astype('float64'))
+                    hdul[0].data = hdul[0].data + 32768
                 dark = CCDData(hdul[0].data, unit='adu')
                 dark.header = hdul[0].header
                 hdul.close()
@@ -410,7 +415,9 @@ def create_master_flat(all_fits, master_dir, scalable_dark_bool):
 
                 # Work around for applying BSCALE and BZERO
                 hdul = fits.open(file)
-                hdul[0].scale('float64')
+                if str(hdul[0].data.dtype)=='uint16' and hdul[0].header['BITPIX']==16:
+                    hdul[0].data = ((hdul[0].data).astype('float64'))
+                    hdul[0].data = hdul[0].data + 32768
                 flat = CCDData(hdul[0].data, unit='adu')
                 flat.header = hdul[0].header
                 hdul.close()
@@ -634,10 +641,18 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         # light = CCDData.read(file_name, unit='adu')
 
                         # Work around for applying BZERO and BSCALE
+                        #TODO:
                         hdul = fits.open(file_name)
-                        hdul[0].scale('float64')
+                        if str(hdul[0].data.dtype) == 'uint16' and hdul[0].header['BITPIX'] == 16:
+                            hdul[0].data = ((hdul[0].data).astype('float64'))
+                            hdul[0].data = hdul[0].data + 32768
+                        # hdul[0].data=((hdul[0].data).astype('float64'))
+                        # hdul[0].data=hdul[0].data+hdul[0].header['BZERO']
+
                         light = CCDData(hdul[0].data, unit='adu')
                         light.header = hdul[0].header
+
+
 
                         # Note that the first argument in the remainder of the ccdproc calls is
                         # the *reduced* image, so that the calibration steps are cumulative.
@@ -658,8 +673,13 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                                 closest_dark = find_nearest_dark_exposure(
                                     reduced, master_darks.keys())
+                                # master_dark_to_subtract_hdu= (master_darks[closest_dark].to_hdu()[0])
+                                # master_dark_to_subtract_hdu.scale('float64')
+                                # master_dark_to_subtract_ccddata = CCDData(master_dark_to_subtract.data,unit='adu')
+                                # master_dark_to_subtract_ccddata.header=master_dark_to_subtract_hdu.header
 
-                                reduced = ccdp.subtract_dark(reduced, master_darks[closest_dark],
+
+                                reduced = ccdp.subtract_dark(reduced,master_darks[closest_dark],
                                                              exposure_time='exptime', exposure_unit=u.second,
                                                              scale=True)
                         ########## For non-scalable darks (i.e. no Bias Fram provided) ##########
@@ -738,7 +758,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                         reduced_hdul = reduced.to_hdu()
 
                         # Cast back in 16 bit integers
-                        reduced_hdul[0].scale('int16')
+                        #reduced_hdul[0].scale('int16')
 
                         # Set all values below 0 equal to zero
                         reduced_hdul[0].data = np.where(reduced_hdul[0].data < 0, 0, reduced_hdul[0].data)
@@ -884,7 +904,10 @@ def flat_image_masking(flat_imgtypes_concatenateded,
 
             # Work around to apply  BZERO and BSCALE
             hdul = fits.open(flat)
-            hdul[0].scale('float64')
+            if str(hdul[0].data.dtype) == 'uint16' and hdul[0].header['BITPIX'] == 16:
+                hdul[0].data = ((hdul[0].data).astype('float64'))
+                hdul[0].data = hdul[0].data + 32768
+
             flatdata = CCDData(hdul[0].data, unit='adu')
             flatdata.header = hdul[0].header
             hdul.close()
@@ -933,7 +956,10 @@ def flat_image_masking(flat_imgtypes_concatenateded,
 
         # Work around to deal with BSCALE and BZERO
         hdul = fits.open(flats_to_compare[0])
-        hdul[0].scale('float64')
+        if str(hdul[0].data.dtype) == 'uint16' and hdul[0].header['BITPIX'] == 16:
+            hdul[0].data = ((hdul[0].data).astype('float64'))
+            hdul[0].data = hdul[0].data + 32768
+
         flatdata = CCDData(hdul[0].data, unit='adu')
         flatdata.header = hdul[0].header
         hdul.close()
@@ -1018,7 +1044,10 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
 
                 # Work around to deal with BZERO and BSCALE
                 hdul = fits.open(flat)
-                hdul[0].scale('float64')
+                if str(hdul[0].data.dtype)=='uint16' and hdul[0].header['BITPIX']==16:
+                    hdul[0].data = ((hdul[0].data).astype('float64'))
+                    hdul[0].data = hdul[0].data + 32768
+
                 flatdata = CCDData(hdul[0].data, unit='adu')
                 flatdata.header = hdul[0].header
                 hdul.close()
@@ -1050,7 +1079,10 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
 
                 # Work around to apply BZERO or BSCALE
                 hdul = fits.open(flat)
-                hdul[0].scale('float64')
+                if str(hdul[0].data.dtype)=='uint16' and hdul[0].header['BITPIX']==16:
+                    hdul[0].data = ((hdul[0].data).astype('float64'))
+                    hdul[0].data = hdul[0].data + 32768
+
                 flatdata = CCDData(hdul[0].data, unit='adu')
                 flatdata.header = hdul[0].header
                 hdul.close()
@@ -1089,7 +1121,10 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
                     # Work around to apply BZERO and BSCALE
 
                     hdul = fits.open(flat)
-                    hdul[0].scale('float64')
+                    if str(hdul[0].data.dtype) == 'uint16' and hdul[0].header['BITPIX'] == 16:
+                        hdul[0].data = ((hdul[0].data).astype('float64'))
+                        hdul[0].data = hdul[0].data + 32768
+
                     flatdata = CCDData(hdul[0].data, unit='adu')
                     flatdata.header = hdul[0].header
                     hdul.close()
