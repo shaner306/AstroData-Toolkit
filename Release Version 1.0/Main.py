@@ -709,8 +709,8 @@ def Image_reduce(reduce_dirs,
         print('Calling run_master_bias')
         try:
             IR.create_master_bias(all_fits, master_frame_directory)
-        except:
-             raise RuntimeError('Could not create master File')   
+        except Exception as e:
+             raise RuntimeError('Could not create master File__'+ e)
         
 
     # Create Master Dark
