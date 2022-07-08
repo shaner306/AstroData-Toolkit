@@ -10,12 +10,12 @@ from math import atan
 from os.path import dirname
 src_path = dirname(dirname(__file__))
 sys.path.append(os.path.join(src_path, 'general_tools'))
-sys.path.append(os.path.join(src_path, 'tests_and_verifications'))
+sys.path.append(os.path.join(src_path, 'Streakdetection'))
 
 import AstroFunctions as astro
-import Streakdetection as sd
+import StreakDetection as sd
 
-def solve_plate_astrometry_net(directory, file_suffix=".fits"):
+def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streakLength=5, TRM=True, useMask=True):
     filecount = 0
     file_paths = []
     file_names = []
@@ -28,13 +28,25 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits"):
     
     for file_path in file_paths:
         hdr, _ = astro.read_fits_file(file_path)
+        _ = sd.streak_detection_single(file_path, sigma=sigma, streakLength=streakLength, TRM=TRM, useMask=useMask)
+        create_xyls_call = f'text2fits -H "x y" -f dd "{file_path}.txt" "{file_path}.xyls"'
+        os.system(create_xyls_call)
+        image_width = hdr['NAXIS1']
+        image_height = hdr['NAXIS2']
         try:
             focal_length = hdr['FOCALLEN'] * u.mm
             xpixsz = hdr['XPIXSZ']
             ypixsz = hdr['YPIXSZ']
         except KeyError:
-            terminal_call = f'solve-field -p --fits-image --overwrite -D "{directory}/solved" -d 100 -y -g "{file_path}"'
+            terminal_call = f'solve-field -p -N none --overwrite -w {image_width} -e {image_height} -X "x" -Y "y" \
+                 -d 100 -y -g -W tmp.wcs "{file_path}.xyls"'
             os.system(terminal_call)
+            combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
+            os.system(combine_wcs_call)
+            if os.path.getsize(f"{file_path}.new") == 0:
+                os.remove(f"{file_path}.new")
+                print("Could not plate solve.")
+                # Flag this and modify the source detection script to try a couple more times.
             continue
         if xpixsz == ypixsz:
             pixsz = xpixsz * u.um
@@ -46,9 +58,16 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits"):
         ra = img_radec.ra.deg
         dec = img_radec.dec.deg
         #--ra {ra} --dec {dec} --radius 360 
-        terminal_call = f'solve-field -p --fits-image --overwrite -D "{directory}/solved" -d 100 -u arcsecperpix \
-            -L {low} -H {high} -y "{file_path}"'
+        terminal_call = f'solve-field -p -N none --overwrite -w {image_width} -e {image_height} -X "x" -Y "y" \
+                -u arcsecperpix -L {low} -H {high} -d 100 -y -W tmp.wcs "{file_path}.xyls"'
         os.system(terminal_call)
+        combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
+        os.system(combine_wcs_call)
+        if os.path.getsize(f"{file_path}.new") == 0:
+            os.remove(f"{file_path}.new")
+            print("Could not plate solve.")
+
+solve_plate_astrometry_net(r'/media/jmwawrow/Data/DRDC Data/ORC GBO/Field 1/139/Test/', file_suffix=".fit", TRM=False)
 
 def solve_plate_astrometry_net_web(directory, api_key, file_suffix=".fits"):
     ast = AstrometryNet()
