@@ -342,7 +342,7 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
     STARS.close()
     AstrometryNetFile.close()
 
-    return tbl
+    return tbl, bkg
 
     if numFits == 0:
         print("No Valid Images Detected")
@@ -357,3 +357,17 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
     else:
         # return satelliteDetections
         return 0
+
+
+def filter_sats_stars(tbl, ecct_cut=0.5):
+
+    eccentricity = np.array(tbl['eccentricity'])
+    possible_sats = tbl[eccentricity < ecct_cut]
+    sat_x = np.array(possible_sats['xcentroid'])
+    sat_y = np.array(possible_sats['ycentroid'])
+    print(tbl.columns)
+    print(sat_x)
+    return sat_x, sat_y
+
+tbl = streak_detection_single(r'/media/jmwawrow/Seagate Backup Plus Drive/Intelsat 10-02/2021-04-21 - unprocessed/April21/TRM/G/0328_3x3_-10.00_5.00_G_00-00-24.fits')
+filter_sats_stars(tbl)
