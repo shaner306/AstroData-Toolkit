@@ -23,7 +23,8 @@ streak = r'/Users/home/Downloads/2020_J107_Ottawa_IS901'
 
 class DetectStreaks():
 
-    def __init__(self, imageset, sigma, trm=True, **kwargs):
+    def __init__(self, imageset, sigma, trm=True,
+                 streaklength=10.0, **kwargs):
         """
         Initialize the class with the following parameters:
         """
@@ -40,7 +41,44 @@ class DetectStreaks():
         self.magnitude = 2.5 #Tested "Best Guess" starting point for threshold magnitude
         self.file_suffix = {".fits", ".fit", ".FIT", '.fts'}
         self.sigma = sigma
-        self
+        self.streakLength = 10
+
+    def __str__(self):
+        """
+        Return a string representation of the object.
+        Returns
+        -------
+
+        """
+
+        #TODO Add this functionality
+        return 'StreakDetect(Solved Images=' + str(len(self.solved_images)) +\
+               ', Failed Images=' + str(len(self.failed_images)) + ')'
+
+    def __repr__(self):
+        """
+        Return a string representation of the object,
+        for solve parameters, and solve results for each image, and relevant statistics.
+        Returns
+        -------
+        string:
+            List of Solved Images
+                Number of streaks detected
+                Number of stars detected
+                Solve Params
+                Image Statistics
+
+            List of Failed Images
+                Last used Params
+                Image Statistics
+
+        """
+        #TODO Add this functionality
+
+
+        return 'StreakDetect(Solved Images=' + str(len(self.solved_images)) +\
+               ', Failed Images=' + str(len(self.failed_images)) + ')'
+
 
     def read_fitsdata(self, filename):
         try:
