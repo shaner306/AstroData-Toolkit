@@ -63,7 +63,9 @@ The Master Frames are then used to calibrate the images
 See AstroPy ccdproc
 
 """
+import astropy.nddata
 import matplotlib as mpl
+import numpy.ma
 
 mpl.use('Agg')
 from astropy.nddata import CCDData
@@ -126,7 +128,8 @@ from ccdproc import ImageFileCollection
 #
 # -------------------------------------------------------------------------------
 
-def create_master_bias(all_fits, master_dir):
+def create_master_bias(all_fits: ccdp.ImageFileCollection ,
+                       master_dir: str):
     """
     Taking all Bias frames, create a Master Bias frame.
 
@@ -147,9 +150,10 @@ def create_master_bias(all_fits, master_dir):
     Nil
     
     Outputs
-
+    -------
+    master_bias files being written to master_dir
     """
-    unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
+    unique_imagetype_list = list(set(all_fits.summary['imagetyp'])) # defines the imagetypes extracted from the headers
     bias_imgtype_matches = [
         s for s in unique_imagetype_list if "bias" in s.lower()]
     bias_imgtypes_concatenated = '|'.join(bias_imgtype_matches)
@@ -157,12 +161,12 @@ def create_master_bias(all_fits, master_dir):
         filenames=(all_fits.files_filtered(include_path=True, imagetyp=bias_imgtypes_concatenated)))
 
     try:
-        unique_bin_list = list(set(bias_fits.summary['ybinning']))
+        unique_bin_list = list(set(bias_fits.summary['ybinning'])) # defines the number of unqiue bins
     except KeyError as e:
         raise e
         print("Could not find binning keyword")
 
-    for binning in unique_bin_list:
+    for binning in unique_bin_list: #iterate through bins
         try:
             bin_bias_fits = bias_fits.files_filtered(include_path=True, ybinning=binning)
             biases = []
@@ -209,7 +213,9 @@ def create_master_bias(all_fits, master_dir):
             continue
 
 
-def create_master_dark(all_fits, master_dir, scalable_dark_bool):
+def create_master_dark(all_fits: ccdp.ImageFileCollection ,
+                       master_dir: str,
+                       scalable_dark_bool: bool):
     """
     Taking a Master Bias frame and individual Dark frames, create Master Dark
     frames based on differing exposure times. Master Bias is subtracted from
@@ -235,8 +241,11 @@ def create_master_dark(all_fits, master_dir, scalable_dark_bool):
 
     Returns
     -------
+    #TODO: Return master_dark as an object
 
-    Nil
+    Output
+    -------
+    master_dark saved in the master_dir
 
     """
     bscale=1
@@ -245,8 +254,6 @@ def create_master_dark(all_fits, master_dir, scalable_dark_bool):
     dark_imgtype_matches = [
         s for s in unique_imagetype_list if "dark" in s.lower()]
     dark_imgtypes_concatenated = '|'.join(dark_imgtype_matches)
-
-    # Enables different datasets with different dark headers
 
     # Create Conditional Array with different Dark Image Data Types
     dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
@@ -332,7 +339,9 @@ def create_master_dark(all_fits, master_dir, scalable_dark_bool):
                 raise RuntimeError('WARNING -- Could not Save Master Dark File')
 
 
-def create_master_flat(all_fits, master_dir, scalable_dark_bool):
+def create_master_flat(all_fits: ccdp.ImageFileCollection,
+                       master_dir: str,
+                       scalable_dark_bool: str):
     """
     Taking Master Bias, Master Darks and individual Flat frames, create
     Master Flat frames based on the filters used.  Master Bias is subtracted
@@ -353,9 +362,13 @@ def create_master_flat(all_fits, master_dir, scalable_dark_bool):
 
     Returns
     -------
+    #TODO: Return combined flat as an object
 
     Nil
 
+    Outputs
+    -----
+    combined_flat saved in master_dir
     """
 
     unique_imagetype_list = list(set(all_fits.summary['imagetyp']))
@@ -394,6 +407,7 @@ def create_master_flat(all_fits, master_dir, scalable_dark_bool):
                 imagetyp=dark_imgtypes_concatenateded, ybinning=binning, combined=True
             )}
             # Create Conditonal Array with different Dark Image Data Types
+            # TODO: Use np.where for this expression
             dark_mask = list(np.zeros(len(all_fits.summary), dtype=bool))
             for dark_imgtypes in dark_imgtype_matches:
                 dark_mask = dark_mask + \
@@ -479,12 +493,17 @@ def create_master_flat(all_fits, master_dir, scalable_dark_bool):
                 combined_flat.write((str(master_dir) + flat_file_name),overwrite=True)
 
                 print('Saving ', flat_file_name)
+                #TODO: Return combined_flat as an object
             except:
                 raise RuntimeError('WARNING -- Could not Save Master Flat File')
 
 
-def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_params, use_existing_masters,
-                   scalable_dark_bool):
+def correct_lights(all_fits: ccdp.ImageFileCollection,
+                   master_dir: str,
+                   corrected_light_dir: str,
+                   correct_outliers_params: str,
+                   use_existing_masters: bool,
+                   scalable_dark_bool: bool):
     """
     Taking Master Bias, Master Darks and filter-specific Master Flats, create
     corrected individual light frames.
@@ -493,7 +512,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
     Parameters
     ----------
 
-    all_fits : Astropy.CCDProc.ImageFileCollection object
+    all_fits : ccdproc.ImageFileCollection object
         This object contains all .fits files in the directory and sub-directories
         in 'topdir' given by the user in the initialization section.
 
@@ -576,7 +595,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
 
 
-            corrected_master_dark = {}
+            corrected_master_darks = {}
             for dark_time in dark_times:
 
                 ### Dark Image Masking ###
@@ -592,7 +611,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
 
                 if correct_outliers_params['Dark Frame Threshold Bool'] and correct_outliers_params['Outlier Boolean']:
                     # Apply A dark frame threshold to only allow some pixels to be passed through
-                    mask = dark_frame_threshold(master_darks[dakr_time], correct_outliers_params, mask)
+                    mask = dark_frame_threshold(master_darks[dark_time], correct_outliers_params, mask)
 
                 if correct_outliers_params['Outlier Boolean'] and (
                         correct_outliers_params['Hot Pixel'] or correct_outliers_params['Dark Frame Threshold Bool']):
@@ -606,11 +625,12 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                     if os.path.isfile(corrected_dark_dir) is False:
                         #Correct the outliers in the master darks
                         corrected_master_dark_data = correct_outlier_darks(correct_outliers_params,
-                                                                           master_darks, dark_time, master_dir, mask)
+                                                                           master_darks[dark_time],dark_time,
+                                                                           master_dir, mask)
                     else:
                         corrected_master_dark_data = CCDData.read(corrected_dark_dir, unit='adu')
                         print('WARNING -- Corrected Master Dark Already Exists, Using Existing Corrected Master Dark')
-                    corrected_master_dark[dark_time] = corrected_master_dark_data
+                    corrected_master_darks[dark_time] = corrected_master_dark_data
                 ### Done Dark Image Masking and Correction ###
 
             # Iterate over the filter in the image
@@ -637,7 +657,7 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                                                                   dark_times,
                                                                                   example_light,
                                                                                   master_bias,
-                                                                                  corrected_master_dark,
+                                                                                  corrected_master_darks,
                                                                                   scalable_dark_bool,
                                                                                   correct_outliers_params,
                                                                                   frame_filter,
@@ -692,8 +712,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                     correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params[
                                 'Hot Pixel']):
 
-                                closest_dark = find_nearest_dark_exposure(reduced, corrected_master_dark.keys())
-                                reduced = ccdp.subtract_dark(reduced, corrected_master_dark[closest_dark],
+                                closest_dark = find_nearest_dark_exposure(reduced, corrected_master_darks.keys())
+                                reduced = ccdp.subtract_dark(reduced, corrected_master_darks[closest_dark],
                                                              exposure_time='exptime', exposure_unit=u.second,
                                                              scale=True)
                             else:
@@ -713,8 +733,8 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
                                     correct_outliers_params['Dark Frame Threshold Bool'] or correct_outliers_params[
                                 'Hot Pixel']):
                                 # if master_dark data should be outlier corrected
-                                closest_dark = find_nearest_dark_exposure(light, corrected_master_dark.keys())
-                                reduced = ccdp.subtract_dark(light, corrected_master_dark[closest_dark],
+                                closest_dark = find_nearest_dark_exposure(light, corrected_master_darks.keys())
+                                reduced = ccdp.subtract_dark(light, corrected_master_darks[closest_dark],
                                                              exposure_time='exptime', exposure_unit=u.second,
                                                              scale=False)
                             else:
@@ -794,7 +814,9 @@ def correct_lights(all_fits, master_dir, corrected_light_dir, correct_outliers_p
             continue
 
 
-def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
+def find_nearest_dark_exposure(image: astropy.nddata.CCDData,
+                               dark_exposure_times: list,
+                               tolerance: float =0.5) -> float :
     """
     Find the nearest exposure time of a dark frame to the exposure time of the image,
     raising an error if the difference in exposure time is more than tolerance.
@@ -808,14 +830,14 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
     dark_exposure_times : list
         Exposure times for which there are darks.
 
-    tolerance : float or ``None``, optional
+    tolerance : numpy.float64 or ``None``, optional
         Maximum difference, in seconds, between the image and the closest dark. Set
         to ``None`` to skip the tolerance test.
 
     Returns
     -------
 
-    float
+    float: numpy.float64
         Closest dark exposure time to the image.
     """
 
@@ -833,32 +855,33 @@ def find_nearest_dark_exposure(image, dark_exposure_times, tolerance=0.5):
 
 
 # %% Outlier Correction
-def flat_image_masking(flat_imgtypes_concatenateded,
-                       lights_to_correct,
-                       dark_times,
-                       example_light,
-                       master_bias,
-                       master_darks,
-                       scalable_dark_bool,
-                       correct_outliers_params,
-                       frame_filter,
-                       master_dir,
-                       corrected_light_dir,
-                       all_fits, binning):
+def flat_image_masking(flat_imgtypes_concatenateded: str,
+                       lights_to_correct: list,
+                       dark_times: list,
+                       example_light:  str,
+                       master_bias: astropy.nddata.CCDData,
+                       master_darks: ccdp.ImageFileCollection,
+                       scalable_dark_bool: bool,
+                       correct_outliers_params: dict,
+                       frame_filter: str,
+                       master_dir: str,
+                       corrected_light_dir: str,
+                       all_fits , binning: str):
     '''
     
     Produces a Mask on top of the flat frame image (or images) to identify hot pixels
     
     Parameters
     ----------
-    flat_imgtypes_concatenateded : String
-        A concatenated String 
-    lights_to_correct : List of strings
-        List of directory names that define the lights to be corrected
+    flat_imgtypes_concatenateded : str
+        A concatenated string describing the matching keywords for Flat fields images.
+        Note: Dark flats will occassionally be passed through this. This will result in faulty calibration.
+    lights_to_correct : list
+        List of directory names that define the lights to be corrected.
     dark_times : list
         A list of the dark times in the master darks files
-    example_light : astropy CCDData
-        A sample light image
+    example_light : str
+        a string defining a sample frame
     master_bias : CCDATA object
         CCDATA of the master bias frame that has previously been generated
     master_darks : CCDATA object(s)
@@ -875,7 +898,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         string defining the path for the directory contianing master frames
     corrected_light_dir : str
         string defining the path for the corrected light frames
-    all_fits : Astropy.CCDProc.ImageFileCollection object
+    all_fits : ccdproc.ImageFileCollection object
         This object contains all .fits files in the directory and sub-directories
         in 'topdir' given by the user in the initialization section.
         
@@ -885,10 +908,11 @@ def flat_image_masking(flat_imgtypes_concatenateded,
 
     Returns
     -------
-    maskr : Array
-        Array which idnetifies hot/bad pixels. bad pixel=1, good pixel=0
-    corrected_master_flat : TYPE
-        DESCRIPTION.
+    maskr : numpy.ma.masked_array
+        Array which identifies hot/bad pixels. bad pixel=1, good pixel=0
+
+    corrected_master_flat : astro.nddata.CCDData
+        A new Master flat that has had it's outlier corrected for
 
     '''
 
@@ -928,6 +952,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
             flatdata.header = hdul[0].header
             hdul.close()
 
+            #FIXME: Assumes all example_lights are the same exposure time
             closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
                                                       tolerance=100
                                                       )
@@ -986,7 +1011,7 @@ def flat_image_masking(flat_imgtypes_concatenateded,
         flatdata.header = hdul[0].header
         hdul.close()
 
-        closest_dark = find_nearest_dark_exposure(CCDData.read(example_light, unit='adu'), dark_times,
+        closest_dark = find_nearest_dark_exposure(flatdata, dark_times,
                                                   tolerance=100
                                                   )
 
@@ -1023,10 +1048,11 @@ def flat_image_masking(flat_imgtypes_concatenateded,
     return maskr, corrected_master_flat
 
 
-def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, frame_filter, master_dir,
-                          corrected_light_dir):
+def correct_outlier_flats(correct_outliers_params, maskr: numpy.ma , flats_to_compare, frame_filter, master_dir,
+                          corrected_light_dir: str):
     '''
-    
+    This function will correct each flat passed into it by using the method ccdp.ccdmask. Multiple flats can be used
+    for calibration if they have not been combined yet or existing master flats can be used.
 
     Parameters
     ----------
@@ -1045,9 +1071,8 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
 
     Returns
     -------
-    result : astropy CCData
-        DESCRIPTION.
-
+    result : astropy.nddata.CCData
+        The result of the correct_outlier_flats is a combined flat that has had their outlier pixels corrected for.
     '''
 
     if correct_outliers_params['Replace Bool']:
@@ -1226,13 +1251,35 @@ def correct_outlier_flats(correct_outliers_params, maskr, flats_to_compare, fram
         return result
 
 
-def correct_outlier_darks(correct_outliers_params, master_dark, closest_dark, master_dir, mask):
+def correct_outlier_darks(correct_outliers_params: dict, master_dark: astropy.nddata.CCDData,closest_dark: float,
+                          master_dir:str, mask: np.ma.masked_array):
+    '''
+    This functions corrects the master_dark supplied in the function using either 'Ave' or 'interpolate' methods.
+    'Ave' uses the average image data  to replace all the pixels that have been flagged as bad in the mask.
+    'Interpolate' uses the local average of the image data to replace all the pixels that have been flagged as bad in the mask
+
+
+    Parameters
+    ----------
+    correct_outliers_params dict: dict
+        A dictionary containing the parameters used for correcting outliers,
+
+    master_dark: astropy.nddata.CCDData
+        A CCDData object containing image data that is used to to idenitify the outlier pixels in the image
+    master_dir
+    mask: np.ma.masked_array
+        A numpy mask describing the bad pixels in the image
+
+    Returns
+    -------
+
+    '''
     if correct_outliers_params['Replace Bool']:
         if correct_outliers_params['Replace Mode'] == 'Ave':
             # Correct the outliers using the average values
             print('Calculate Average Background')
             coordinates = np.where(mask.data == True)
-            darkdata = (master_dark[closest_dark])
+            darkdata = (master_dark)
             Replaceable_mean = np.nanmean(darkdata)
             for i in range(0, np.shape(coordinates)[1]):
                 darkdata.data[coordinates[0][i]][coordinates[1][i]] = Replaceable_mean
@@ -1241,7 +1288,7 @@ def correct_outlier_darks(correct_outliers_params, master_dark, closest_dark, ma
         elif correct_outliers_params['Replace Mode'] == 'Interpolate':
             radius = int(correct_outliers_params['Radius of local Averaging'])
             coordinates = np.where(mask.data == True)
-            darkdata = (master_dark[closest_dark])
+            darkdata = (master_dark)
             darkdata2 = darkdata.copy()  # copy since we don't want new values messing up new values
             darkdata2.mask = mask.data
             average_dark_value = np.nanmean(darkdata2)
@@ -1270,20 +1317,24 @@ def correct_outlier_darks(correct_outliers_params, master_dark, closest_dark, ma
     return darkdata
 
 
-def find_hot_pixels(master_dark, mask):
-    # Calculate Dark Current to find hot pixels
+def find_hot_pixels(master_dark: astropy.nddata.CCDData , mask: np.ndarray):
+
     '''
+
+    Identifies hot pixels in the master_dark file passed into the function. Identified hot pixels are passed into a
+    mask array and corrected for later.
 
     Parameters
     ----------
-    master_dark: CCDData
+    master_dark: astropy.nddata.ccddata.CCDData
+        The CCDData corresponding to the closest matched master dark frame
 
-    mask: mask array
+    mask: numpy.array
         Represents the masked pixel already in the data
 
     Returns
     -------
-    mask: numpy array
+    mask: numpy.ma.core.MaskedArray
         Represents the updated masked pixel array
 
     '''
@@ -1319,7 +1370,9 @@ def find_hot_pixels(master_dark, mask):
     return mask
 
 
-def dark_frame_threshold(master_dark, correct_outliers_params, mask):
+def dark_frame_threshold(master_dark: astropy.nddata.CCDData,
+                         correct_outliers_params:dict,
+                         mask: np.ma.masked_array):
     '''
     Performs a threshold filter on the dark frames. Only necessary if the dark image data deviates from expected
     significantly
@@ -1331,14 +1384,13 @@ def dark_frame_threshold(master_dark, correct_outliers_params, mask):
     correct_outliers_params: dict
         dictionary list containing the correct for outlier parameters
         'Dark Frame Threshold Max': maximum value for the filter
-        'Dark Frame Threshold Min'
+        'Dark Frame Threshold Min': minimum value for the filter
 
-    mask: numpyarray
-
-
+    mask: numpy.ma.masked_array
+        An array describing the previously identified bad pixels.
     Returns
     -------
-    mask: numpy array
+    mask: numpy.ma.masked_array
         A union mask between the inputted mask and the mask created from the threshold filter
     '''
 
