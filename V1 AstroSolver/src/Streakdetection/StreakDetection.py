@@ -263,7 +263,7 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
         except:
             bkg = SExtractorBackground(fitsdata)
         threshold = bkg.background + (2.5 * bkg.background_rms)
-        print(threshold)
+        # print(threshold)
         kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
         convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
         segm = detect_sources(fitsdata, threshold, npixels=streakLength)
@@ -283,7 +283,7 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
         segm_deblend = deblend_sources(convolved_data, segm, npixels=10,
                                         nlevels=32, contrast=0.001)
         cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
-
+    FWHMlist = np.array(cat.fwhm[:])
     tbl = cat.to_table()
     # print(str(len(tbl)) + "Sources Detected")
 
@@ -313,6 +313,7 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
         segm_deblend = deblend_sources(convolved_data, segm, npixels=10,
                                         nlevels=32, contrast=0.001)
         cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
+        FWHMlist = np.array(cat.fwhm[:])
         tbl = cat.to_table()
 
     for i in range(len(tbl['segment_flux'])):
@@ -320,13 +321,13 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
                                                                         float(tbl['ycentroid'][i]),
                                                                         tbl['segment_flux'][i])
         STARS.write(streak_line + "\n")
-        if cat.eccentricity[i] < 0.5:
+        # if cat.eccentricity[i] < 0.5:
             # satelliteDetections.append(filename, float(tbl['xcentroid'][i]), float(tbl['ycentroid'][i]),
             #                           float(tbl['segment_flux'][i]))
-            print(
-                f"Potential satellite detected at {cat.xcentroid[i]:.3f}, "
-                f"{cat.ycentroid[i]:.3f} with a flux of "
-                f"{cat.segment_flux[i]} +/-{cat.segment_fluxerr[i]} ")
+            # print(
+            #     f"Potential satellite detected at {cat.xcentroid[i]:.3f}, "
+            #     f"{cat.ycentroid[i]:.3f} with a flux of "
+            #     f"{cat.segment_flux[i]} +/-{cat.segment_fluxerr[i]} ")
 
     tbl.sort('segment_flux', reverse=True)
     count = 0
@@ -338,11 +339,11 @@ def streak_detection_single(filepath, sigma=5.0, streakLength=5, TRM=True, useMa
         count += 1
 
     # print(f'{filename} index created.')
-    print(f" {len(tbl['xcentroid'])} streaks detected.")
+    # print(f" {len(tbl['xcentroid'])} streaks detected.")
     STARS.close()
     AstrometryNetFile.close()
 
-    return tbl, bkg
+    return tbl, bkg.background, FWHMlist
 
     if numFits == 0:
         print("No Valid Images Detected")
@@ -365,9 +366,9 @@ def filter_sats_stars(tbl, ecct_cut=0.5):
     possible_sats = tbl[eccentricity < ecct_cut]
     sat_x = np.array(possible_sats['xcentroid'])
     sat_y = np.array(possible_sats['ycentroid'])
-    print(tbl.columns)
-    print(sat_x)
+    # print(tbl.columns)
+    # print(sat_x)
     return sat_x, sat_y
 
-tbl = streak_detection_single(r'/media/jmwawrow/Seagate Backup Plus Drive/Intelsat 10-02/2021-04-21 - unprocessed/April21/TRM/G/0328_3x3_-10.00_5.00_G_00-00-24.fits')
-filter_sats_stars(tbl)
+# tbl, _, _ = streak_detection_single(r'/media/jmwawrow/Seagate Backup Plus Drive/Intelsat 10-02/2021-04-21 - unprocessed/April21/TRM/G/0328_3x3_-10.00_5.00_G_00-00-24.fits')
+# filter_sats_stars(tbl)
