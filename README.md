@@ -141,12 +141,3 @@ For space-based Imagery, such as NEOSSat, select the space-based option. NEOSSat
 ## G. Data Visualization
 
 
-
-
-### Recently added funcitons/Capabilities (Michael): Sorted most recent first
-#### Image Reduction
-- Allow Master Frame Creation without Image Reduction
-- Batch Solving Script: enables the automated solving of a dataset which 
-  share the same master files.
-- Automatic detection of dark scaling when no Bias Frames present
-- Correction for outliers. 
