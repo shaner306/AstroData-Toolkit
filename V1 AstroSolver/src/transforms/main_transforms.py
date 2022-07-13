@@ -14,11 +14,13 @@ from random import shuffle
 
 # from .AstroFunctions import *
 # import TRMtester.py as trm
+import astropy.stats
 import numpy as np
 from astropy.io import ascii
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
+from photutils.background import Background2D
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -980,14 +982,14 @@ def _main_gb_new_boyd_method(
         img_filters.append(hdr['FILTER'])
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+        bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
         # Detect point sources in the image.
-        try:
-            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
-        except:
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+        else:
             print("Could not find FWHM Tag")
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=3)
-        
-        
+
         
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
@@ -1027,8 +1029,7 @@ def _main_gb_new_boyd_method(
                 # Perform Aperture Photometry
 
                 photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,
-                                                                                 bkg=bkg,
-                                                                                 bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                                 bkg_2d,
                                                                                  hdr=hdr,filepath=filepath,
                                                                                  aperture_estimation_mode=aperture_estimation_mode,**kwargs)
                 
@@ -1099,10 +1100,14 @@ def _main_gb_new_boyd_method(
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
 
-        
-        try:
+        '''
+        Instead of using the mean arimass from the altazimuth positions we could use the predicted airmass from the 
+        FITS headers 
+        '''
+
+        if 'AIRMASS' in hdr:
             predicted_airmass=float(hdr['AIRMASS'])
-        except KeyError:
+        else:
             # AIRMASS header not found, attempt to estimate from WCS Data
             wcs = WCS(hdr)
             altazpositions = astro.convert_ra_dec_to_alt_az((
@@ -1116,8 +1121,6 @@ def _main_gb_new_boyd_method(
             #                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
             # =============================================================================
 
-
-
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
         #if hdr['CENTALT']<30:
@@ -1129,7 +1132,7 @@ def _main_gb_new_boyd_method(
             # continue
         #else:
             # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data 
-        airmass = predicted_airmass
+        #airmass = predicted_airmass
 
             
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
@@ -1224,6 +1227,7 @@ def _main_gb_new_boyd_method(
         
     ### Start Boyd Transformation ###
     # Create Boyde Table
+
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
@@ -1395,7 +1399,13 @@ def _main_gb_transform_calc_Buchheim(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimaiton_mode)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
+                                                                             fwhms,
+                                                                             imgdata,
+                                                                             bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                             hdr=hdr,
+                                                                             filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimaiton_mode)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
