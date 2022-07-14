@@ -226,7 +226,8 @@ def _main_gb_transform_calc(directory,
             continue
         
         field = astro.get_field_name(matched_stars, name_key=name_key)
-        filename = filepath.split('\\')[-1]
+        # LINUX ONLY FIX
+        filename = filepath.split('/')[-1]
         unique_id = filename
         try:
             num_img_stars, num_field_stars = plot_match_confirmation(wcs, 

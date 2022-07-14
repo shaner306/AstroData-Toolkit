@@ -14,25 +14,25 @@ sys.path.append(os.path.join(src_path, 'transforms'))
 from main_transforms import _main_gb_transform_calc
 
 # directory = r'C:\Users\jmwawrow\Documents\DRDC_Code\Intelsat 10-02\2021-04-21\Solved Stars'
-directory = r'F:\Intelsat 10-02\2021-04-21 - unprocessed\Stars\corrected_lights'
-ref_stars_file = r'C:\Users\jmwawrow\Documents\GitHub\Astro2\Reference Star Files\Reference_stars_2022_02_17_d.txt'
+directory = r'/media/jmwawrow/Data/DRDC Data/ORC GBO/Field 1/168/'
+ref_stars_file = r'/home/jmwawrow/Documents/GitHub/AstroData-Toolkit/Reference Star Files/Reference_stars_2022_02_17_d.txt'
 
 plot_results = True
 save_plots = True
 remove_large_airmass = False
 # file_suffix=".fit"
 # exposure_key='EXPTIME'
-# lat_key='OBSGEO-B'
-# lon_key='OBSGEO-L'
-# elev_key='OBSGEO-H'
-file_suffix = (".fits", ".fit", ".fts")
+lat_key='OBSGEO-B'
+lon_key='OBSGEO-L'
+elev_key='OBSGEO-H'
+file_suffix = (".fits", ".fts", ".new") #".fit"
 exposure_key = 'EXPTIME'
-lat_key = 'SITELAT'
-lon_key = 'SITELONG'
-elev_key = 'SITEELEV'
+#lat_key = 'SITELAT'
+#lon_key = 'SITELONG'
+#elev_key = 'SITEELEV'
 name_key = 'Name'
 
-save_loc = os.path.join(directory, 'Outputs_testing_May2022')
+save_loc = os.path.join(directory, 'Outputs_Boyd1')
 gb_final_transforms, auxiliary_data_table = _main_gb_transform_calc(
     directory,
     ref_stars_file,
