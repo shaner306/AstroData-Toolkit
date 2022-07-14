@@ -142,6 +142,7 @@ def _main_gb_transform_calc(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+        bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
         irafsources = astro.detecting_stars(
             imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
@@ -175,8 +176,7 @@ def _main_gb_transform_calc(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,
-                                                                             bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg_2d,
                                                                              hdr=hdr,filepath=filepath,
                                                                              aperture_estimation_mode=aperture_estimation_mode,**kwargs)
 
@@ -633,6 +633,7 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+        bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
         # Detect point sources in the image.
         irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
@@ -671,7 +672,13 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimation_error)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
+                                                                             fwhms,
+                                                                             imgdata,
+                                                                             bkg_2d,
+                                                                             hdr=hdr,
+                                                                             filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimation_error)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -1032,7 +1039,8 @@ def _main_gb_new_boyd_method(
                 photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,
                                                                                  bkg_2d,
                                                                                  hdr=hdr,filepath=filepath,
-                                                                                 aperture_estimation_mode=aperture_estimation_mode,**kwargs)
+                                                                                 aperture_estimation_mode=aperture_estimation_mode,
+                                                                                 **kwargs)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
@@ -1361,6 +1369,7 @@ def _main_gb_transform_calc_Buchheim(directory,
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+        bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
         # Detect point sources in the image.
         irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
@@ -1403,7 +1412,7 @@ def _main_gb_transform_calc_Buchheim(directory,
             photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
                                                                              fwhms,
                                                                              imgdata,
-                                                                             bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                             bkg_2d,
                                                                              hdr=hdr,
                                                                              filepath=filepath,
                                                                              aperture_estimation_mode=aperture_estimaiton_mode)
