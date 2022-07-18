@@ -6,6 +6,7 @@ import matplotlib.cm as cm
 import matplotlib.dates as mdates
 import numpy as np
 from astropy.io import ascii
+import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
