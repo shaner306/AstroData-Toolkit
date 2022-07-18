@@ -8,6 +8,7 @@ import numpy as np
 from astropy.io import ascii
 from astropy.time import Time
 from astropy.wcs import WCS
+from astropy.wcs.utils import proj_plane_pixel_scales
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from tqdm import tqdm
@@ -76,8 +77,13 @@ def _sky_survey_calc(directory,
             img_filter = hdr['FILTER']
             # background_sky_brightness = astro.calculate_background_sky_brightness(
             #     bkg, hdr, exptime, gb_final_transforms)
-            arcsec_per_pix = 5.61927
-            background_sky_brightness = astro.calculate_bsb_TEMP(bkg, hdr, exptime, arcsec_per_pix, gb_final_transforms)
+            wcs = WCS(hdr)
+            pixel_scale_deg = proj_plane_pixel_scales(wcs) * u.deg
+            pixel_scale_arcsec = pixel_scale_deg.to(u.arcsec)
+            x_arcsec_per_pix = pixel_scale_arcsec[0]
+            y_arcsec_per_pix = pixel_scale_arcsec[1]
+            square_arcsec_per_pix = x_arcsec_per_pix * y_arcsec_per_pix
+            background_sky_brightness = astro.calculate_bsb_TEMP(bkg, hdr, exptime, square_arcsec_per_pix, gb_final_transforms)
             background_sky_brightness_sigma = astro.calculate_BSB_sigma(
                 bkg, bkg_std, exptime)
             try:

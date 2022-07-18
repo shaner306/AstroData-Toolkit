@@ -729,10 +729,10 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
     return bsb
 
 
-def calculate_bsb_TEMP(bkg, hdr, exptime, arcsec_per_pix, gb_final_transforms=None, filter_key='Filter'):
+def calculate_bsb_TEMP(bkg, hdr, exptime, square_arcsec_per_pix, gb_final_transforms=None, filter_key='Filter'):
     bkg_flux = normalize_flux_by_time(bkg, exptime)
     # bkg_std_flux = normalize_flux_by_time(bkg_std, exptime)
-    square_arcsec_per_pix = arcsec_per_pix ** 2
+    # square_arcsec_per_pix = arcsec_per_pix ** 2
     bkg_flux_per_area = bkg_flux / square_arcsec_per_pix
     # bkg_flux_std_per_area = bkg_std_flux / square_arcsec_per_pix
     bsb_units = u.Magnitude(bkg_flux_per_area)
