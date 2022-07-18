@@ -74,8 +74,10 @@ def _sky_survey_calc(directory,
             time = t.jd
             # time = hdr['DATE-OBS']
             img_filter = hdr['FILTER']
-            background_sky_brightness = astro.calculate_background_sky_brightness(
-                bkg, hdr, exptime, gb_final_transforms)
+            # background_sky_brightness = astro.calculate_background_sky_brightness(
+            #     bkg, hdr, exptime, gb_final_transforms)
+            arcsec_per_pix = 5.61927
+            background_sky_brightness = astro.calculate_bsb_TEMP(bkg, hdr, exptime, arcsec_per_pix, gb_final_transforms)
             background_sky_brightness_sigma = astro.calculate_BSB_sigma(
                 bkg, bkg_std, exptime)
             try:

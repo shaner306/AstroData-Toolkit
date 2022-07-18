@@ -729,6 +729,31 @@ def calculate_background_sky_brightness(bkg, hdr, exptime,
     return bsb
 
 
+def calculate_bsb_TEMP(bkg, hdr, exptime, arcsec_per_pix, gb_final_transforms=None, filter_key='Filter'):
+    bkg_flux = normalize_flux_by_time(bkg, exptime)
+    # bkg_std_flux = normalize_flux_by_time(bkg_std, exptime)
+    square_arcsec_per_pix = arcsec_per_pix ** 2
+    bkg_flux_per_area = bkg_flux / square_arcsec_per_pix
+    # bkg_flux_std_per_area = bkg_std_flux / square_arcsec_per_pix
+    bsb_units = u.Magnitude(bkg_flux_per_area)
+    instr_bsb = bsb_units.value
+    if not gb_final_transforms:
+        if 'ZMAG' in hdr.keys():
+            bsb = instr_bsb + hdr['ZMAG']
+        else:
+            bsb = instr_bsb
+    else:
+        instr_filter = get_instr_filter_name(hdr, filter_key)
+        if instr_filter == 'v' or instr_filter == 'g':
+            mask = (gb_final_transforms['filter'] == instr_filter) & (
+                gb_final_transforms['CI'] == 'B-V')
+        else:
+            mask = gb_final_transforms['filter'] == instr_filter
+        zpoint = float(gb_final_transforms['Z_f'][mask])
+        bsb = instr_bsb + zpoint
+    return bsb
+
+
 def calculate_BSB_sigma(bkg, bkg_std, exptime):
     fluxes = normalize_flux_by_time(bkg, exptime)
     flux_uncs = normalize_flux_by_time(bkg_std, exptime)
