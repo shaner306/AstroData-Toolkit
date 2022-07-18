@@ -794,9 +794,18 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
                         reduced_hdul = reduced.to_hdu()
                         # Set all values below 0 equal to zero
                         reduced_hdul[0].data = np.where(reduced_hdul[0].data < 0, 0, reduced_hdul[0].data)
+
+                        #TODO: Add options for getting rid of excess data
+                        if np.max(reduced_hdul[0].data)>32767 and np.max(reduced_hdul[0].data)<2147483647:
+                            reduced_hdul[0].scale('int32')
+                        elif np.max(reduced_hdul[0].data)<32767:
+                            reduced_hdul[0].scale('int16')
+
                         # If mask layer is empty, delete it to free up space
                         if np.sum(reduced_hdul[1].data) == 0:
                             del reduced_hdul[1]
+                        # To Save Storage delete uncertainty
+                        del reduced_hdul[1]
                         file_name = file_name.split("\\")[-1]
                         try:
                             reduced_hdul.writeto(str(corrected_light_dir) + '\\' + file_name,overwrite=True)
