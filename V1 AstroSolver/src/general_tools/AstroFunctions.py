@@ -553,6 +553,46 @@ def convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std,
     return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
 
 
+def convert_fwhm_to_arcsec_TEMP(arcsec_per_pix, fwhms, fwhm, fwhm_std):
+    """
+    Convert the FWHM from pixels to arcsec.
+
+    Parameters
+    ----------
+    hdr : astropy.io.fits.header.Header
+        Header from the fits file.
+    fwhms : numpy array
+        Array containing the FWHM of all sources in the image (in pixels).
+    fwhm : float
+        Mean FWHM of all sources in the image.
+    fwhm_std : float
+        Standard deviation of the FWHM of all sources in the image.
+    focal_length_key : string, optional
+        Key in the FITS header that contains the focal length. The default is 
+        'FOCALLEN'.
+    xpixsz_key : string, optional
+        Key in the FITS header that contains the x pixel size. The default is
+        'XPIXSZ'.
+    ypixsz_key : string, optional
+        Key in the FITS header that contains the y pixel size. The default is 
+        'YPIXSZ'.
+
+    Returns
+    -------
+    fwhms_arcsec : numpy array
+        Array containing the FWHM of all sources in the image in arcsec.
+    fwhm_arcsec : float
+        Mean FWHM of all sources in the image in arcsec.
+    fwhm_std_arcsec : float
+        Standard deviation of the FWHM of all sources in the image in arcsec.
+
+    """
+    fwhm_arcsec = fwhm * arcsec_per_pix.value
+    fwhm_std_arcsec = fwhm_std * arcsec_per_pix.value
+    fwhms_arcsec = fwhms * arcsec_per_pix.value
+    return fwhms_arcsec, fwhm_arcsec, fwhm_std_arcsec
+
+
 def convert_fwhm_to_arcsec_trm(hdr, fwhm,
                                focal_length_key='FOCALLEN',
                                xpixsz_key='XPIXSZ', ypixsz_key='YPIXSZ'):

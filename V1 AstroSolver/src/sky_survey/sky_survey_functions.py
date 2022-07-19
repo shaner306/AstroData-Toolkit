@@ -87,12 +87,12 @@ def _sky_survey_calc(directory,
             background_sky_brightness = astro.calculate_bsb_TEMP(bkg, hdr, exptime, square_arcsec_per_pix, gb_final_transforms)
             background_sky_brightness_sigma = astro.calculate_BSB_sigma(
                 bkg, bkg_std, exptime)
-            try:
-                azimuth = hdr['CENTAZ']
-                elevation = hdr['CENTALT']
-                airmass = hdr['AIRMASS']
-            except KeyError:
-                continue
+            # try:
+            azimuth = hdr['CENTAZ']
+            elevation = hdr['CENTALT']
+            airmass = hdr['AIRMASS']
+            # except KeyError:
+            #     continue
             star_aux_table_columns = astro.update_star_aux_columns(star_aux_table_columns,
                                                              file_names[file_num],
                                                              time,
@@ -114,39 +114,48 @@ def _sky_survey_calc(directory,
         # fluxes = np.array(photometry_result['flux_fit'])
         # instr_mags = calculate_magnitudes(photometry_result, exptime)
         # instr_mags_sigma, snr = calculate_magnitudes_sigma(photometry_result, exptime)
+        # try:
+        wcs = WCS(hdr)
+        skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
         try:
-            wcs = WCS(hdr)
-            skypositions = astro.convert_pixel_to_ra_dec(irafsources, wcs)
-            try:
-                altazpositions = astro.convert_ra_dec_to_alt_az(skypositions,
-                                                          hdr,
-                                                          lat_key=lat_key,
-                                                          lon_key=lon_key,
-                                                          elev_key=elev_key)
-                azimuth = np.mean(altazpositions.az)
-                elevation = np.mean(altazpositions.alt)
-                airmass = np.mean(altazpositions.secz)
-            except AttributeError as e:
-                azimuth = hdr['CENTAZ']
-                elevation = hdr['CENTALT']
-                airmass = hdr['AIRMASS']
-                # continue
-        except Exception:
-            # TODO: change to an if/else statement.
-            try:
-                azimuth = hdr['CENTAZ']
-                elevation = hdr['CENTALT']
-                airmass = hdr['AIRMASS']
-            except KeyError:
-                continue
-        fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = astro.convert_fwhm_to_arcsec(
-            hdr, fwhms, fwhm, fwhm_std)
+            altazpositions = astro.convert_ra_dec_to_alt_az(skypositions,
+                                                        hdr,
+                                                        lat_key=lat_key,
+                                                        lon_key=lon_key,
+                                                        elev_key=elev_key)
+            azimuth = np.mean(altazpositions.az)
+            elevation = np.mean(altazpositions.alt)
+            airmass = np.mean(altazpositions.secz)
+        except AttributeError as e:
+            print(filepath)
+            azimuth = hdr['CENTAZ']
+            elevation = hdr['CENTALT']
+            airmass = hdr['AIRMASS']
+            # continue
+        # except Exception:
+        #     # TODO: change to an if/else statement.
+        #     try:
+        #         azimuth = hdr['CENTAZ']
+        #         elevation = hdr['CENTALT']
+        #         airmass = hdr['AIRMASS']
+        #     except KeyError:
+        #         continue
+        wcs = WCS(hdr)
+        pixel_scale_deg = proj_plane_pixel_scales(wcs) * u.deg
+        pixel_scale_arcsec = pixel_scale_deg.to(u.arcsec)
+        x_arcsec_per_pix = pixel_scale_arcsec[0]
+        y_arcsec_per_pix = pixel_scale_arcsec[1]
+        arcsec_per_pix = x_arcsec_per_pix
+        square_arcsec_per_pix = x_arcsec_per_pix * y_arcsec_per_pix
+        fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = astro.convert_fwhm_to_arcsec_TEMP(
+            arcsec_per_pix, fwhms, fwhm, fwhm_std)
         t = Time(hdr['DATE-OBS'], format='fits', scale='utc')
         time = t.jd
         # time = hdr['DATE-OBS']
         img_filter = hdr['FILTER']
-        background_sky_brightness = astro.calculate_background_sky_brightness(
-            bkg, hdr, exptime, gb_final_transforms)
+        # background_sky_brightness = astro.calculate_background_sky_brightness(
+        #     bkg, hdr, exptime, gb_final_transforms)
+        background_sky_brightness = astro.calculate_bsb_TEMP(bkg, hdr, exptime, square_arcsec_per_pix, gb_final_transforms)
         background_sky_brightness_sigma = astro.calculate_BSB_sigma(
             bkg, bkg_std, exptime)
         # azimuth = hdr['CENTAZ']
