@@ -625,7 +625,7 @@ def calculate_boyde_slope_2(Boyde_Table,save_loc,match_stars_lim, save_plots=Tru
     return Boyde_Table_grouped
 
 
-def create_coefficeint_output(Boyde_table_grouped,file):
+def create_coefficeint_output(Boyde_table_grouped,save_loc):
     '''
     Calculates the coefficients for the particular data
     Useful for comparing different dataset
@@ -724,7 +724,7 @@ def create_coefficeint_output(Boyde_table_grouped,file):
     #coefficient_data=coefficient_df.from_pandas()
     coefficient_data.sort(['Coefficient'])
     ascii.write(coefficient_data, os.path.join(
-        str(os.path.dirname(file)), 'Coefficient_data.csv'), format='csv', overwrite=True)
+        str(save_loc, 'Coefficient_data.csv'), format='csv', overwrite=True))
 
     return coefficient_data
 

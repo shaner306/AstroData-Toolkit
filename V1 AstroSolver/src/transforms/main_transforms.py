@@ -14,11 +14,13 @@ from random import shuffle
 
 # from .AstroFunctions import *
 # import TRMtester.py as trm
+import astropy.stats
 import numpy as np
 from astropy.io import ascii
 from astropy.table import Table
 from astropy.time import Time
 from astropy.wcs import WCS
+from photutils.background import Background2D
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
@@ -140,8 +142,14 @@ def _main_gb_transform_calc(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        irafsources = astro.detecting_stars(
-            imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources= astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+            sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
+            irafsources = astro.detecting_stars(
+                imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -173,8 +181,7 @@ def _main_gb_transform_calc(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,
-                                                                             bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg_2d,
                                                                              hdr=hdr,filepath=filepath,
                                                                              aperture_estimation_mode=aperture_estimation_mode,**kwargs)
 
@@ -224,7 +231,8 @@ def _main_gb_transform_calc(directory,
             continue
         
         field = astro.get_field_name(matched_stars, name_key=name_key)
-        filename = filepath.split('\\')[-1]
+        # LINUX ONLY FIX
+        filename = filepath.split('/')[-1]
         unique_id = filename
         try:
             num_img_stars, num_field_stars = plot_match_confirmation(wcs, 
@@ -427,7 +435,15 @@ def _main_gb_transform_calc_TEST(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+            sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -630,8 +646,14 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
+            # Detect point sources in the image.
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
@@ -668,7 +690,13 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimation_error)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
+                                                                             fwhms,
+                                                                             imgdata,
+                                                                             bkg_2d,
+                                                                             hdr=hdr,
+                                                                             filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimation_error)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -980,14 +1008,17 @@ def _main_gb_new_boyd_method(
         img_filters.append(hdr['FILTER'])
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
+
         # Detect point sources in the image.
-        try:
-            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std,fwhm=hdr['FWHM'])
-        except:
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+        else:
             print("Could not find FWHM Tag")
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=3)
-        
-        
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
+
         
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
@@ -1027,10 +1058,10 @@ def _main_gb_new_boyd_method(
                 # Perform Aperture Photometry
 
                 photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,
-                                                                                 bkg=bkg,
-                                                                                 bkg_std=np.ones(np.shape(imgdata))*bkg_std,
+                                                                                 bkg_2d,
                                                                                  hdr=hdr,filepath=filepath,
-                                                                                 aperture_estimation_mode=aperture_estimation_mode,**kwargs)
+                                                                                 aperture_estimation_mode=aperture_estimation_mode,
+                                                                                 **kwargs)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
@@ -1099,10 +1130,14 @@ def _main_gb_new_boyd_method(
         elevation = np.mean(altazpositions.alt)
         airmass = np.mean(altazpositions.secz)
 
-        
-        try:
+        '''
+        Instead of using the mean arimass from the altazimuth positions we could use the predicted airmass from the 
+        FITS headers 
+        '''
+
+        if 'AIRMASS' in hdr:
             predicted_airmass=float(hdr['AIRMASS'])
-        except KeyError:
+        else:
             # AIRMASS header not found, attempt to estimate from WCS Data
             wcs = WCS(hdr)
             altazpositions = astro.convert_ra_dec_to_alt_az((
@@ -1116,8 +1151,6 @@ def _main_gb_new_boyd_method(
             #                 90-(CCDData.read(filepath, unit='adu').header['CENTALT'])))
             # =============================================================================
 
-
-
         #airmass_std=np.sqrt(((altazpositions.secz-predicted_airmass)**2)/(np.count_nonzero(altazpositions.secz)-1))
         
         #if hdr['CENTALT']<30:
@@ -1129,7 +1162,7 @@ def _main_gb_new_boyd_method(
             # continue
         #else:
             # TODO: Write Code that converts the Pinpoint Solved WCS RA DEC data to AltAz instead of using the predicted data 
-        airmass = predicted_airmass
+        #airmass = predicted_airmass
 
             
         # Update the table with auxiliary data on the images (FWHM, BSB, etc.)
@@ -1224,6 +1257,7 @@ def _main_gb_new_boyd_method(
         
     ### Start Boyd Transformation ###
     # Create Boyde Table
+
     Boyde_Table = Table(names=['Image Name', 'C', 'Z-prime', 'Index (i.e. B-V)', 'Airmass','Air Mass Std',
                                'Colour Filter', 'Step1_Standard_Deviation', 'Number of Valid Matched Stars'],
                         dtype=('str', 'float64', 'float64', 'str', 'float64', 'float64','str', 'float64', 'int'))
@@ -1254,25 +1288,12 @@ def _main_gb_new_boyd_method(
             print("Could not Calculate Boyde Slopes... ")
             continue
 
-
-
-    # try:
-    #     ascii.write(Boyde_Table, os.path.join(
-    #         save_loc, 'Boyde_Table1.csv'), format='csv')
-    # except:
-    #     print('Could Not Save Boyde Table')
-    
-    
-    
-    
-
-
     # Calculating Second Step of Boyd Method
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
             Boyde_Table, save_loc,matched_stars_min,save_plots)
 
-        date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
+        date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped,save_loc)
 
         ascii.write(Boyde_Table_grouped, os.path.join(
             save_loc, 'Boyde_Table2.csv'), format='csv',overwrite=True)
@@ -1356,8 +1377,14 @@ def _main_gb_transform_calc_Buchheim(directory,
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+        else:
+            bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
+            # Detect point sources in the image.
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
@@ -1395,7 +1422,13 @@ def _main_gb_transform_calc_Buchheim(directory,
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg=bkg,bkg_std=np.ones(np.shape(imgdata))*bkg_std,hdr=hdr,filepath=filepath,aperture_estimation_mode=aperture_estimaiton_mode)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
+                                                                             fwhms,
+                                                                             imgdata,
+                                                                             bkg_2d,
+                                                                             hdr=hdr,
+                                                                             filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimaiton_mode)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
