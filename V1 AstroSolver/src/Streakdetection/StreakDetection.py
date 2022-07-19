@@ -117,7 +117,6 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                     except:
                         bkg = SExtractorBackground(fitsdata)
                     threshold = bkg.background + (2.5 * bkg.background_rms)
-                    print(threshold)
                     kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
                     convolved_data = convolve(fitsdata, kernel, normalize_kernel=True)
                     segm = detect_sources(fitsdata, threshold, npixels=streakLength)
@@ -168,6 +167,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                                                    nlevels=32, contrast=0.001)
                     cat = SourceCatalog(fitsdata, segm_deblend, convolved_data=convolved_data)
                     tbl = cat.to_table()
+                    print(cat.moments)
 
                 for i in range(len(tbl['segment_flux'])):
                     streak_line = '{:.4f} {:.4f} 10 10 100 {:5.0f} 0 0.00'.format(float(tbl['xcentroid'][i]),
@@ -205,7 +205,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
         # return "No valid satellite detections - Check images or adjust parameters. "
         # else:
         # return satelliteDetections
-        return 0
+        return cat
     else:
         # return satelliteDetections
         return 0
@@ -372,3 +372,4 @@ def filter_sats_stars(tbl, ecct_cut=0.5):
 
 # tbl, _, _ = streak_detection_single(r'/media/jmwawrow/Seagate Backup Plus Drive/Intelsat 10-02/2021-04-21 - unprocessed/April21/TRM/G/0328_3x3_-10.00_5.00_G_00-00-24.fits')
 # filter_sats_stars(tbl)
+
