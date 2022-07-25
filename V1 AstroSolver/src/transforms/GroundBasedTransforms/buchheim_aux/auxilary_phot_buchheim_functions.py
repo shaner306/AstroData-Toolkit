@@ -24,6 +24,7 @@ import numpy
 import numpy as np
 import pandas as pd
 import scipy
+import win32com
 from astropy import table
 from astropy.coordinates import EarthLocation, AltAz, SkyCoord,\
     match_coordinates_sky

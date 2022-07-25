@@ -1,12 +1,21 @@
-def merge_sorted_array(nums1,nums2):
-    i = 0
-    j = 0
-    while i < len(nums1) and j < len(nums2):
-        if nums1[i] < nums2[j]:
-            i += 1
-        else:
-            nums1.insert(i,nums2[j])
-            j += 1
-    if j < len(nums2):
-        nums1[i:] = nums2[j:]
-    return nums1
+def delete_linked_list(head, node):
+    """
+    Delete a node from a singly linked list.
+    """
+
+    if head is None:
+        return None
+
+    if head == node:
+        return head.next
+
+    prev = head
+    curr = head.next
+    while curr is not None:
+        if curr == node:
+            prev.next = curr.next
+            return head
+        prev = curr
+        curr = curr.next
+
+    return head

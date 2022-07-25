@@ -29,15 +29,8 @@ from photutils.background import Background2D
 from photutils.background import SExtractorBackground
 from skimage import measure
 
-import sys
-from os.path import dirname
-src_path = dirname(dirname(dirname(__file__)))
-sys.path.append(os.path.join(src_path, 'general_tools'))
-sys.path.append(os.path.join(src_path, 'photometry'))
-sys.path.append(os.path.join(src_path, 'Streakdetection'))
 import AstroFunctions as astro
 import perform_photometry
-import StreakDetection as sd
 # from AstroFunctions import copy_and_rename, read_fits_file, add_new_time_and_filter, change_sat_positions, \
 #     calculate_background_sky_brightness, convert_fwhm_to_arcsec_trm, get_image_airmass, calculate_magnitudes, \
 #     calculate_magnitudes_sigma, check_if_sat, determine_if_change_sat_positions, remove_temp_dir, determine_num_filters, \
@@ -885,15 +878,10 @@ def _main_sc_lightcurve(directory,
         exptime = hdr['EXPTIME'] * u.s
         # bkg, bkg_std = calculate_img_bkg(imgdata)
 
-        # try:
-        # sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
-        #     filepath, ecct_cut=ecct_cut)
-        tbl, bkg_trm, fwhms = sd.streak_detection_single(filepath, sigma=3.0)
-        fwhm = np.mean(fwhms)
-        fwhm_std = np.mean(fwhms)
-        sat_x, sat_y = sd.filter_sats_stars(tbl, ecct_cut=ecct_cut)
-        # except TypeError:
-        if len(sat_x) == 0 or len(sat_y) == 0:
+        try:
+            sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
+                filepath, ecct_cut=ecct_cut)
+        except TypeError:
             print("No satellites detected.")
             continue
         if fwhm < 0:
@@ -919,8 +907,7 @@ def _main_sc_lightcurve(directory,
                                                   focal_length_key='FOCALLEN',
                                                   xpixsz_key='XPIXSZ',
                                                   ypixsz_key='YPIXSZ')
-        # TODO: Incorporate the standard deviation.
-        _, fwhm_arcsec, _ = astro.convert_fwhm_to_arcsec(hdr, fwhms, fwhm, fwhm_std)
+        fwhm_arcsec = astro.convert_fwhm_to_arcsec_trm(hdr, fwhm)
         airmass = astro.get_image_airmass(hdr)
         photometry_result = perform_photometry.perform_PSF_photometry_sat(
             sat_x, sat_y, fwhm, imgdata, bkg_trm)
