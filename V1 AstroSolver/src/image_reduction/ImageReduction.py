@@ -557,7 +557,7 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
         try:
             master_darks = {ccd.header['exptime']: ccd for ccd in master_files.ccds(
                 imagetyp=dark_imgtypes_concatenateded, ybinning=binning, combined=True)}
-            master_flats = {ccd.header['filter']: ccd for ccd in master_files.ccds(
+            master_flats = {ccd.header['filter'].lower(): ccd for ccd in master_files.ccds(
                 imagetyp=flat_imgtypes_concatenateded, ybinning=binning, combined=True)}
 
             # There is only one bias frame, so no need to set up a dictionary.
@@ -756,10 +756,10 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
                                 reduced = ccdp.flat_correct(reduced, corrected_master_flat)
                             except:
                                 print('Corrected Master Flat Not Found, reverting to non-outlier_corrected flat')
-                                good_flat = master_flats[reduced.header['filter']]
+                                good_flat = master_flats[reduced.header['filter'].lower()]
                                 reduced = ccdp.flat_correct(reduced, good_flat)
                         else:
-                            good_flat = master_flats[reduced.header['filter']]
+                            good_flat = master_flats[reduced.header['filter'].lower()]
                             reduced = ccdp.flat_correct(reduced, good_flat)
 
                         #### Cosmic Rays Outliers Correction ####
