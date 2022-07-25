@@ -142,9 +142,14 @@ def _main_gb_transform_calc(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
-        irafsources = astro.detecting_stars(
-            imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources= astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+            sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
+            irafsources = astro.detecting_stars(
+                imgdata, bkg=bkg, bkg_std=bkg_std)
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -430,7 +435,15 @@ def _main_gb_transform_calc_TEST(directory,
         hdr, imgdata = astro.read_fits_file(filepath)
         exptime = hdr[exposure_key]
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+            sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
                 f.write(f'{filepath}')
@@ -633,9 +646,14 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
-        # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+        else:
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
+            # Detect point sources in the image.
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
@@ -990,13 +1008,16 @@ def _main_gb_new_boyd_method(
         img_filters.append(hdr['FILTER'])
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
+
         # Detect point sources in the image.
         if 'FWHM' in hdr:
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
         else:
             print("Could not find FWHM Tag")
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=3)
+            bkg_2d = Background2D(data=imgdata, box_size=3, sigma_clip=astropy.stats.SigmaClip(sigma=3, maxiters=5))
 
         
         # If no stars are in the image, log it and go to the next one.
@@ -1267,25 +1288,12 @@ def _main_gb_new_boyd_method(
             print("Could not Calculate Boyde Slopes... ")
             continue
 
-
-
-    # try:
-    #     ascii.write(Boyde_Table, os.path.join(
-    #         save_loc, 'Boyde_Table1.csv'), format='csv')
-    # except:
-    #     print('Could Not Save Boyde Table')
-    
-    
-    
-    
-
-
     # Calculating Second Step of Boyd Method
     try:
         Boyde_Table_grouped = boyde_aux.calculate_boyde_slope_2(
             Boyde_Table, save_loc,matched_stars_min,save_plots)
 
-        date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped)
+        date_data=boyde_aux.create_coefficeint_output(Boyde_Table_grouped,save_loc)
 
         ascii.write(Boyde_Table_grouped, os.path.join(
             save_loc, 'Boyde_Table2.csv'), format='csv',overwrite=True)
@@ -1369,9 +1377,14 @@ def _main_gb_transform_calc_Buchheim(directory,
         exptime = hdr[exposure_key]
         # Calculate the image background and standard deviation.
         bkg, bkg_std = astro.calculate_img_bkg(imgdata)
-        bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
-        # Detect point sources in the image.
-        irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
+        if 'FWHM' in hdr:
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
+        else:
+            bkg_2d=Background2D(data=imgdata,box_size=3,sigma_clip=astropy.stats.SigmaClip(sigma=3,maxiters=5))
+            # Detect point sources in the image.
+            irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std)
         # If no stars are in the image, log it and go to the next one.
         if not irafsources:
             with open(os.path.join(save_loc, 'ExcludedFiles.txt'), 'a') as f:
