@@ -21,7 +21,7 @@ filepath = r'D:\DRDC Data\ORC GBO\Field 1\139\Test\2021_139_DESCENT_46927_B_BESS
 
 def calculate_zmag(filepath):
     hdr, data = astro.read_fits_file(filepath, extension=1)
-    print(repr(hdr))
+    # print(repr(hdr))
     g_mag, bp_mag, rp_mag = read_gaia_mags(data)
     B, V, R, I = convert_gaia_to_bvri(g_mag, bp_mag, rp_mag)
     print(V)
