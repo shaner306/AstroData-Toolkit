@@ -57,7 +57,7 @@ The Master Frames are then used to calibrate the images
 │          │  └──────┘  └──────┘  └──────┘  │         │
 └──────────┘                                └─────────┘
              
-              * M. Bias Frame Sub only with Scaling
+              * M. Bias Frame Sub only with Dark Scaling
               
 
 See AstroPy ccdproc
