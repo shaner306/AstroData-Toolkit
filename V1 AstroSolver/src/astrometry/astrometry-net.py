@@ -38,8 +38,8 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
             xpixsz = hdr['XPIXSZ']
             ypixsz = hdr['YPIXSZ']
         except KeyError:
-            terminal_call = f'solve-field -p -N none --overwrite -w {image_width} -e {image_height} -X "x" -Y "y" \
-                 -d 100 -y -g -W tmp.wcs "{file_path}.xyls"'
+            terminal_call = f'solve-field -p -N none --overwrite --tag-all -w {image_width} -e {image_height} -X "x" -Y "y" \
+                 --objs 100 -d 100 --temp-axy -y -g -W tmp.wcs "{file_path}.xyls"'
             os.system(terminal_call)
             combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
             os.system(combine_wcs_call)
@@ -58,8 +58,8 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
         ra = img_radec.ra.deg
         dec = img_radec.dec.deg
         #--ra {ra} --dec {dec} --radius 360 
-        terminal_call = f'solve-field -p -N none --overwrite -w {image_width} -e {image_height} -X "x" -Y "y" \
-                -u arcsecperpix -L {low} -H {high} -d 100 -y -W tmp.wcs "{file_path}.xyls"'
+        terminal_call = f'solve-field -p -N none --overwrite --tag-all -w {image_width} -e {image_height} -X "x" -Y "y" \
+                -u arcsecperpix -L {low} -H {high} --temp-axy --objs 100 -d 100 -y -W tmp.wcs "{file_path}.xyls"'
         os.system(terminal_call)
         combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
         os.system(combine_wcs_call)
@@ -67,7 +67,7 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
             os.remove(f"{file_path}.new")
             print("Could not plate solve.")
 
-solve_plate_astrometry_net(r'/media/jmwawrow/Data/DRDC Data/ORC GBO/Field 1/139/Test/', file_suffix=".fit", TRM=False)
+solve_plate_astrometry_net(r'/media/jmwawrow/Data/DRDC Data/2022 07 22/', file_suffix=".fits", TRM=False)
 
 def solve_plate_astrometry_net_web(directory, api_key, file_suffix=".fits"):
     ast = AstrometryNet()
