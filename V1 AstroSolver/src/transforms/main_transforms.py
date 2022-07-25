@@ -11,6 +11,7 @@ import math
 import os
 from math import sqrt
 from random import shuffle
+from sys import platform
 
 # from .AstroFunctions import *
 # import TRMtester.py as trm
@@ -236,8 +237,13 @@ def _main_gb_transform_calc(directory,
             continue
         
         field = astro.get_field_name(matched_stars, name_key=name_key)
+
         # LINUX ONLY FIX
-        filename = filepath.split('/')[-1]
+        if platform =='linux' or platform =='linux2' or platform == 'darwin':
+            filename = filepath.split('/')[-1]
+        elif platform == 'win32':
+            filename = filepath.split('\\')[-1]
+
         unique_id = filename
         try:
             num_img_stars, num_field_stars = plot_match_confirmation(wcs, 
