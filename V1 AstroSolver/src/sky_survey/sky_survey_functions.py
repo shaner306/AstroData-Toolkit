@@ -12,6 +12,7 @@ from astropy.wcs import WCS
 from astropy.wcs.utils import proj_plane_pixel_scales
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
+from math import atan
 from tqdm import tqdm
 
 import sys
@@ -123,8 +124,8 @@ def _sky_survey_calc(directory,
                                                         lat_key=lat_key,
                                                         lon_key=lon_key,
                                                         elev_key=elev_key)
-            azimuth = np.mean(altazpositions.az)
-            elevation = np.mean(altazpositions.alt)
+            azimuth = np.mean(altazpositions.az).degree
+            elevation = np.mean(altazpositions.alt).degree
             airmass = np.mean(altazpositions.secz)
         except AttributeError as e:
             print(filepath)
@@ -145,6 +146,18 @@ def _sky_survey_calc(directory,
         pixel_scale_arcsec = pixel_scale_deg.to(u.arcsec)
         x_arcsec_per_pix = pixel_scale_arcsec[0]
         y_arcsec_per_pix = pixel_scale_arcsec[1]
+        if x_arcsec_per_pix.value == 3600 and y_arcsec_per_pix.value == 3600:
+            try:
+                focal_length = hdr['FOCALLEN'] * u.mm
+                xpixsz = hdr['XPIXSZ'] * u.um
+                ypixsz = hdr['YPIXSZ'] * u.um
+                x_rad_per_pix = atan(xpixsz / focal_length) * u.rad
+                x_arcsec_per_pix = x_rad_per_pix.to(u.arcsec)
+                y_rad_per_pix = atan(ypixsz / focal_length) * u.rad
+                y_arcsec_per_pix = y_rad_per_pix.to(u.arcsec)
+            except KeyError:
+                print("Could not determine arcsec^2 / pix.")
+                continue
         arcsec_per_pix = x_arcsec_per_pix
         square_arcsec_per_pix = x_arcsec_per_pix * y_arcsec_per_pix
         fwhms_arcsec, fwhm_arcsec, fwhm_arcsec_std = astro.convert_fwhm_to_arcsec_TEMP(
