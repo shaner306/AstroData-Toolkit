@@ -66,12 +66,13 @@ from os.path import dirname
 src_path = dirname(dirname(__file__))
 sys.path.append(os.path.join(src_path, 'transforms', 'GroundBasedTransforms','warner_aux'))
 sys.path.append(os.path.join(src_path, 'photometry'))
-sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
+sys.path.append(os.path.join(src_path, 'Streakdetection'))
 
+import StreakDetection as sd
 import auxilary_phot_warner_functions as warn_aux
 import perform_photometry
 #import trm_auxillary_functions as trm_aux
-from trm_auxillary_functions import TRM_sat_detection
+# from trm_auxillary_functions import TRM_sat_detection
 import PySimpleGUI as sg
 from astropy.nddata import CCDData
 
@@ -4170,7 +4171,7 @@ def check_if_sat(sat_information,
             sat_y = sat[1]
             if abs(sat_x - obj_x) < max_distance_from_sat and abs(sat_y - obj_y) < max_distance_from_sat:
                 sat_information.sats_table[index][sat_num] = instr_mags[obj_index]
-                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index].value
+                sat_information.uncertainty_table[index][sat_num] = instr_mags_sigma[obj_index]#.value
                 sat[0] = obj_x
                 sat[1] = obj_y
     sat_information.sat_auxiliary_table[index][2] = fwhm_arcsec
@@ -4370,10 +4371,15 @@ def change_sat_positions(filenames,
             print(filenames[filenum - reversing_index])
             filename = filenames[filenum - reversing_index]
             exptime = hdr['EXPTIME'] * u.s
-            try:
-                sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
-                    filepath)
-            except TypeError:
+            # try:
+            # sat_x, sat_y, bkg_trm, fwhm = TRM_sat_detection(
+                # filepath)
+            tbl, bkg_trm, fwhms = sd.streak_detection_single(filepath)
+            fwhm = np.mean(fwhms)
+            fwhm_std = np.mean(fwhms)
+            sat_x, sat_y = sd.filter_sats_stars(tbl, ecct_cut=0.5)
+            # except TypeError:
+            if len(sat_x) == 0 or len(sat_y) == 0:
                 print("No satellites detected.")
                 continue
             bkg = np.median(bkg_trm)

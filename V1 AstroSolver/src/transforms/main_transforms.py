@@ -236,7 +236,8 @@ def _main_gb_transform_calc(directory,
             continue
         
         field = astro.get_field_name(matched_stars, name_key=name_key)
-        filename = filepath.split('\\')[-1]
+        # LINUX ONLY FIX
+        filename = filepath.split('/')[-1]
         unique_id = filename
         try:
             num_img_stars, num_field_stars = plot_match_confirmation(wcs, 
@@ -697,8 +698,13 @@ def _main_gb_transform_calc_Warner(directory,  # Light Frames
         elif photometry_method=='aperture':
             
             # Perform Aperture Photometry
-            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,bkg_2d,hdr=hdr,
-                                                                             filepath=filepath,aperture_estimation_mode=aperture_estimation_error)
+            photometry_result=perform_photometry.perform_aperture_photometry(irafsources,
+                                                                             fwhms,
+                                                                             imgdata,
+                                                                             bkg_2d,
+                                                                             hdr=hdr,
+                                                                             filepath=filepath,
+                                                                             aperture_estimation_mode=aperture_estimation_error)
             
             #Re-arrange values to align with PSF Fitting standard
             fluxes_unc=np.transpose(np.array(photometry_result['flux_unc']))
@@ -1016,6 +1022,8 @@ def _main_gb_new_boyd_method(
             bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
                 sigma=3,maxiters=5))
             irafsources = astro.detecting_stars(imgdata, bkg=bkg, bkg_std=bkg_std, fwhm=hdr['FWHM'])
+            bkg_2d = Background2D(data=imgdata, box_size=math.ceil(hdr['FWHM']), sigma_clip=astropy.stats.SigmaClip(
+                sigma=3, maxiters=5))
         else:
             print("Could not find FWHM Keyword")
 
@@ -1064,7 +1072,8 @@ def _main_gb_new_boyd_method(
                 photometry_result=perform_photometry.perform_aperture_photometry(irafsources,fwhms,imgdata,
                                                                                  bkg_2d,
                                                                                  hdr=hdr,filepath=filepath,
-                                                                                 aperture_estimation_mode=aperture_estimation_mode,**kwargs)
+                                                                                 aperture_estimation_mode=aperture_estimation_mode,
+                                                                                 **kwargs)
                 
                 #Re-arrange values to align with PSF Fitting standard
                 fluxes_unc=(np.array(photometry_result['aperture_sum_err']))
@@ -1291,19 +1300,6 @@ def _main_gb_new_boyd_method(
             raise KeyError(e)
             print("Could not Calculate Boyde Slopes... ")
             continue
-
-
-
-    # try:
-    #     ascii.write(Boyde_Table, os.path.join(
-    #         save_loc, 'Boyde_Table1.csv'), format='csv')
-    # except:
-    #     print('Could Not Save Boyde Table')
-    
-    
-    
-    
-
 
     # Calculating Second Step of Boyd Method
     try:
