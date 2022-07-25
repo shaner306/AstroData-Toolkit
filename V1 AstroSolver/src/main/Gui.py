@@ -67,7 +67,7 @@ sys.path.append(os.path.join(src_path, 'transforms', 'TrackRateModeTransforms'))
 import AstroFunctions as astro
 import Main
 import main_transforms
-import pinpoint
+#import pinpoint
 import trm_auxillary_functions
 
 imagefolder = 0

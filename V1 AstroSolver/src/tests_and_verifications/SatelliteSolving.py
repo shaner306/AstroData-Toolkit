@@ -14,9 +14,10 @@ from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from photutils.segmentation import make_source_mask
+from astrometry import pinpoint
 
 import StreakDetectionTest
-import pinpointsolving.pinpoint
+#import pinpointsolving.pinpoint
 
 streak =r'/Users/home/Sync/'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
@@ -25,7 +26,7 @@ catloc = 'D:\\squid\\UCAC4'
 
 
 StreakDetectionTest.StreakDetection(streak, TRM=True)
-pinpointsolving.pinpoint_solve(streak, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=1.5,
+pinpoint.pinpoint_solve(streak, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_residual=1.5,
                                max_solve_time=300, space_based_bool=False, use_sextractor=True,
                                all_sky_solve=False)
 

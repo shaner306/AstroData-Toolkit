@@ -118,16 +118,17 @@ plt.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
 plt.savefig("Calibration Residual Frequency - Declination.png")
 plt.show()
 
-n3, bins3, patches3 = plt.hist(x=Datapoints, bins=bins, range= (-10,10), color='#0504aa',
-                            alpha=0.5, rwidth=0.95)
-l= plt.plot(bins3, 100*scipy.stats.norm.pdf(bins3, mean3, std3), 'r--', linewidth=2)
-mu = Datapoints.mean()
-median = np.median(Datapoints)
-sigma = Datapoints.std()
-textstr = '\n'.join((
-    r'$\mu=%.2f$ arcsec' % (mu, ),
-    r'$\mathrm{median}=%.2f$ arcsec' % (median, ),
-    r'$\sigma=%.2f$ arcsec' % (sigma, )))
+# n3, bins3, patches3 = plt.hist(x=Datapoints, bins=bins, range= (-10,10), color='#0504aa',
+#                             alpha=0.5, rwidth=0.95)
+# l= plt.plot(bins3, 100*scipy.stats.norm.pdf(bins3, mean3, std3), 'r--', linewidth=2)
+# mu = Datapoints.mean()
+# median = np.median(Datapoints)
+# sigma = Datapoints.std()
+# textstr = '\n'.join((
+#     r'$\mu=%.2f$ arcsec' % (mu, ),
+#     r'$\mathrm{median}=%.2f$ arcsec' % (median, ),
+#     r'$\sigma=%.2f$ arcsec' % (sigma, )))
+
 # these are matplotlib.patch.Patch properties
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
 # place a text box in upper left in axes coords
@@ -139,8 +140,8 @@ plt.ylabel('Frequency')
 plt.xticks(np.arange(-12, 14, 2.0))
 plt.title('Combined Residuals (arcsec)')
 #plt.text(23, 45, r'$\mu=15, b=3$')
-maxfreq = n3.max()
-plt.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
+# maxfreq = n3.max()
+# plt.ylim(ymax=np.ceil(maxfreq / 10) * 10 if maxfreq % 10 else maxfreq + 10)
 plt.savefig("Calibration Residual Frequency - Combined.png")
 plt.show()
 

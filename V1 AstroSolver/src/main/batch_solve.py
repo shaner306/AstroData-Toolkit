@@ -26,7 +26,7 @@ from astropy.nddata import CCDData
 import AstroFunctions as astro
 import Main
 import main_transforms as transforms
-import pinpoint
+#import pinpoint
 
 # %% Batch Reduce Images
 ##
