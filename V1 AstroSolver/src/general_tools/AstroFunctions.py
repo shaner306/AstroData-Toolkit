@@ -270,7 +270,7 @@ def read_ref_stars(ref_stars_file):
     return reference_stars, ref_star_positions
 
 
-def read_fits_file(filepath):
+def read_fits_file(filepath, extension=0):
     """
     Read a fits file and return its header and data.
 
@@ -278,6 +278,8 @@ def read_fits_file(filepath):
     ----------
     filepath : string
         Location of the fits file.
+    extension : int
+        Fits header extension. The default is 0.
 
     Returns
     -------
@@ -288,8 +290,8 @@ def read_fits_file(filepath):
 
     """
     with fits.open(filepath, memmap=False) as hdul:
-        hdr = hdul[0].header
-        imgdata = hdul[0].data
+        hdr = hdul[extension].header
+        imgdata = hdul[extension].data
     # hdul = fits.open(filepath)
     # hdr = hdul[0].header
     # imgdata = hdul[0].data
