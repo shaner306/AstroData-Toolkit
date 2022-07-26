@@ -149,6 +149,7 @@ class DetectStreaks():
             self.bkg = self.background_estimation(self.fitsdata, self.mask)
             self.threshold = self.generate_threshold(self.bkg, self.bkg.background_rms, 2.5)
             self.cat = self.detect_sources(self.fitsdata, self.threshold, self.mask)
+            solveattempts=0
             while (len(self.cat) > 100 or len(self.cat) < 10) and solveattempts <=5:
 
                 if len(self.cat) > 100:

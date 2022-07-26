@@ -41,7 +41,7 @@ def pinpoint_solve(inbox, catloc, max_mag=12, sigma=5.0, catexp=0.4, match_resid
     """
 
     file_suffix = (".fits", ".fit", ".fts", ".FIT", ".FITS")
-    failedsolves = 0
+    failedSolves = 0
     for dirpath, dirnames, filenames in os.walk(inbox):
         for filename in filenames:
             if filename.endswith(file_suffix):
