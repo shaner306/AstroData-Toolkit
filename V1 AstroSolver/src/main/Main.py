@@ -22,22 +22,13 @@ from photutils.background import MeanBackground
 from photutils.background import MedianBackground
 from photutils.background import ModeEstimatorBackground
 from photutils.background import SExtractorBackground
-
-import sys
-from os.path import dirname
-src_path = dirname(dirname(__file__))
-sys.path.append(os.path.join(src_path, 'general_tools'))
-sys.path.append(os.path.join(src_path, 'transforms'))
-sys.path.append(os.path.join(src_path, 'pinpointsolving'))
-sys.path.append(os.path.join(src_path, 'image_reduction'))
-
 import AstroFunctions as astro
 import ImageReduction as IR
 import SBDarkSub
 import utils
 
 import main_transforms as transforms
-import pinpoint
+#import pinpoint
 
 
 
@@ -66,21 +57,61 @@ AstroSolver
 
 1. Space Based - Airmass not a factor in determining transforms
 2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
-        
-Main Function
-Image Reduction - GB
-Image Reduction - SB
-Source Detection / Photometry
-    Image Segmentation - Streak Detection
-    Aperture Photometry
-    PSF Photometry
-Image Solving
-    Batch Solving
-    Pinpoint Solving
-    Astrometry Local Solve
-    Astrometry.net Web API Solve
-Transform Calculations
 
+        ------------------------ 
+        STAR STARE MODE (SSM)
+        ------------------------
+            1.Solve Using pinpoint and IRAF
+                - iraf_Sources= detecting_stars(fitsdata, bkg, bkg_std)
+            
+            2.Convert Pixel Location to RA and DEC
+                - skypositions= convert_pixel_to_ra_dec(iraf_Sources, wcs)
+            
+            3.Convert RA Dec to Altitude and Azimuth
+                - altazpositions = convert_ra_dec_to_alt_az(skypositions,
+                                                            header)
+            
+            4.Calculate FWHM
+                - fwhm, fwhm_stdev= calculate_fwhm(iraf_Sources)
+            
+            5.Produce Photometry data Fluxes and Centroids
+                - photometry_result= perform_photometry(iraf_Sources, fwhm,
+                                                        fitsdata, bkg)
+            
+            6.Calculate Instrumental Magnitudes + Sigmas of Matched Stars
+                - calculate_magnitudes(photometry_result, exposure_Time)
+                - calculate_magnitudes_sigma(photometry_result, exposure_Time)
+                
+            7. Calculate Transforms
+
+                a. Space Based Sensor
+                   
+                    Construct Tables to Store Data
+                        large_table_columns= update_large_table_columns
+                        (large_table_columns, iraf_Sources, header, 
+                         exposure_Time, ground_based=False, name_key='Name')
+                        large_stars_table = create_large_stars_table
+                        (large_table_columns, ground_based=False)
+                        stars_table= group_each_star(large_stars_table, 
+                                                     ground_based=False, 
+                                                     keys='Name')
+
+                    Calculate Space Based Transforms    
+                        filter_fci, zprime_fci = space_based_transform(
+                            stars_table, plot_results=False,index='(B-V)',
+                            app_filter='V', instr_filter='clear', field=None)
+
+                    Calculate Standard Magnitude
+
+                b. Ground Based Sensor
+                    avg_Airmass= get_avg_airmass(altazpositions)
+                
+            8. Output Table to Excel
+            
+            9. Produce Plots and Save to PNG
+                - With error bars
+    2. Ground Based - Multiple Order Transforms with Airmass and Extinctions
+        avg_Airmass= get_avg_airmass(altazpositions)
 """
 
 
@@ -138,6 +169,8 @@ def Gui():
             return imagefolder, catalogfolder, refdoc
 
 # Calculate Various Image Background Values
+
+
 def BackgroundEstimationMulti(fitsdata, sigma_clip, bkgmethod, printval):
     # Specify Sigma Clipping Value and Calculate the Background using
     # "SExtractor Algorithm"
@@ -201,7 +234,8 @@ def ref_star_folder_read(refstars_doc):
 # Use Pinpoint to Locate Reference Stars on Image
 
 
-def ref_star_search(directory, ref_stars_file):
+def ref_star_search(s, f, erad, edec, HIP, vref,
+                    bvindex, vrindex, refstarsfin):
     refx = []
     refy = []
     vref2 = []
@@ -209,20 +243,27 @@ def ref_star_search(directory, ref_stars_file):
     vrindexdet = []
     bvindexdet = []
 
-    refstars, refstarpositions = read_ref_stars(ref_stars_file)
-    matched_Ref_Stars = ref_star_search(f, refstars, refstarpos)
+    for s in range(89):
 
-    for i,v in enumerate(refstarpos):
-        f.SkyToXy(v[0], v[1])
-        refSTAR_X = f.ScratchX  # the x result of skytoxy
-        refSTAR_Y = f.ScratchY
-        if refSTAR_X > 0 and refSTAR_X < 1900:
-            refx.append(refSTAR_X)
-            refy.append(refSTAR_Y)
-            vref2.append(refstars[i][0])
-            HIP2.append(HIP[s])
-            vrindexdet.append(vrindex[s])
-            bvindexdet.append(bvindex[s])
+        try:
+            f.SkyToXy(erad[s], edec[s])
+            refSTAR_X = f.ScratchX  # the x result of skytoxy
+            refSTAR_Y = f.ScratchY
+            if refSTAR_X > 0 and refSTAR_X < 1900:
+                refx.append(refSTAR_X)
+                refy.append(refSTAR_Y)
+                vref2.append(vref[s])
+                HIP2.append(HIP[s])
+                vrindexdet.append(vrindex[s])
+                bvindexdet.append(bvindex[s])
+            # else:
+            #   print("Star Found outside bounds of image")
+            # s=s+1
+        except:
+            if s > 89:
+                print("Stop")
+            # else:
+            #     print('Pinpoint can''t process coords')
 
     nmstars = f.MatchedStars.Count
     mstars = f.MatchedStars
@@ -230,11 +271,13 @@ def ref_star_search(directory, ref_stars_file):
     print("Reference Stars Located:")
     print("")
     for i in range(1, nmstars):
+        # print(i)
         mstar = mstars.Item(i)
         X_min = mstar.X - 0.5 * mstar.Width
         X_max = mstar.X + 0.5 * mstar.Width
         Y_min = mstar.Y - 0.5 * mstar.Height
         Y_max = mstar.Y + 0.5 * mstar.Height
+        # print(i)
         length = len(refx)
 
         exptime = f.ExposureInterval
@@ -242,14 +285,22 @@ def ref_star_search(directory, ref_stars_file):
         Zp = f.MagZeroPoint
 
         vmag = Zp - 2.5 * (math.log10(rawflux / exptime))
+        # starx= mstar.X
+        # stary=mstar.Y
+        # print(vmag)
 
         for j in range(length):
+            # print("ref" +str(refx[j]))
+            # print(X_max)
             if (refx[j] > X_min) and (refx[j] < X_max):
                 if (refy[j] > Y_min) and (refy[j] < Y_max):
                     if abs(vmag - vref2[j]) < 0.5:
                         print("HIP: " + str(HIP2[j]))
                         print("Located at: X: " + str(mstar.X) +
                               " Y: " + str(mstar.Y))
+                        # print("matched X:" + str(X_max))
+                        # print(str(vref2[j]))
+                        # print(mstar.ColorMagnitude)
                         print(
                             "Reference Mag: " + str(vref2[j]) + " vs " +
                             "Detected Mag: " + str(vmag))
@@ -321,10 +372,15 @@ def edge_Protect(bg_rem, edge_prot, imagesizeX, imagesizeY, fitsdata):
     return im_mean, bg_rem, im_rms
 
 
+# inbox, catloc, refstars_doc = Gui()
+# print(imagefolder, catalogfolder, refdoc)
 # Image Location of .fits Format
 inbox = 'D:\\Wawrow\\2. Observational Data\\2021-03-10 - Calibrated\\HIP 46066\\LIGHT\\B'
 inbox1 = r'D:\NEOSSat-SA-111\test'
 ref_stars_file = r'D:\Astro2\Reference Star Files\Reference_stars_Apr29.txt'
+
+# refstars_doc = 'D:\\Reference_stars.xlsx'
+# refstars_csv='D:\\Reference_stars.csv' #Reference Star List
 catloc1 = "D:\\squid\\USNOA20-All"
 catloc2 = 'D:\\squid\\UCAC4'
 
@@ -339,7 +395,11 @@ correct_light_frames = True
 OutputsaveLoc = False  # 0 Default will save outputs in image folder
 reduce_dir = 'D:\\Image Reduction Test Images'
 
+# Start Pinpoint Software in Python
+# f = win32com.client.Dispatch("Pinpoint.plate")  # Start Pinpoint
+
 # Set Image Processing Variables
+streak_array = []  # Streak Detection for Track Rate Mode
 edge_protect = 10  # Img Edge Clipping
 min_obj_pixels = 5  # Min Pixels to qualify as a Point Source
 SNRLimit = 0  # Signal-To-Noise Ratio
@@ -357,14 +417,6 @@ remove_large_airmass = False
 image_reduce = False  # Reduce Images before Solving
 
 # Function #1: Pinpoint Solving
-def Pinpoint_Solve(directory, ref_stars_file, catalogLocation, pinpoint=True):
-    if pinpoint==True:
-        f=pinpointsolving.pinpoint(directory,catalogLocation)
-
-# refstars, refstarpositions= astro.read_ref_stars(ref_stars_file)
-# matched_Ref_Stars=ref_star_search(f,refstars,refstarpos)
-
-    
 
 
 
@@ -372,7 +424,7 @@ def Pinpoint_Solve(directory, ref_stars_file, catalogLocation, pinpoint=True):
 # Calculate Ground-Based Transforms
 
 
-def Ground_based_transforms(directory, ref_stars_file,**kwargs):
+def Ground_based_transforms(directory, ref_stars_file):
     plot_results = True
     save_plots = True
     remove_large_airmass = False
@@ -407,8 +459,7 @@ def Ground_based_transforms(directory, ref_stars_file,**kwargs):
                                       lon_key=lon_key,
                                       elev_key=elev_key,
                                       name_key=name_key,
-                                      save_loc=save_loc,
-                                           **kwargs)
+                                      save_loc=save_loc)
 
     gb_final_transforms.pprint_all()
     auxiliary_data_table.pprint_all()
@@ -448,6 +499,8 @@ def space_based_transform(directory, ref_stars_file):
     return
 
 # Conduct Track Rate Mode (TRM) Photometry on satellites
+
+
 def trm_photometry(directory):
 
     # Set
@@ -474,6 +527,8 @@ def trm_photometry(directory):
     sats_table.pprint_all()
 
 # Function #6: GB Image Reduction
+
+
 def Image_reduce(reduce_dirs,
                  create_master_dark,
                  create_master_flat,
@@ -705,3 +760,7 @@ def DarkSub(target, obspath, **kwargs):
     return
 
 
+class AstroReducer:
+
+    def __init__(self, targets, start_time, stop_time, *args):
+        return

@@ -29,6 +29,8 @@ from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from skimage import measure
 import cv2
+import os
+from astropy.convolution import convolve_fft
 
 
 def background_iteration(image, tolerance):
@@ -469,7 +471,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             #FWHM= 2*gauss_avg*0.7664
             #print("FWMM: " + str(FWHM))
            # STARS.close()
-=======
+
 
 # [bg_mean, bg_rms] = determine_bg_iteratively(enlarged_bg_image, 0.1);
 # pix_frac = 0;

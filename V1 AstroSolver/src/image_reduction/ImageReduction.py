@@ -503,7 +503,9 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
                    corrected_light_dir: str,
                    correct_outliers_params: str,
                    use_existing_masters: bool,
-                   scalable_dark_bool: bool):
+                   scalable_dark_bool: bool,
+                   del_uncertainty_data=True,
+                   convert_back_to_int=True):
     """
     Taking Master Bias, Master Darks and filter-specific Master Flats, create
     corrected individual light frames.
@@ -517,8 +519,24 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
         in 'topdir' given by the user in the initialization section.
 
 
-    master_dir : string
+    master_dir : str
         The output directory to get the Master frames from.
+
+    corrected_light_dir: str
+       All corrected lights will be saved into this directory
+
+    use_existing_masters: bool
+        Boolean defining whether or not to use existing masters -- currently not in use
+
+    scalable_dark_bool: bool
+        Scale the dark frame with the exposure time.
+
+     del_uncertainty_data: bool
+        Delete the uncertainty data tied to the image reduction
+
+    convert_back_to_int: bool
+        Default is True. Converts the data back to wither signed 32 bit or 16 bit interger to save storage space
+
 
     Returns
     -------
@@ -794,8 +812,20 @@ def correct_lights(all_fits: ccdp.ImageFileCollection,
                         reduced_hdul = reduced.to_hdu()
                         # Set all values below 0 equal to zero
                         reduced_hdul[0].data = np.where(reduced_hdul[0].data < 0, 0, reduced_hdul[0].data)
+
+                        if convert_back_to_int:
+                            if np.max(reduced_hdul[0].data) > 32767 and np.max(reduced_hdul[0].data) < 2147483647:
+                                reduced_hdul[0].scale('int32')
+                            elif np.max(reduced_hdul[0].data) < 32767:
+                                reduced_hdul[0].scale('int16')
+
+
+
+
                         # If mask layer is empty, delete it to free up space
                         if np.sum(reduced_hdul[1].data) == 0:
+                            del reduced_hdul[1]
+                        if del_uncertainty_data: # Save Data by deleting the uncertainty layer
                             del reduced_hdul[1]
                         file_name = file_name.split("\\")[-1]
                         try:

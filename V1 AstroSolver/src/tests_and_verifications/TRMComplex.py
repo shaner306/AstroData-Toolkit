@@ -28,6 +28,7 @@ from photutils.segmentation import deblend_sources
 from photutils.segmentation import detect_sources
 from photutils.segmentation import detect_threshold
 from photutils.segmentation import make_source_mask
+from photutils.background import SExtractorBackground
 streak=r'/Users/home/Downloads/April21/TRM'
 file_suffix = (".fits", ".fit", ".FIT")
 
@@ -188,6 +189,7 @@ def find_sinxx2_extreme(rprofile):
     originVal=max(sinxx)
     originIndex=numpy.where(sinxx==originVal)
     if ImageSize(originIndex,1)>1: #TODO add multi dimension option to ImageSize
+        print('Do Something')
         #TODO add line 281 error catch
     clip_profile= sinxx>=originVal/2
     hits=numpy.where(clip_profile==1)
@@ -213,10 +215,10 @@ def find_sinxx2_extreme(rprofile):
     hlhw=hlhw_right-hlhw_left
 
     lsxx = len(sinxx)
-    sinxxh = sinxx* hanning(lsxx)
+    sinxxh = sinxx* np.hanning(lsxx)
     Y = fft(sinxxh)
     Mag = abs(Y[1:numpy.floor(lsxx / 2)])**2
-    b = numpy.where(diff(Mag) > 0, 1)
+    b = numpy.where(np.diff(Mag) > 0, 1)
     if hlhw > (6 * (8 / 3) * b):
         hlhw = (6 * (8 / 3) * b)
 
@@ -243,7 +245,7 @@ def make_kernal_line(angle,length,option):
     else:
         horizIncrement = np.sin(angle) / np.cos(angle)
         for i in range(dx):
-            x = np.round(cy + (j - cx) * horizIncrement)
+            x = np.round(cy + (i - cx) * horizIncrement)
             linekernal[i][y] = 1
 
     linekernal = linekernal/np.sum(np.sum(linekernal))
@@ -301,6 +303,7 @@ for dirpath, dirnames, filenames in os.walk(streak):
             fitsdata = imagehdularray[0].data
             sigma_clip = SigmaClip(sigma=3)
             try:
+                bkg_estimator=SExtractorBackground()
                 bkg = Background2D(fitsdata, (30, 30), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
             except:
                 bkg = SExtractorBackground(fitsdata)
