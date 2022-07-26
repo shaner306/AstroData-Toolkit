@@ -35,6 +35,18 @@ def ImageSize(data):
     x,y=numpy.size(data)
     return x,y
 def killBrightSpots(data, sigma=3.0):
+    '''
+    Remove all pixels with a brightness greater than sigma*sigma*mean(data)
+    Parameters
+    ----------
+    data
+    sigma
+
+    Returns
+    -------
+
+    '''
+
     x,y=ImageSize(data)
     spots=numpy.zeros(x,y)
     imgout=data
