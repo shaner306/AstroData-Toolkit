@@ -255,6 +255,7 @@ def _sky_survey_calc(directory,
         f.write('\n')
 
     theta = star_aux_table['Azimuth'][star_aux_table['BSB'] > 5]
+    theta = theta * (np.pi/180)
     r = star_aux_table['Elevation'][star_aux_table['BSB'] > 5]
     z = star_aux_table['BSB'][star_aux_table['BSB'] > 5]
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
@@ -400,6 +401,7 @@ def _sky_survey_calc(directory,
     plt.close()
 
     theta = star_aux_table['Azimuth']
+    theta = theta * (np.pi/180)
     r = star_aux_table['Elevation']
     z = star_aux_table['FWHM_arcsec']
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
@@ -423,6 +425,7 @@ def _sky_survey_calc(directory,
     plt.close()
 
     theta = star_aux_table['Azimuth']
+    theta = theta * (np.pi/180)
     r = star_aux_table['Elevation']
     z = star_aux_table['FWHM_pixel']
     fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7, 7))
