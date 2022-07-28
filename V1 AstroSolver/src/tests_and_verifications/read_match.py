@@ -25,25 +25,30 @@ def calculate_zmag(filepath, save_table=False):
     save_loc = f'{filepath}.csv'
     hdr, data = astro.read_fits_file(filepath, extension=1)
     print(repr(hdr))
-    ra, dec, g_mag, bp_mag, rp_mag = read_gaia_mags(data)
+    field_id, ra, dec, g_mag, bp_mag, rp_mag = read_gaia_mags(data)
     B, V, R, I = convert_gaia_to_bvri(g_mag, bp_mag, rp_mag)
-    ref_mag_table = create_ref_table(ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I, 
+    ref_mag_table = create_ref_table(field_id, ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I, 
                                      save_table=save_table, save_loc=save_loc)
     ref_mag_table.pprint_all()
+    # Read either the txt or xylist file here (hopefully with fluxes).
+    # Convert them to magnitudes.
+    # Use the field ids to find the index in the xylist.
 
 def read_gaia_mags(imgdata):
+    field_id = np.empty(np.shape(imgdata)[0], dtype=int)
     ra = np.empty(np.shape(imgdata)[0])
     dec = np.empty(np.shape(imgdata)[0])
     g_mag = np.empty(np.shape(imgdata)[0])
     bp_mag = np.empty(np.shape(imgdata)[0])
     rp_mag = np.empty(np.shape(imgdata)[0])
     for i, star in enumerate(imgdata):
+        field_id[i] = star[9]
         ra[i] = star[11]
         dec[i] = star[12]
         g_mag[i] = star[13]
         bp_mag[i] = star[24]
         rp_mag[i] = star[25]
-    return ra, dec, g_mag, bp_mag, rp_mag
+    return field_id, ra, dec, g_mag, bp_mag, rp_mag
 
 def convert_gaia_to_bvri(g_mag, bp_mag, rp_mag):
     B = np.empty(len(g_mag))
@@ -65,11 +70,12 @@ def convert_gaia_to_bvri(g_mag, bp_mag, rp_mag):
     return B, V, R, I
 
 
-def create_ref_table(ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I, save_table=False, save_loc=None):
+def create_ref_table(field_id, ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I, save_table=False, save_loc=None):
+    sc = SkyCoord(ra, dec, unit='deg')
     ref_mag_table = QTable(
-            names=['RA', 'Dec', 'G', 'BP', 'RP', 'B', 'V', 'R', 'I'],
-            data=[ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I],
-            units=[u.degree, u.degree, u.mag, u.mag, u.mag, u.mag, u.mag, u.mag, u.mag]
+            names=['Field ID', 'skycoord', 'G', 'BP', 'RP', 'B', 'V', 'R', 'I'],
+            data=[field_id, sc, g_mag, bp_mag, rp_mag, B, V, R, I],
+            units=(None, None, u.mag, u.mag, u.mag, u.mag, u.mag, u.mag, u.mag)
         )
     if save_table:
         if save_loc is not None:
@@ -78,6 +84,8 @@ def create_ref_table(ra, dec, g_mag, bp_mag, rp_mag, B, V, R, I, save_table=Fals
             warnings.warn('save_loc must be provided if save_table is True.')
     return ref_mag_table
 
-
-os.remove(f'{filepath}.csv')
+try:
+    os.remove(f'{filepath}.csv')
+except FileNotFoundError:
+    pass
 calculate_zmag(filepath, save_table=True)
