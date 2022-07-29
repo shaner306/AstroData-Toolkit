@@ -19,7 +19,6 @@ streak = r'/Users/home/Downloads/Landolt Fields/New Folder With Items'
 streak2 = r'/Users/home/Downloads/2022-108-neossat-crosstalk-example'
 streak1 = r'/Users/home/Downloads/2020_J107_Ottawa_IS901'
 file_suffix = (".fits", ".fit", ".FIT", '.fts')
-trm = True
 numFits = 0  # Number of images run through the Streak Detection
 
 useMatchedFilter = False   # NOT WORKING - Experimental
@@ -110,7 +109,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                 bkg_estimator = SExtractorBackground()
 
 
-                if trm:
+                if TRM:
                     try:
                         bkg = Background2D(fitsdata, (30, 30), filter_size=(3, 3), mask=mask,
                                            bkg_estimator=bkg_estimator)
@@ -186,8 +185,9 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
                 count = 0
 
                 for i in range(len(tbl['xcentroid'])):
-                    streak_line2 = '{:.4f} {:.4f}'.format(float(tbl['xcentroid'][i]),
-                                                          float(tbl['ycentroid'][i]))
+                    streak_line2 = '{:.4f} {:.4f} {:5.0f}'.format(float(tbl['xcentroid'][i]),
+                                                          float(tbl['ycentroid'][i]),
+                                                          tbl['segment_flux'][i])
                     AstrometryNetFile.write(streak_line2 + "\n")
                     count += 1
 
@@ -200,7 +200,7 @@ def streak_detection(imageDir, sigma=5.0, streakLength=5, TRM=True, useMask=True
         print("No Valid Images Detected")
         return None
 
-    elif trm == True:
+    elif TRM:
         # if len(satelliteDetections) == 0:
         # return "No valid satellite detections - Check images or adjust parameters. "
         # else:

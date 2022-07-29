@@ -5,7 +5,6 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
-from astroquery.astrometry_net import AstrometryNet
 from math import atan
 from os.path import dirname
 src_path = dirname(dirname(__file__))
@@ -26,10 +25,10 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
                 file_names.append(file)
                 filecount += 1
     
+    sd.streak_detection(directory, sigma=sigma, streakLength=streakLength, TRM=TRM, useMask=useMask)
     for file_path in file_paths:
         hdr, _ = astro.read_fits_file(file_path)
-        _ = sd.streak_detection_single(file_path, sigma=sigma, streakLength=streakLength, TRM=TRM, useMask=useMask)
-        create_xyls_call = f'text2fits -H "x y" -f dd "{file_path}.txt" "{file_path}.xyls"'
+        create_xyls_call = f'text2fits -H "x y flux" -f ddd "{file_path}.txt" "{file_path}.xyls"'
         os.system(create_xyls_call)
         image_width = hdr['NAXIS1']
         image_height = hdr['NAXIS2']
@@ -43,6 +42,10 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
             os.system(terminal_call)
             combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
             os.system(combine_wcs_call)
+            try:
+                os.remove('tmp.wcs')
+            except FileNotFoundError:
+                pass
             if os.path.getsize(f"{file_path}.new") == 0:
                 os.remove(f"{file_path}.new")
                 print("Could not plate solve.")
@@ -63,13 +66,18 @@ def solve_plate_astrometry_net(directory, file_suffix=".fits", sigma=5.0, streak
         os.system(terminal_call)
         combine_wcs_call = f'new-wcs -i "{file_path}" -w tmp.wcs -o "{file_path}.new" -d'
         os.system(combine_wcs_call)
+        try:
+            os.remove('tmp.wcs')
+        except FileNotFoundError:
+            pass
         if os.path.getsize(f"{file_path}.new") == 0:
             os.remove(f"{file_path}.new")
             print("Could not plate solve.")
 
-solve_plate_astrometry_net(r'/media/jmwawrow/Data/DRDC Data/2022 07 22/', file_suffix=".fits", TRM=False)
+solve_plate_astrometry_net(r'/media/jmwawrow/Data/DRDC Data/2022 07 27/Light/corrected_lights/Test/', file_suffix=".fits", TRM=False)
 
 def solve_plate_astrometry_net_web(directory, api_key, file_suffix=".fits"):
+    from astroquery.astrometry_net import AstrometryNet
     ast = AstrometryNet()
     ast.api_key = api_key
     filecount = 0
