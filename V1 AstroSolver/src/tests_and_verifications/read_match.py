@@ -36,8 +36,13 @@ def calculate_zmag(filepath, save_table=False, exposure_key='EXPTIME'):
     mag_diff = calculate_mag_diff(hdr, ref_mag_table, field_id, instr_mags)
     # print(mag_diff)
     zmag, zmag_sigma = average_mag_diff(mag_diff)
-    print(f'Pinpoint zmag: {hdr["zmag"]}')
     print(f'Zmag: {zmag:.3f} +/- {zmag_sigma:.3f}')
+    try:
+        print(f"Pinpoint zmag: {hdr['ZMAG']}")
+        pp_astrometry_diff = hdr['ZMAG'] - zmag
+        print(f'Difference = {np.abs(pp_astrometry_diff):.2f}')
+    except KeyError:
+        pass
 
 def read_gaia_mags(imgdata):
     field_id = np.empty(np.shape(imgdata)[0], dtype=int)
@@ -118,7 +123,7 @@ try:
 except FileNotFoundError:
     pass
 
-directory = r'/media/jmwawrow/Data/DRDC Data/ORC GBO/Field 1/139/Test/'
+directory = r'D:\DRDC Data\ORC GBO\Field 1\139\Test'
 file_suffix = '.fit'
 filecount = 0
 file_paths = []
